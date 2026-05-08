@@ -1,0 +1,10 @@
+{
+  "name": "pastevault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node ./scripts/serve.mjs",
+    "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1"
+  }
+}

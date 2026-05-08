@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101214" />
+    <title>PasteVault</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="Clipboard workspace">
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">M</span>
+            <div>
+              <h1>PasteVault</h1>
+              <p id="storageStatus">Ready</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="icon-button" id="installButton" type="button" title="Install app" aria-label="Install app">+</button>
+            <div class="menu-wrap">
+              <button class="icon-button" id="settingsButton" type="button" aria-haspopup="menu" aria-expanded="false" title="Settings" aria-label="Settings">...</button>
+              <div class="menu dropup" id="settingsMenu" role="menu">
+                <button type="button" id="exportButton" role="menuitem">Export history</button>
+                <label class="file-menu-item" role="menuitem">
+                  Import history
+                  <input id="importInput" type="file" accept="application/json" />
+                </label>
+                <button type="button" id="clearButton" role="menuitem">Clear unpinned</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="composer" aria-label="Create clipboard item">
+          <div class="composer-head">
+            <input id="clipTitle" type="text" autocomplete="off" maxlength="90" placeholder="Title" aria-label="Clip title" />
+            <div class="menu-wrap">
+              <button class="select-button" id="formatButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span id="formatLabel">Auto</span>
+                <span aria-hidden="true">v</span>
+              </button>
+              <div class="menu dropdown" id="formatMenu" role="listbox">
+                <button type="button" data-format="auto" role="option">Auto</button>
+                <button type="button" data-format="text" role="option">Text</button>
+                <button type="button" data-format="code" role="option">Code</button>
+                <button type="button" data-format="json" role="option">JSON</button>
+                <button type="button" data-format="url" role="option">URL</button>
+              </div>
+            </div>
+          </div>
+          <textarea id="clipText" spellcheck="false" placeholder="Paste anything" aria-label="Clipboard text"></textarea>
+          <div class="composer-foot">
+            <div class="primary-actions">
+              <button class="command primary" id="saveButton" type="button">Save</button>
+              <button class="command" id="pasteButton" type="button">Paste</button>
+              <button class="command" id="copyLatestButton" type="button">Copy latest</button>
+            </div>
+            <button class="command subtle" id="shareDraftButton" type="button">Share draft</button>
+          </div>
+        </section>
+
+        <section class="utility-row" aria-label="Clipboard controls">
+          <label class="search-box">
+            <span aria-hidden="true">/</span>
+            <input id="searchInput" type="search" placeholder="Search history" autocomplete="off" />
+          </label>
+          <div class="menu-wrap">
+            <button class="select-button compact" id="sortButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="sortLabel">Newest</span>
+              <span aria-hidden="true">v</span>
+            </button>
+            <div class="menu dropdown right" id="sortMenu" role="listbox">
+              <button type="button" data-sort="newest" role="option">Newest</button>
+              <button type="button" data-sort="oldest" role="option">Oldest</button>
+              <button type="button" data-sort="size" role="option">Largest</button>
+              <button type="button" data-sort="pinned" role="option">Pinned</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="status-strip" id="shareNotice" hidden>
+          <span id="shareNoticeText"></span>
+          <button class="text-button" id="acceptShareButton" type="button">Add</button>
+          <button class="text-button" id="dismissShareButton" type="button">Dismiss</button>
+        </section>
+
+        <section class="history-shell" aria-label="Clipboard history">
+          <div class="history-head">
+            <h2>History</h2>
+            <span id="clipCount">0 items</span>
+          </div>
+          <div class="empty-state" id="emptyState">
+            <strong>No clips yet</strong>
+            <span>Your saved text appears here.</span>
+          </div>
+          <ol class="clip-list" id="clipList"></ol>
+        </section>
+      </section>
+
+      <aside class="detail-panel" aria-label="Selected clipboard item">
+        <div class="detail-empty" id="detailEmpty">
+          <strong>Nothing selected</strong>
+          <span>Save or select a clip.</span>
+        </div>
+        <article class="detail-card" id="detailCard" hidden>
+          <header class="detail-head">
+            <div>
+              <span class="eyebrow" id="detailFormat">Text</span>
+              <h2 id="detailTitle">Untitled</h2>
+            </div>
+            <button class="icon-button" id="pinButton" type="button" title="Pin clip" aria-label="Pin clip">*</button>
+          </header>
+          <pre id="detailText"></pre>
+          <div class="meta-grid">
+            <span id="detailCreated">Created now</span>
+            <span id="detailSize">0 B</span>
+          </div>
+          <div class="detail-actions">
+            <button class="command primary" id="copySelectedButton" type="button">Copy</button>
+            <button class="command" id="shareSelectedButton" type="button">Share</button>
+            <button class="command danger" id="deleteSelectedButton" type="button">Delete</button>
+          </div>
+        </article>
+      </aside>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
