@@ -19,5 +19,20 @@ for (const theme of ["dark", "light"]) {
   }
 }
 
+await page.setViewportSize({ width: 390, height: 844 });
+
+for (const theme of ["dark", "light"]) {
+  await page.goto(`${baseUrl}/?theme=${theme}`, { waitUntil: "networkidle" });
+  await page.screenshot({ path: join(outputDir, `${theme}-mobile.png`), fullPage: true });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (overflow > 1) {
+    throw new Error(`Expected no horizontal overflow in ${theme} mobile mode, found ${overflow}px.`);
+  }
+  const navHeight = await page.locator(".sidebar").evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  if (navHeight > 72) {
+    throw new Error(`Expected compact mobile navigation in ${theme} mode, found ${navHeight}px high.`);
+  }
+}
+
 await browser.close();
 console.log("Visual screenshots captured.");
