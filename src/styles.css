@@ -1,5 +1,5 @@
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "SF Pro Display", "SF Pro Text", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   color: #090909;
   background: #f7f7f5;
   font-synthesis: none;
@@ -2303,7 +2303,17 @@ body {
   padding: 0;
 }
 
+.vault-theme .history-heading {
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+}
+
 .vault-theme .history-heading h2 {
+  display: block;
+  margin: 0;
   font-size: 22px;
   font-weight: 690;
 }
@@ -2815,5 +2825,300 @@ body {
     width: 94px;
     height: 54px;
     font-size: 18px;
+  }
+}
+
+/* Interaction polish and real theme separation */
+.vault-theme {
+  font-family: "SF Pro Display", "SF Pro Text", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+.vault-theme .btn-primary,
+.landing-input-shell .btn-primary,
+.vault-bottom-composer .btn-primary {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(135deg, #24262d 0%, #090a0d 58%, #2f3138 100%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 18px 36px rgba(8, 10, 14, 0.28);
+}
+
+.vault-card-actions .btn-primary {
+  height: 40px;
+  border-radius: 13px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.vault-theme .btn-primary:hover,
+.landing-input-shell .btn-primary:hover,
+.vault-bottom-composer .btn-primary:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(135deg, #30323a 0%, #111318 58%, #3c3f49 100%);
+}
+
+.vault-theme.theme-dark {
+  --bg: #080a0f;
+  --panel: rgba(12, 15, 22, 0.74);
+  --panel-soft: rgba(20, 25, 35, 0.62);
+  --text: #f7f8fb;
+  --muted: #a3acba;
+  --faint: #7f899a;
+  --line: rgba(255, 255, 255, 0.12);
+  --strong-line: rgba(255, 255, 255, 0.2);
+  --button: rgba(255, 255, 255, 0.08);
+  --button-hover: rgba(255, 255, 255, 0.14);
+  --accent: #1fc8bd;
+  --accent-soft: rgba(31, 200, 189, 0.15);
+  --shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+  background:
+    radial-gradient(circle at 48% -18%, rgba(31, 200, 189, 0.22), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(119, 200, 55, 0.12), transparent 24%),
+    linear-gradient(135deg, #090b10 0%, #11151d 46%, #080a0f 100%);
+  color: var(--text);
+}
+
+.vault-theme.theme-dark .vault-logo,
+.vault-theme.theme-dark .vault-card-head h1,
+.vault-theme.theme-dark .history-heading span,
+.vault-theme.theme-dark .vault-card-actions button,
+.vault-theme.theme-dark .utility-panel,
+.vault-theme.theme-dark .utility-content strong {
+  color: var(--text);
+}
+
+.vault-theme.theme-dark .vault-logo span {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+}
+
+.vault-theme.theme-dark .ambient-card,
+.vault-theme.theme-dark .vault-clipboard-card,
+.vault-theme.theme-dark .history-item,
+.vault-theme.theme-dark .utility-panel,
+.vault-theme.theme-dark .toast,
+.vault-theme.theme-dark .vault-bottom-composer {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(12, 15, 22, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 80px rgba(0, 0, 0, 0.36);
+}
+
+.vault-theme.theme-dark .ambient-card strong,
+.vault-theme.theme-dark .ambient-card pre,
+.vault-theme.theme-dark .history-leading h3,
+.vault-theme.theme-dark .vault-bottom-composer input,
+.vault-theme.theme-dark .tag-manager input {
+  color: var(--text);
+}
+
+.vault-theme.theme-dark .ambient-card em,
+.vault-theme.theme-dark .vault-card-head p,
+.vault-theme.theme-dark .history-item > span,
+.vault-theme.theme-dark .history-leading p,
+.vault-theme.theme-dark .utility-content span,
+.vault-theme.theme-dark .editor-meta {
+  color: var(--muted);
+}
+
+.vault-theme.theme-dark .header .btn,
+.vault-theme.theme-dark .password-pill,
+.vault-theme.theme-dark .round-action,
+.vault-theme.theme-dark .search-input,
+.vault-theme.theme-dark .history-toolbar .select-trigger,
+.vault-theme.theme-dark .select-trigger,
+.vault-theme.theme-dark .utility-tabs button,
+.vault-theme.theme-dark .utility-menu-trigger {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.vault-theme.theme-dark .btn-primary,
+.vault-theme.theme-dark .vault-bottom-composer .btn-primary {
+  border-color: rgba(79, 246, 229, 0.4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(135deg, #27d8cd 0%, #058b8d 52%, #0a4d58 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 20px 48px rgba(31, 200, 189, 0.28);
+}
+
+.vault-theme.theme-dark .code-box,
+.vault-theme.theme-dark .editor-card .code-box {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(5, 8, 13, 0.8) !important;
+}
+
+.vault-theme.theme-dark .code-box textarea,
+.vault-theme.theme-dark .code-box pre,
+.vault-theme.theme-dark .line-numbers,
+.vault-theme.theme-dark .editor-meta {
+  background: rgba(5, 8, 13, 0.82) !important;
+  color: #edf5ff;
+}
+
+.vault-theme.theme-dark .history-item.selected {
+  border-color: rgba(31, 200, 189, 0.86);
+  background:
+    linear-gradient(135deg, rgba(31, 200, 189, 0.18), rgba(119, 200, 55, 0.06)),
+    rgba(13, 20, 28, 0.82);
+}
+
+.utility-panel {
+  margin-top: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.66);
+  padding: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 18px 48px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.utility-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.utility-tabs button,
+.utility-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  height: 38px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.66);
+  color: #596274;
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.utility-tabs button.active {
+  color: #0a827e;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.38)),
+    rgba(31, 200, 189, 0.12);
+  border-color: rgba(31, 200, 189, 0.34);
+}
+
+.utility-content {
+  margin-top: 12px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.details-grid div,
+.storage-utility {
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+  padding: 12px;
+}
+
+.details-grid span,
+.storage-utility span,
+.empty-tag {
+  display: block;
+  margin-bottom: 4px;
+  color: #7b8495;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.details-grid strong,
+.storage-utility strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #101217;
+  font-size: 13px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-manager {
+  display: grid;
+  gap: 12px;
+}
+
+.tag-list {
+  display: flex;
+  min-height: 38px;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.tag-manager form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.tag-manager input {
+  min-width: 0;
+  height: 42px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0 13px;
+  outline: 0;
+}
+
+.storage-utility {
+  display: grid;
+  gap: 12px;
+}
+
+.utility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.danger-item {
+  color: var(--danger);
+}
+
+@media (max-width: 980px) {
+  .ambient-cards.app {
+    display: none;
+  }
+
+  .details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .utility-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .utility-menu-trigger {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -8,6 +8,7 @@ import {
   ClipboardCopy,
   Clock3,
   Code2,
+  Database,
   Download,
   FileInput,
   FileText,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Star,
   Sun,
+  Tags,
   Trash2,
   Upload,
   X
@@ -537,6 +539,7 @@ function ClipboardApp({ clipboardId }) {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordAcknowledged, setPasswordAcknowledged] = useState(false);
   const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
+  const [activeUtilityTab, setActiveUtilityTab] = useState("Details");
   const [cryptoKey, setCryptoKey] = useState(null);
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "Local saved");
@@ -1045,7 +1048,26 @@ function ClipboardApp({ clipboardId }) {
                   </div>
                   <div className="vault-card-actions">
                     <span><Check size={17} /> {syncStatus}</span>
-                    <button type="button" aria-label="More actions"><MoreHorizontal size={22} /></button>
+                    <Button variant="primary" onClick={handleSave}>
+                      <Archive size={16} />
+                      Save
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" aria-label="More actions"><MoreHorizontal size={22} /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="utility-menu" align="end">
+                        <DropdownMenuItem onSelect={handleNewClip}>New clip</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={handlePaste}>Paste from system clipboard</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={handleCopyLatest}>Copy latest</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={handleCopyLink}>Copy link</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => fileRef.current?.click()}>Import file</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => exportClipboard(clipboardId, payload)}>Export board</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => toggleSelectedFlag("pinned")}>{selectedClip?.pinned ? "Unpin selected" : "Pin selected"}</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => toggleSelectedFlag("starred")}>{selectedClip?.starred ? "Unstar selected" : "Star selected"}</DropdownMenuItem>
+                        <DropdownMenuItem className="danger-item" onSelect={handleDelete}>Delete selected</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 <EditorCard
@@ -1065,6 +1087,28 @@ function ClipboardApp({ clipboardId }) {
                   onPaste={handlePaste}
                   onCopyLatest={handleCopyLatest}
                   onCopyLink={handleCopyLink}
+                />
+                <UtilityTabs
+                  activeTab={activeUtilityTab}
+                  setActiveTab={setActiveUtilityTab}
+                  clipboardId={clipboardId}
+                  clip={selectedClip}
+                  stats={stats}
+                  storageUsage={storageUsage}
+                  storagePercent={stats.storagePercent}
+                  protection={protection}
+                  locked={locked}
+                  newTag={newTag}
+                  setNewTag={setNewTag}
+                  onAddTag={handleAddTag}
+                  onRemoveTag={handleRemoveTag}
+                  onCopy={() => handleCopy(selectedClip)}
+                  onCopyLink={handleCopyLink}
+                  onDelete={handleDelete}
+                  onTogglePin={() => toggleSelectedFlag("pinned")}
+                  onToggleStar={() => toggleSelectedFlag("starred")}
+                  onImport={() => fileRef.current?.click()}
+                  onExport={() => exportClipboard(clipboardId, payload)}
                 />
               </section>
               <div className="vault-history-row">
@@ -1270,7 +1314,14 @@ function Header({
             {protection ? (locked ? "Unlock" : "Password on") : "Password optional"}
           </button>
           {passwordPanelOpen && (
-            <div className="password-popover">
+            <div
+              className="password-popover"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setPasswordPanelOpen(false);
+                }
+              }}
+            >
               <label>
                 <span>{protection ? "Clipboard password" : "Set password"}</span>
                 <input
@@ -1309,12 +1360,13 @@ function Header({
                 {protection && locked ? <Button onClick={onUnlock}>Unlock</Button> : null}
                 {!protection ? <Button onClick={onSetPassword}>Enable</Button> : null}
                 {protection && !locked ? <Button onClick={onRemovePassword}>Remove</Button> : null}
+                <Button onClick={() => setPasswordPanelOpen(false)}>Close</Button>
               </div>
             </div>
           )}
         </div>
         <kbd>Cmd K</kbd>
-        <button className="round-action" type="button" onClick={onThemeChange} aria-label="Toggle theme" aria-pressed={!isDark}>
+        <button className="round-action" type="button" onClick={onThemeChange} aria-label="Toggle theme" aria-pressed={!isDark} title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
           <Sun size={22} />
         </button>
       </div>
@@ -1440,6 +1492,115 @@ function EditorCard({
         </Button>
       </div>
     </section>
+  );
+}
+
+function UtilityTabs({
+  activeTab,
+  setActiveTab,
+  clipboardId,
+  clip,
+  stats,
+  storageUsage,
+  storagePercent,
+  protection,
+  locked,
+  newTag,
+  setNewTag,
+  onAddTag,
+  onRemoveTag,
+  onCopy,
+  onCopyLink,
+  onDelete,
+  onTogglePin,
+  onToggleStar,
+  onImport,
+  onExport
+}) {
+  const tabs = [
+    { label: "Details", icon: FileText },
+    { label: "Tags", icon: Tags },
+    { label: "Storage", icon: Database }
+  ];
+  const bytes = clip ? textBytes(clip.content) : stats.bytes;
+  const lines = clip ? clip.content.split(/\r?\n/).length : stats.lines;
+
+  return (
+    <aside className="utility-panel" aria-label="Clipboard management">
+      <div className="utility-tabs" role="tablist" aria-label="Clipboard management sections">
+        {tabs.map((tab) => (
+          <button
+            className={activeTab === tab.label ? "active" : ""}
+            key={tab.label}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.label}
+            onClick={() => setActiveTab(tab.label)}
+          >
+            <tab.icon size={17} />
+            {tab.label}
+          </button>
+        ))}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="utility-menu-trigger" type="button" aria-label="More clipboard actions">
+              <MoreHorizontal size={20} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="utility-menu" align="end">
+            <DropdownMenuItem onSelect={onCopy}>Copy selected clip</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onCopyLink}>Copy clipboard link</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onTogglePin}>{clip?.pinned ? "Unpin selected" : "Pin selected"}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onToggleStar}>{clip?.starred ? "Unstar selected" : "Star selected"}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onImport}>Import file</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onExport}>Export board</DropdownMenuItem>
+            <DropdownMenuItem className="danger-item" onSelect={onDelete}>Delete selected</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {activeTab === "Details" && (
+        <div className="utility-content details-grid" role="tabpanel">
+          <div><span>Clipboard ID</span><strong>{clipboardId}</strong></div>
+          <div><span>Format</span><strong>{clip?.format ?? "Plain text"}</strong></div>
+          <div><span>Size</span><strong>{formatBytes(bytes)}</strong></div>
+          <div><span>Lines</span><strong>{lines.toLocaleString()}</strong></div>
+          <div><span>Updated</span><strong>{clip ? formatAge(clip.updatedAt) : "Not saved"}</strong></div>
+          <div><span>Password</span><strong>{protection ? (locked ? "Locked" : "Enabled") : "Optional"}</strong></div>
+        </div>
+      )}
+
+      {activeTab === "Tags" && (
+        <div className="utility-content tag-manager" role="tabpanel">
+          <div className="tag-list">
+            {clip?.tags.length ? clip.tags.map((tag) => <Tag label={tag} onRemove={() => onRemoveTag(tag)} key={tag} />) : <span className="empty-tag">No tags yet</span>}
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onAddTag();
+            }}
+          >
+            <input value={newTag} placeholder="Add tag..." onChange={(event) => setNewTag(event.target.value)} />
+            <Button type="submit">Add</Button>
+          </form>
+        </div>
+      )}
+
+      {activeTab === "Storage" && (
+        <div className="utility-content storage-utility" role="tabpanel">
+          <div>
+            <span>Local storage</span>
+            <strong>{formatBytes(storageUsage)} / 10 MB</strong>
+          </div>
+          <div className="storage-track"><div style={{ width: `${Math.max(3, storagePercent)}%` }} /></div>
+          <div className="utility-actions">
+            <Button onClick={onImport}><Upload size={17} />Import</Button>
+            <Button onClick={onExport}><Download size={17} />Export</Button>
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }
 
