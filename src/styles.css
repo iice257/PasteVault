@@ -332,7 +332,7 @@ a {
   z-index: 70;
   display: grid;
   gap: 12px;
-  width: 280px;
+  width: 320px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--panel);
@@ -362,6 +362,24 @@ a {
 .password-popover input {
   height: 40px;
   padding: 0 11px;
+}
+
+.password-popover .password-warning {
+  display: flex;
+  grid-template-columns: none;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.password-popover .password-warning input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
 }
 
 .password-popover div {

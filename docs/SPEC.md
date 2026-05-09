@@ -26,7 +26,7 @@ Clip:
 - `createdAt`
 - `updatedAt`
 
-Persistence uses localStorage namespaced by clipboard id. When a password is enabled, the payload is encrypted with Web Crypto AES-GCM using a PBKDF2-derived key before storage.
+Persistence uses localStorage namespaced by clipboard id and an optional Vercel API backed by Upstash Redis/Vercel KV REST. When a password is enabled, the payload is encrypted with Web Crypto AES-GCM using a PBKDF2-derived key before storage and upload.
 
 Clipboard:
 
@@ -45,11 +45,12 @@ The product architecture is link-first: `/clip/:id` is the workspace context. Th
 - Search, sort, pin, import, export.
 - Optional password lock, unlock, and removal.
 - Large local clip handling and encrypted-at-rest verification.
+- Encrypted blob sync API that rejects plaintext payloads.
 - Responsive desktop and mobile clipboard workspace.
 
 ## Later
 
-- Hosted realtime clipboards behind the same `/clip/:id` model.
+- Multi-user conflict resolution beyond last-write-wins encrypted blob sync.
 - QR codes for quick phone-to-laptop transfer.
 - File/image clips.
 - Browser extension capture.

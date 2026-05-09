@@ -29,6 +29,8 @@ await page.getByText(largeMarker).first().waitFor();
 
 await page.getByRole("button", { name: /Password optional/i }).click();
 await page.getByPlaceholder("8+ characters").fill(password);
+await page.getByPlaceholder("Repeat password").fill(password);
+await page.getByLabel("I understand this password cannot be recovered.").check();
 await page.getByRole("button", { name: /^Enable$/ }).click();
 await page.getByText("Password enabled").waitFor();
 

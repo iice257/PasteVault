@@ -9,11 +9,13 @@
 - Add selected clip detail panel.
 - Add copy-link oriented UI.
 - Add optional password encryption with Web Crypto.
+- Add Vercel encrypted blob sync API.
+- Add CSP and baseline security headers.
 - Add smoke test.
 - Add visual and functional Playwright checks.
 
 ## Next
 
 - Add QR code generation without external services.
-- Add hosted realtime clipboard storage.
-- Add server-side rate limiting and abuse controls.
+- Provision hosted KV/Redis environment variables in Vercel.
+- Add conflict UI for simultaneous cross-device edits.

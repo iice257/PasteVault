@@ -113,6 +113,7 @@ function createPlainRecord(clipboardId) {
   return {
     version: appVersion,
     id: clipboardId,
+    updatedAt: nowIso(),
     protection: null,
     payload: { clips, selectedId: clips[0]?.id ?? null }
   };
@@ -181,6 +182,7 @@ function loadRecord(clipboardId) {
 
 function hydrateClipboard(clipboardId) {
   try {
+    const hadLocalRecord = Boolean(localStorage.getItem(storageKey(clipboardId)));
     const record = loadRecord(clipboardId);
     if (record.protection) {
       return {
@@ -191,7 +193,9 @@ function hydrateClipboard(clipboardId) {
         format: "JSON",
         locked: true,
         protection: record.protection,
-        error: ""
+        error: "",
+        freshLocal: !hadLocalRecord,
+        localUpdatedAt: record.updatedAt ?? nowIso()
       };
     }
 
@@ -204,7 +208,9 @@ function hydrateClipboard(clipboardId) {
       format: selected?.format ?? "JSON",
       locked: false,
       protection: null,
-      error: ""
+      error: "",
+      freshLocal: !hadLocalRecord,
+      localUpdatedAt: record.updatedAt ?? payloadUpdatedAt(record.payload)
     };
   } catch {
     const fallback = createPlainRecord(clipboardId);
@@ -218,7 +224,9 @@ function hydrateClipboard(clipboardId) {
       format: selected.format,
       locked: false,
       protection: null,
-      error: "Clipboard data was corrupt, so PasteVault recovered a clean board."
+      error: "Clipboard data was corrupt, so PasteVault recovered a clean board.",
+      freshLocal: true,
+      localUpdatedAt: fallback.updatedAt
     };
   }
 }
@@ -337,6 +345,7 @@ async function buildProtectedRecord(clipboardId, payload, password) {
     record: {
       version: appVersion,
       id: clipboardId,
+      updatedAt: nowIso(),
       protection: {
         salt,
         verifier: await encryptValue({ ok: true }, key)
@@ -344,6 +353,54 @@ async function buildProtectedRecord(clipboardId, payload, password) {
       encryptedPayload: await encryptValue(payload, key)
     }
   };
+}
+
+function payloadUpdatedAt(payload) {
+  const newestClipTime = payload?.clips?.reduce((newest, clip) => {
+    const updatedAt = new Date(clip.updatedAt || clip.createdAt || 0).getTime();
+    return Number.isFinite(updatedAt) ? Math.max(newest, updatedAt) : newest;
+  }, 0) ?? 0;
+  return new Date(newestClipTime || Date.now()).toISOString();
+}
+
+async function buildLinkSyncRecord(clipboardId, payload) {
+  const salt = arrayToBase64(crypto.getRandomValues(new Uint8Array(16)));
+  const key = await derivePasswordKey(clipboardId, salt);
+  return {
+    version: appVersion,
+    id: clipboardId,
+    updatedAt: nowIso(),
+    sync: {
+      mode: "link",
+      salt
+    },
+    encryptedPayload: await encryptValue(payload, key)
+  };
+}
+
+async function decryptLinkSyncRecord(record) {
+  const key = await derivePasswordKey(record.id, record.sync.salt);
+  return decryptValue(record.encryptedPayload, key);
+}
+
+async function fetchRemoteRecord(clipboardId) {
+  const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store"
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Remote fetch failed with ${response.status}`);
+  return response.json();
+}
+
+async function pushRemoteRecord(clipboardId, record) {
+  const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(record)
+  });
+  if (!response.ok) throw new Error(`Remote save failed with ${response.status}`);
 }
 
 function storageUsageBytes() {
@@ -399,9 +456,12 @@ function ClipboardApp({ clipboardId }) {
   const [locked, setLocked] = useState(initialState.locked);
   const [protection, setProtection] = useState(initialState.protection);
   const [passwordInput, setPasswordInput] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [passwordAcknowledged, setPasswordAcknowledged] = useState(false);
   const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
   const [cryptoKey, setCryptoKey] = useState(null);
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
+  const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "Local saved");
 
   const selectedClip = useMemo(
     () => clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null,
@@ -419,6 +479,12 @@ function ClipboardApp({ clipboardId }) {
   }, [clips]);
 
   const payload = useMemo(() => ({ clips, selectedId: selectedClip?.id ?? null }), [clips, selectedClip?.id]);
+  const startupSyncRef = useRef({
+    freshLocal: initialState.freshLocal,
+    localUpdatedAt: initialState.localUpdatedAt,
+    payload,
+    protection
+  });
 
   const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey) => {
     try {
@@ -427,19 +493,30 @@ function ClipboardApp({ clipboardId }) {
           setError("Unlock this clipboard before saving protected changes.");
           return false;
         }
-        saveRecord(clipboardId, {
+        const protectedRecord = {
           version: appVersion,
           id: clipboardId,
+          updatedAt: nowIso(),
           protection: nextProtection,
           encryptedPayload: await encryptValue(nextPayload, nextKey)
-        });
+        };
+        saveRecord(clipboardId, protectedRecord);
+        void pushRemoteRecord(clipboardId, protectedRecord)
+          .then(() => setSyncStatus("Cloud saved"))
+          .catch(() => setSyncStatus("Local saved"));
       } else {
-        saveRecord(clipboardId, {
+        const localRecord = {
           version: appVersion,
           id: clipboardId,
+          updatedAt: nowIso(),
           protection: null,
           payload: nextPayload
-        });
+        };
+        saveRecord(clipboardId, localRecord);
+        void buildLinkSyncRecord(clipboardId, nextPayload)
+          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
+          .then(() => setSyncStatus("Cloud saved"))
+          .catch(() => setSyncStatus("Local saved"));
       }
       setStorageUsage(storageUsageBytes());
       return true;
@@ -468,6 +545,83 @@ function ClipboardApp({ clipboardId }) {
       setFormat("Plain text");
     }
   }, [clips, persistPayload, selectedId]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function syncRemoteClipboard() {
+      try {
+        const remote = await fetchRemoteRecord(clipboardId);
+        if (!active) return;
+
+        if (!remote) {
+          const startup = startupSyncRef.current;
+          const syncRecord = startup.protection
+            ? null
+            : await buildLinkSyncRecord(clipboardId, startup.payload);
+          if (syncRecord) {
+            await pushRemoteRecord(clipboardId, syncRecord);
+            if (active) setSyncStatus("Cloud saved");
+          }
+          return;
+        }
+
+        const startup = startupSyncRef.current;
+        const remoteUpdatedAt = new Date(remote.updatedAt || 0).getTime();
+        const localUpdatedAt = new Date(startup.localUpdatedAt || 0).getTime();
+        const shouldUseRemote = startup.freshLocal || remoteUpdatedAt > localUpdatedAt;
+
+        if (!shouldUseRemote) {
+          if (!startup.protection) {
+            await pushRemoteRecord(clipboardId, await buildLinkSyncRecord(clipboardId, startup.payload));
+            if (active) setSyncStatus("Cloud saved");
+          }
+          return;
+        }
+
+        if (remote.sync?.mode === "link") {
+          const remotePayload = await decryptLinkSyncRecord(remote);
+          const normalizedClips = remotePayload.clips.map(normalizeClip).filter(Boolean);
+          const nextSelected = normalizedClips.find((clip) => clip.id === remotePayload.selectedId) ?? normalizedClips[0] ?? null;
+          saveRecord(clipboardId, {
+            version: appVersion,
+            id: clipboardId,
+            updatedAt: remote.updatedAt ?? nowIso(),
+            protection: null,
+            payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
+          });
+          if (!active) return;
+          setProtection(null);
+          setLocked(false);
+          setCryptoKey(null);
+          setClips(normalizedClips);
+          setSelectedId(nextSelected?.id ?? null);
+          setDraftTitle(nextSelected?.title ?? "");
+          setDraftContent(nextSelected?.content ?? "");
+          setFormat(nextSelected?.format ?? "JSON");
+          setSyncStatus("Cloud synced");
+        } else if (remote.protection && remote.encryptedPayload) {
+          saveRecord(clipboardId, remote);
+          if (!active) return;
+          setProtection(remote.protection);
+          setLocked(true);
+          setCryptoKey(null);
+          setClips([]);
+          setSelectedId(null);
+          setDraftTitle("");
+          setDraftContent("");
+          setSyncStatus("Cloud locked");
+        }
+      } catch {
+        if (active) setSyncStatus("Local saved");
+      }
+    }
+
+    void syncRemoteClipboard();
+    return () => {
+      active = false;
+    };
+  }, [clipboardId]);
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -682,30 +836,49 @@ function ClipboardApp({ clipboardId }) {
       setError("Use at least 8 characters for the clipboard password.");
       return;
     }
+    if (passwordInput !== passwordConfirm) {
+      setError("Password confirmation does not match.");
+      return;
+    }
+    if (!passwordAcknowledged) {
+      setError("Confirm that this password cannot be recovered.");
+      return;
+    }
     try {
       const protectedRecord = await buildProtectedRecord(clipboardId, payload, passwordInput);
       saveRecord(clipboardId, protectedRecord.record);
+      void pushRemoteRecord(clipboardId, protectedRecord.record)
+        .then(() => setSyncStatus("Cloud saved"))
+        .catch(() => setSyncStatus("Local saved"));
       setCryptoKey(protectedRecord.key);
       setProtection(protectedRecord.record.protection);
       setLocked(false);
       setPasswordInput("");
+      setPasswordConfirm("");
+      setPasswordAcknowledged(false);
       setPasswordPanelOpen(false);
       setStorageUsage(storageUsageBytes());
       showToast("Password enabled");
     } catch {
       setError("PasteVault could not enable password protection for this clipboard.");
     }
-  }, [clipboardId, passwordInput, payload, showToast]);
+  }, [clipboardId, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
 
   const handleRemovePassword = useCallback(async () => {
     if (!protection || locked) return;
-    const record = { version: appVersion, id: clipboardId, protection: null, payload };
+    const record = { version: appVersion, id: clipboardId, updatedAt: nowIso(), protection: null, payload };
     try {
       saveRecord(clipboardId, record);
       setProtection(null);
       setCryptoKey(null);
       setPasswordInput("");
+      setPasswordConfirm("");
+      setPasswordAcknowledged(false);
       setStorageUsage(storageUsageBytes());
+      void buildLinkSyncRecord(clipboardId, payload)
+        .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
+        .then(() => setSyncStatus("Cloud saved"))
+        .catch(() => setSyncStatus("Local saved"));
       showToast("Password removed");
     } catch {
       setError("PasteVault could not remove password protection.");
@@ -760,10 +933,15 @@ function ClipboardApp({ clipboardId }) {
             clipboardId={clipboardId}
             isDark={isDark}
             onThemeChange={toggleTheme}
+            syncStatus={syncStatus}
             passwordPanelOpen={passwordPanelOpen}
             setPasswordPanelOpen={setPasswordPanelOpen}
             passwordInput={passwordInput}
             setPasswordInput={setPasswordInput}
+            passwordConfirm={passwordConfirm}
+            setPasswordConfirm={setPasswordConfirm}
+            passwordAcknowledged={passwordAcknowledged}
+            setPasswordAcknowledged={setPasswordAcknowledged}
             passwordRef={passwordRef}
             locked={locked}
             protection={protection}
@@ -889,10 +1067,15 @@ function Header({
   clipboardId,
   isDark,
   onThemeChange,
+  syncStatus,
   passwordPanelOpen,
   setPasswordPanelOpen,
   passwordInput,
   setPasswordInput,
+  passwordConfirm,
+  setPasswordConfirm,
+  passwordAcknowledged,
+  setPasswordAcknowledged,
   passwordRef,
   locked,
   protection,
@@ -914,7 +1097,7 @@ function Header({
       <div className="header-actions">
         <span className="saved-state">
           <Check size={18} />
-          Link clipboard saved
+          {syncStatus}
         </span>
         <div className="password-wrap">
           <button
@@ -944,6 +1127,27 @@ function Header({
                   }}
                 />
               </label>
+              {!protection && (
+                <>
+                  <label>
+                    <span>Confirm password</span>
+                    <input
+                      type="password"
+                      value={passwordConfirm}
+                      placeholder="Repeat password"
+                      onChange={(event) => setPasswordConfirm(event.target.value)}
+                    />
+                  </label>
+                  <label className="password-warning">
+                    <input
+                      type="checkbox"
+                      checked={passwordAcknowledged}
+                      onChange={(event) => setPasswordAcknowledged(event.target.checked)}
+                    />
+                    <span>I understand this password cannot be recovered.</span>
+                  </label>
+                </>
+              )}
               <div>
                 {protection && locked ? <Button onClick={onUnlock}>Unlock</Button> : null}
                 {!protection ? <Button onClick={onSetPassword}>Enable</Button> : null}

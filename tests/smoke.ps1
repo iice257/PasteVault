@@ -42,7 +42,7 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
   "Clipboard ID",
   "Selected clip",
   "Copy link",
-  "Clip saved successfully"
+  "Password cannot be recovered"
 ) | ForEach-Object {
   if ($app -notmatch [regex]::Escape($_)) {
     throw "App missing $_"
@@ -71,6 +71,18 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
 ) | ForEach-Object {
   if ($package -notmatch [regex]::Escape($_)) {
     throw "package.json missing $_"
+  }
+}
+
+$api = Get-Content -Raw -LiteralPath (Join-Path $root "api/clip/[id].js")
+@(
+  "UPSTASH_REDIS_REST_URL",
+  "KV_REST_API_URL",
+  "Too many requests",
+  "encryptedPayload"
+) | ForEach-Object {
+  if ($api -notmatch [regex]::Escape($_)) {
+    throw "API missing $_"
   }
 }
 
