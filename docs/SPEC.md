@@ -20,23 +20,22 @@ Clip:
 - `title`
 - `text`
 - `format`
-- `source`
 - `pinned`
+- `starred`
+- `tags`
 - `createdAt`
 - `updatedAt`
-- `hits`
 
-Persistence uses IndexedDB. Share links encode a single clip in the URL hash so the server never sees clipboard contents.
+Persistence uses localStorage namespaced by clipboard id. When a password is enabled, the payload is encrypted with Web Crypto AES-GCM using a PBKDF2-derived key before storage.
 
 Clipboard:
 
 - `id`
-- `passwordHash` optional
-- `createdAt`
-- `updatedAt`
-- `clips`
+- `protection` optional password metadata
+- `payload` plain data when unprotected
+- `encryptedPayload` encrypted data when protected
 
-The product architecture is link-first: `/clip/:id` is the workspace context, and an optional password protects the clipboard when backend storage is connected. There are no accounts.
+The product architecture is link-first: `/clip/:id` is the workspace context. There are no accounts.
 
 ## MVP
 
@@ -44,12 +43,14 @@ The product architecture is link-first: `/clip/:id` is the workspace context, an
 - One-tap save, paste, copy latest, copy selected, copy link, and delete.
 - Deduplication by exact text.
 - Search, sort, pin, import, export.
+- Optional password lock, unlock, and removal.
+- Large local clip handling and encrypted-at-rest verification.
 - Responsive desktop and mobile clipboard workspace.
 
 ## Later
 
-- Optional password-protected realtime clipboards.
+- Hosted realtime clipboards behind the same `/clip/:id` model.
 - QR codes for quick phone-to-laptop transfer.
 - File/image clips.
 - Browser extension capture.
-- User-owned sync backend.
+- Server-side rate limiting, abuse controls, and cross-device storage.

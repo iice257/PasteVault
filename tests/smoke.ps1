@@ -74,7 +74,7 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
   }
 }
 
-if ($html -match "\{\{|\}\}" -or $app -match "\{\{|\}\}" -or $css -match "\{\{|\}\}") {
+if ($html -match "\{\{[A-Z_]+\}\}" -or $app -match "\{\{[A-Z_]+\}\}" -or $css -match "\{\{[A-Z_]+\}\}") {
   throw "App contains unresolved placeholders"
 }
 

@@ -9,6 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "visual:check": "node ./tests/visual-check.mjs",
+    "functional:check": "node ./tests/functional-check.mjs",
     "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1"
   },
   "dependencies": {
