@@ -5,9 +5,16 @@ $required = @(
   "index.html",
   "src/main.jsx",
   "src/App.jsx",
+  "src/pages/LandingPage.jsx",
+  "src/pages/ClipboardPage.jsx",
+  "src/features/clipboard/clipboard-store.js",
   "src/styles.css",
   "src/components/ui/button.jsx",
   "src/components/ui/dropdown-menu.jsx",
+  "src/components/ui/card.jsx",
+  "src/components/ui/dialog.jsx",
+  "src/components/ui/sheet.jsx",
+  "src/components/ui/tabs.jsx",
   "manifest.webmanifest"
 )
 
@@ -19,7 +26,12 @@ foreach ($file in $required) {
 }
 
 $html = Get-Content -Raw -LiteralPath (Join-Path $root "index.html")
-$app = Get-Content -Raw -LiteralPath (Join-Path $root "src/App.jsx")
+$app = @(
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/App.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/pages/LandingPage.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/pages/ClipboardPage.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/features/clipboard/clipboard-store.js")
+) -join "`n"
 $css = Get-Content -Raw -LiteralPath (Join-Path $root "src/styles.css")
 $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
 
@@ -66,6 +78,8 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
 @(
   "react",
   "lucide-react",
+  "@heroui/react",
+  "motion",
   "@radix-ui/react-dropdown-menu",
   "vite"
 ) | ForEach-Object {
