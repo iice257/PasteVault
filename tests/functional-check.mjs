@@ -41,7 +41,7 @@ await page.getByPlaceholder("8+ characters").fill(password);
 await page.getByPlaceholder("Repeat password").fill(password);
 await page.getByLabel("I understand this password cannot be recovered.").check();
 await page.getByRole("button", { name: /^Enable$/ }).click();
-await page.getByText("Password enabled").waitFor();
+await page.getByRole("status").getByText("Password enabled", { exact: true }).waitFor();
 
 const protectedRecord = await page.evaluate((key) => window.localStorage.getItem(key), storageKey);
 if (!protectedRecord || protectedRecord.includes(largeMarker) || !protectedRecord.includes("encryptedPayload")) {

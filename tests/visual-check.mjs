@@ -35,8 +35,12 @@ for (const theme of ["dark", "light"]) {
     throw new Error(`Expected 3 primary clipboard regions in ${theme} mode, found ${checks}.`);
   }
   const heading = await page.locator(".vault-card-head h1").textContent();
-  if (heading !== "Clipboard visual-check...") {
+  if (heading !== "visual-check...") {
     throw new Error(`Expected deep-link clipboard id in ${theme} mode, found ${heading}.`);
+  }
+  const shellRegions = await page.locator(".sidebar, .dashboard-search, .details-panel").count();
+  if (shellRegions !== 3) {
+    throw new Error(`Expected sidebar, top search, and details drawer in ${theme} mode, found ${shellRegions}.`);
   }
 }
 

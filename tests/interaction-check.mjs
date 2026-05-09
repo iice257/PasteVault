@@ -24,12 +24,14 @@ await page.addInitScript((key) => {
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
 await page.locator(".vault-theme.theme-dark").waitFor();
 
-await page.getByRole("button", { name: "Toggle theme" }).click();
+await page.getByRole("button", { name: "Theme menu" }).click();
+await page.getByRole("menuitem", { name: "Light" }).click();
 await page.locator(".vault-theme.theme-light").waitFor();
-await page.getByRole("button", { name: "Toggle theme" }).click();
+await page.getByRole("button", { name: "Theme menu" }).click();
+await page.getByRole("menuitem", { name: "Dark" }).click();
 await page.locator(".vault-theme.theme-dark").waitFor();
 
-await page.getByRole("button", { name: "Copy link" }).click();
+await page.getByRole("banner").getByRole("button", { name: "Copy link" }).click();
 await page.getByRole("status").getByText("Clipboard link copied").waitFor();
 
 await page.getByRole("button", { name: "Password optional" }).click();
@@ -63,12 +65,10 @@ await page.getByRole("menuitem", { name: "JSON" }).click();
 await page.getByPlaceholder("Search history").fill("dropdown");
 await page.getByText("{\"from\":\"dropdown\"}").first().waitFor();
 
-await page.getByRole("tab", { name: "Tags" }).click();
-await page.locator(".tag-manager input").fill("tested");
-await page.locator(".tag-manager").getByRole("button", { name: "Add" }).click();
-await page.locator(".utility-panel .tag").filter({ hasText: "tested" }).waitFor();
+await page.locator(".details-panel input[placeholder='Add tag...']").fill("tested");
+await page.locator(".details-panel input[placeholder='Add tag...']").press("Enter");
+await page.locator(".details-panel .tag").filter({ hasText: "tested" }).waitFor();
 
-await page.getByRole("tab", { name: "Storage" }).click();
 await page.locator("input[type='file']").setInputFiles({
   name: "interaction-notes.txt",
   mimeType: "text/plain",
@@ -77,11 +77,12 @@ await page.locator("input[type='file']").setInputFiles({
 await page.getByRole("status").getByText(/Imported .*clip/).waitFor();
 
 const downloadPromise = page.waitForEvent("download");
-await page.locator(".storage-utility").getByRole("button", { name: "Export" }).click();
+await page.getByRole("button", { name: "Top bar more actions" }).click();
+await page.getByRole("menuitem", { name: "Export board" }).click();
 await downloadPromise;
 
-await page.locator(".utility-tabs").getByRole("button", { name: "More clipboard actions" }).click();
-await page.getByRole("menuitem", { name: "Copy selected clip" }).click();
+await page.locator(".vault-card-actions").getByRole("button", { name: "More actions" }).click();
+await page.getByRole("menuitem", { name: "Copy latest" }).click();
 await page.getByRole("status").getByText("Clip copied").waitFor();
 
 await context.close();

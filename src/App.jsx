@@ -539,6 +539,7 @@ function ClipboardApp({ clipboardId }) {
   const [passwordAcknowledged, setPasswordAcknowledged] = useState(false);
   const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
   const [activeUtilityTab, setActiveUtilityTab] = useState("Details");
+  const [activeDashboardTab, setActiveDashboardTab] = useState("Editor");
   const [cryptoKey, setCryptoKey] = useState(null);
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "Local saved");
@@ -1006,14 +1007,25 @@ function ClipboardApp({ clipboardId }) {
 
   return (
     <Shell isDark={isDark}>
-      <div className="vault-app">
-        <FloatingAmbientCards variant="app" />
-        <main className="vault-app-main">
+      <div className="vault-app dashboard-app">
+        <Sidebar
+          mode={mode}
+          setMode={setMode}
+          onImport={() => fileRef.current?.click()}
+          onExport={() => exportClipboard(clipboardId, payload)}
+          storageUsage={storageUsage}
+          storagePercent={stats.storagePercent}
+        />
+        <div className="dashboard-content">
           <Header
-            clipboardId={clipboardId}
             isDark={isDark}
             onThemeChange={toggleTheme}
             onCopyLink={handleCopyLink}
+            onImport={() => fileRef.current?.click()}
+            onExport={() => exportClipboard(clipboardId, payload)}
+            search={search}
+            setSearch={setSearch}
+            searchRef={searchRef}
             syncStatus={syncStatus}
             passwordPanelOpen={passwordPanelOpen}
             setPasswordPanelOpen={setPasswordPanelOpen}
@@ -1030,140 +1042,142 @@ function ClipboardApp({ clipboardId }) {
             onSetPassword={handleSetPassword}
             onRemovePassword={handleRemovePassword}
           />
-          {locked ? (
-            <PasswordGate passwordInput={passwordInput} setPasswordInput={setPasswordInput} onUnlock={handleUnlock} error={error} />
-          ) : (
-            <>
-              <section className="vault-clipboard-card">
-                <div className="vault-card-head">
-                  <div>
-                    <h1>Clipboard {shortClipboardId}</h1>
-                    <p>
-                      <span className="status-dot" /> Saved
-                      <span /> {format}
-                      <span /> {formatBytes(stats.bytes)}
-                      <span /> <Lock size={13} /> Password optional
-                    </p>
+          <main className="vault-app-main dashboard-main">
+            {locked ? (
+              <PasswordGate passwordInput={passwordInput} setPasswordInput={setPasswordInput} onUnlock={handleUnlock} error={error} />
+            ) : (
+              <div className="dashboard-body">
+                <section className="dashboard-workspace">
+                  <section className="vault-clipboard-card">
+                    <div className="vault-card-head">
+                      <div>
+                        <h1>{shortClipboardId}</h1>
+                        <p>
+                          <span className="status-dot" /> Saved
+                          <span /> {format}
+                          <span /> {formatBytes(stats.bytes)}
+                          <span /> <Lock size={13} /> {protection ? "Password enabled" : "Password optional"}
+                        </p>
+                      </div>
+                      <div className="vault-card-actions">
+                        <span><Check size={17} /> {syncStatus}</span>
+                        <Button variant="primary" onClick={handleSave}>
+                          <Archive size={16} />
+                          Save
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" aria-label="More actions"><MoreHorizontal size={22} /></button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="utility-menu" align="end">
+                            <DropdownMenuItem onSelect={handleNewClip}>New clip</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={handlePaste}>Paste from system clipboard</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={handleCopyLatest}>Copy latest</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={handleCopyLink}>Copy link</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => fileRef.current?.click()}>Import file</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => exportClipboard(clipboardId, payload)}>Export board</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => toggleSelectedFlag("pinned")}>{selectedClip?.pinned ? "Unpin selected" : "Pin selected"}</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => toggleSelectedFlag("starred")}>{selectedClip?.starred ? "Unstar selected" : "Star selected"}</DropdownMenuItem>
+                            <DropdownMenuItem className="danger-item" onSelect={handleDelete}>Delete selected</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    <DashboardTabs
+                      activeTab={activeDashboardTab}
+                      setActiveTab={setActiveDashboardTab}
+                      total={clips.length}
+                      onHistory={() => searchRef.current?.focus()}
+                    />
+                    <div className="dashboard-editor-region">
+                      <EditorCard
+                        clipboardId={clipboardId}
+                        draftTitle={draftTitle}
+                        setDraftTitle={setDraftTitle}
+                        draftContent={draftContent}
+                        setDraftContent={setDraftContent}
+                        format={format}
+                        setFormat={setFormat}
+                        selectedClip={selectedClip}
+                        stats={stats}
+                        error={error}
+                        isDark={isDark}
+                        onSave={handleSave}
+                        onNew={handleNewClip}
+                        onPaste={handlePaste}
+                        onCopyLatest={handleCopyLatest}
+                        onCopyLink={handleCopyLink}
+                      />
+                      <UtilityTabs
+                        activeTab={activeUtilityTab}
+                        setActiveTab={setActiveUtilityTab}
+                        clipboardId={clipboardId}
+                        clip={selectedClip}
+                        stats={stats}
+                        storageUsage={storageUsage}
+                        storagePercent={stats.storagePercent}
+                        protection={protection}
+                        locked={locked}
+                        newTag={newTag}
+                        setNewTag={setNewTag}
+                        onAddTag={handleAddTag}
+                        onRemoveTag={handleRemoveTag}
+                        onCopy={() => handleCopy(selectedClip)}
+                        onCopyLink={handleCopyLink}
+                        onDelete={handleDelete}
+                        onTogglePin={() => toggleSelectedFlag("pinned")}
+                        onToggleStar={() => toggleSelectedFlag("starred")}
+                        onImport={() => fileRef.current?.click()}
+                        onExport={() => exportClipboard(clipboardId, payload)}
+                      />
+                    </div>
+                  </section>
+                  <div className="vault-history-row">
+                    <HistoryPanel
+                      items={filteredItems}
+                      selectedId={selectedClip?.id}
+                      sort={sort}
+                      setSort={setSort}
+                      filter={filter}
+                      setFilter={setFilter}
+                      search={search}
+                      setSearch={setSearch}
+                      searchRef={searchRef}
+                      total={clips.length}
+                      isDark={isDark}
+                      onSelect={selectClip}
+                      onToggleStar={(clip) => replaceClips(clips.map((item) => item.id === clip.id ? { ...item, starred: !item.starred } : item), clip.id)}
+                    />
                   </div>
-                  <div className="vault-card-actions">
-                    <span><Check size={17} /> {syncStatus}</span>
-                    <Button variant="primary" onClick={handleSave}>
-                      <Archive size={16} />
-                      Save
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" aria-label="More actions"><MoreHorizontal size={22} /></button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="utility-menu" align="end">
-                        <DropdownMenuItem onSelect={handleNewClip}>New clip</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={handlePaste}>Paste from system clipboard</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={handleCopyLatest}>Copy latest</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={handleCopyLink}>Copy link</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => fileRef.current?.click()}>Import file</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => exportClipboard(clipboardId, payload)}>Export board</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => toggleSelectedFlag("pinned")}>{selectedClip?.pinned ? "Unpin selected" : "Pin selected"}</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => toggleSelectedFlag("starred")}>{selectedClip?.starred ? "Unstar selected" : "Star selected"}</DropdownMenuItem>
-                        <DropdownMenuItem className="danger-item" onSelect={handleDelete}>Delete selected</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <div className="vault-bottom-composer">
+                    <input
+                      value={draftContent}
+                      placeholder="Paste or type..."
+                      onChange={(event) => setDraftContent(event.target.value)}
+                    />
+                    <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach file">
+                      <Paperclip size={31} />
+                    </button>
+                    <Button variant="primary" onClick={handleSave}>Save</Button>
                   </div>
-                </div>
-                <EditorCard
-                  clipboardId={clipboardId}
-                  draftTitle={draftTitle}
-                  setDraftTitle={setDraftTitle}
-                  draftContent={draftContent}
-                  setDraftContent={setDraftContent}
-                  format={format}
-                  setFormat={setFormat}
-                  selectedClip={selectedClip}
-                  stats={stats}
-                  error={error}
-                  isDark={isDark}
-                  onSave={handleSave}
-                  onNew={handleNewClip}
-                  onPaste={handlePaste}
-                  onCopyLatest={handleCopyLatest}
-                  onCopyLink={handleCopyLink}
-                />
-                <UtilityTabs
-                  activeTab={activeUtilityTab}
-                  setActiveTab={setActiveUtilityTab}
+                </section>
+                <DetailsPanel
                   clipboardId={clipboardId}
                   clip={selectedClip}
-                  stats={stats}
-                  storageUsage={storageUsage}
-                  storagePercent={stats.storagePercent}
-                  protection={protection}
-                  locked={locked}
-                  newTag={newTag}
-                  setNewTag={setNewTag}
-                  onAddTag={handleAddTag}
-                  onRemoveTag={handleRemoveTag}
+                  isDark={isDark}
                   onCopy={() => handleCopy(selectedClip)}
                   onCopyLink={handleCopyLink}
                   onDelete={handleDelete}
                   onTogglePin={() => toggleSelectedFlag("pinned")}
                   onToggleStar={() => toggleSelectedFlag("starred")}
-                  onImport={() => fileRef.current?.click()}
-                  onExport={() => exportClipboard(clipboardId, payload)}
-                />
-              </section>
-              <div className="vault-history-row">
-                <HistoryPanel
-                  items={filteredItems}
-                  selectedId={selectedClip?.id}
-                  sort={sort}
-                  setSort={setSort}
-                  filter={filter}
-                  setFilter={setFilter}
-                  search={search}
-                  setSearch={setSearch}
-                  searchRef={searchRef}
-                  total={clips.length}
-                  isDark={isDark}
-                  onSelect={selectClip}
-                  onToggleStar={(clip) => replaceClips(clips.map((item) => item.id === clip.id ? { ...item, starred: !item.starred } : item), clip.id)}
+                  newTag={newTag}
+                  setNewTag={setNewTag}
+                  onAddTag={handleAddTag}
+                  onRemoveTag={handleRemoveTag}
                 />
               </div>
-              <DetailsPanel
-                clipboardId={clipboardId}
-                clip={selectedClip}
-                isDark={isDark}
-                onCopy={() => handleCopy(selectedClip)}
-                onCopyLink={handleCopyLink}
-                onDelete={handleDelete}
-                onTogglePin={() => toggleSelectedFlag("pinned")}
-                onToggleStar={() => toggleSelectedFlag("starred")}
-                newTag={newTag}
-                setNewTag={setNewTag}
-                onAddTag={handleAddTag}
-                onRemoveTag={handleRemoveTag}
-              />
-              <div className="vault-bottom-composer">
-                <input
-                  value={draftContent}
-                  placeholder="Paste or type..."
-                  onChange={(event) => setDraftContent(event.target.value)}
-                />
-                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach file">
-                  <Paperclip size={31} />
-                </button>
-                <Button variant="primary" onClick={handleSave}>Save</Button>
-              </div>
-            </>
-          )}
-        </main>
-        <div className="vault-hidden-controls" aria-hidden="true">
-          <Sidebar
-            mode={mode}
-            setMode={setMode}
-            onImport={() => fileRef.current?.click()}
-            onExport={() => exportClipboard(clipboardId, payload)}
-            storageUsage={storageUsage}
-            storagePercent={stats.storagePercent}
-          />
+            )}
+          </main>
         </div>
         <input ref={fileRef} type="file" accept=".txt,.json,.csv,.md,.html" className="file-input" onChange={handleImportFile} />
         {toast && (
@@ -1241,6 +1255,9 @@ function Sidebar({ mode, setMode, onImport, onExport, storageUsage, storagePerce
 
   return (
     <aside className="sidebar">
+      <div className="sidebar-brand">
+        <LogoMark />
+      </div>
       <div className="sidebar-top">
         {items.map((item) => (
           <button className={`nav-item ${mode === item.label ? "active" : ""}`} key={item.label} type="button" onClick={item.action}>
@@ -1264,10 +1281,14 @@ function Sidebar({ mode, setMode, onImport, onExport, storageUsage, storagePerce
 }
 
 function Header({
-  clipboardId,
   isDark,
   onThemeChange,
   onCopyLink,
+  onImport,
+  onExport,
+  search,
+  setSearch,
+  searchRef,
   syncStatus,
   passwordPanelOpen,
   setPasswordPanelOpen,
@@ -1286,10 +1307,11 @@ function Header({
 }) {
   return (
     <header className="header">
-      <div className="brand">
-        <LogoMark />
-        <span className="clipboard-route">/clip/{clipboardId}</span>
-      </div>
+      <label className="dashboard-search">
+        <Search size={19} />
+        <input ref={searchRef} value={search} placeholder="Search clips, keywords, tags..." onChange={(event) => setSearch(event.target.value)} />
+        <kbd>⌘ K</kbd>
+      </label>
       <div className="header-actions">
         <span className="saved-state">
           <Check size={18} />
@@ -1364,12 +1386,66 @@ function Header({
             </div>
           )}
         </div>
-        <kbd>Cmd K</kbd>
-        <button className="round-action" type="button" onClick={onThemeChange} aria-label="Toggle theme" aria-pressed={!isDark} title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="round-action theme-menu-trigger" type="button" aria-label="Theme menu" aria-pressed={!isDark}>
+              <Sun size={20} />
+              <span>Theme</span>
+              <ChevronDown size={15} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="utility-menu" align="end">
+            <DropdownMenuItem active={!isDark} onSelect={() => { if (isDark) onThemeChange(); }}>Light</DropdownMenuItem>
+            <DropdownMenuItem active={isDark} onSelect={() => { if (!isDark) onThemeChange(); }}>Dark</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="round-action" type="button" aria-label="Top bar more actions">
+              <MoreHorizontal size={20} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="utility-menu" align="end">
+            <DropdownMenuItem onSelect={onImport}>Import file</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onExport}>Export board</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onCopyLink}>Copy share link</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button className="round-action compact-theme-toggle" type="button" onClick={onThemeChange} aria-label="Toggle theme" aria-pressed={!isDark} title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
           <Sun size={22} />
         </button>
       </div>
     </header>
+  );
+}
+
+function DashboardTabs({ activeTab, setActiveTab, total, onHistory }) {
+  const tabs = [
+    { label: "Editor" },
+    { label: "History", count: total },
+    { label: "Details" },
+    { label: "Tools" }
+  ];
+
+  return (
+    <nav className="dashboard-tabs" role="tablist" aria-label="Clipboard workspace sections">
+      {tabs.map((tab) => (
+        <button
+          className={activeTab === tab.label ? "active" : ""}
+          key={tab.label}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.label}
+          onClick={() => {
+            setActiveTab(tab.label);
+            if (tab.label === "History") window.setTimeout(onHistory, 0);
+          }}
+        >
+          {tab.label}
+          {typeof tab.count === "number" && <span>{tab.count}</span>}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -1731,7 +1807,17 @@ function HistoryItem({ item, isDark, selected, onSelect, onToggleStar }) {
       <Badge tone={item.format.toLowerCase()}>{shortFormat(item.format)}</Badge>
       <span>{formatBytes(textBytes(item.content))}</span>
       <span>{formatAge(item.updatedAt)}</span>
-      <MoreHorizontal className="item-more" size={21} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="item-more" type="button" aria-label={`More actions for ${item.title}`} onClick={(event) => event.stopPropagation()}>
+            <MoreHorizontal size={18} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="utility-menu" align="end">
+          <DropdownMenuItem onSelect={onSelect}>Open clip</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggleStar}>{item.starred ? "Remove favorite" : "Favorite"}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </article>
   );
 }
