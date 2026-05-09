@@ -7,7 +7,6 @@ import {
   Clipboard,
   ClipboardCopy,
   Clock3,
-  Code2,
   Database,
   Download,
   FileInput,
@@ -18,7 +17,6 @@ import {
   Paperclip,
   Pin,
   Search,
-  ShieldCheck,
   Star,
   Sun,
   Tags,
@@ -29,7 +27,6 @@ import {
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./components/ui/dropdown-menu";
-import { ReactBitsBackdrop } from "./components/ReactBitsBackdrop";
 import { useTheme } from "./hooks/useTheme";
 
 const defaultClipboardId = "clip_9f8a7b6c3d2e1f0a";
@@ -1197,7 +1194,6 @@ function ClipboardApp({ clipboardId }) {
 function Shell({ children, isDark }) {
   return (
     <div className={isDark ? "theme-dark vault-theme" : "theme-light vault-theme"}>
-      <ReactBitsBackdrop />
       {children}
     </div>
   );
@@ -1208,38 +1204,6 @@ function LogoMark({ size = "default" }) {
     <div className={`vault-logo ${size === "large" ? "large" : ""}`}>
       <span><Clipboard size={size === "large" ? 36 : 27} /></span>
       <strong>PasteVault</strong>
-    </div>
-  );
-}
-
-function FloatingAmbientCards({ variant }) {
-  const isLanding = variant === "landing";
-  return (
-    <div className={`ambient-cards ${isLanding ? "landing" : "app"}`} aria-hidden="true">
-      <article className="ambient-card card-one">
-        <span className="mini-icon teal"><Link2 size={22} /></span>
-        <strong>{isLanding ? "pvault.link/9f3a7b6c" : "API Response"}</strong>
-        <em>{isLanding ? "Click to open" : "2.4 KB · Just now"}</em>
-      </article>
-      <article className="ambient-card card-two">
-        <span className="mini-icon green"><Lock size={20} /></span>
-        <strong>{isLanding ? "ENCRYPTED" : "Encrypted"}</strong>
-        <em>{isLanding ? "AES-256-GCM" : "1.7 KB · 2d ago"}</em>
-      </article>
-      <article className="ambient-card card-three code">
-        <span className="mini-icon blue"><Code2 size={20} /></span>
-        <pre>{isLanding ? '{\n  "id": "9f3a7b6c",\n  "status": "success"\n}' : "npm run build && npm run deploy"}</pre>
-      </article>
-      <article className="ambient-card card-four">
-        <span className="mini-icon yellow"><FileText size={20} /></span>
-        <strong>{isLanding ? "CLIP IMPORTED" : "Imported notes.txt"}</strong>
-        <em>{isLanding ? "notes.txt · Just now" : "940 B · 1d ago"}</em>
-      </article>
-      <article className="ambient-card card-five">
-        <span className="mini-icon green"><ShieldCheck size={20} /></span>
-        <strong>{isLanding ? "Copied!" : "Clip saved successfully"}</strong>
-        <em>{isLanding ? "Link copied to clipboard" : "Auto-saved"}</em>
-      </article>
     </div>
   );
 }

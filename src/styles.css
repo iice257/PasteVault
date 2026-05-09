@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   font-family: "SF Pro Display", "SF Pro Text", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   color: #090909;
@@ -79,46 +81,6 @@ a {
   --shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
   background: radial-gradient(circle at 60% -10%, rgba(45, 255, 231, 0.09), transparent 28%), var(--bg);
   color: var(--text);
-}
-
-.reactbits-backdrop {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.theme-dark .reactbits-backdrop {
-  opacity: 1;
-}
-
-.reactbits-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 54px 54px;
-  mask-image: radial-gradient(circle at 48% 20%, black, transparent 70%);
-}
-
-.reactbits-orbit {
-  position: absolute;
-  width: 480px;
-  height: 480px;
-  border: 1px solid rgba(20, 216, 198, 0.09);
-  border-radius: 999px;
-  filter: blur(1px);
-}
-
-.reactbits-orbit.one {
-  top: -240px;
-  left: 42%;
-}
-
-.reactbits-orbit.two {
-  right: -280px;
-  bottom: -320px;
 }
 
 .app-frame {
@@ -1879,7 +1841,6 @@ body {
   background: #f8fafc;
 }
 
-.vault-landing,
 .vault-theme {
   min-height: 100vh;
   background:
@@ -1912,21 +1873,8 @@ body {
   display: grid;
   place-items: center;
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, 0.22), rgba(248, 250, 252, 0.18)),
-    url("/landing-background.svg") center / cover no-repeat,
-    #f8fafc;
+  background: url("/landing-background.svg") center / cover no-repeat #f8fafc;
   overflow: hidden;
-}
-
-.vault-landing::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18) 28%, transparent 48%);
 }
 
 .landing-core {
@@ -1934,8 +1882,9 @@ body {
   z-index: 3;
   display: grid;
   justify-items: center;
-  width: min(920px, calc(100vw - 40px));
-  padding: 80px 0 100px;
+  align-self: start;
+  width: min(940px, calc(100vw - 10px));
+  padding: 12px 0 28px;
   text-align: center;
 }
 
@@ -1958,7 +1907,7 @@ body {
 }
 
 .vault-logo strong {
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1;
 }
 
@@ -1978,16 +1927,16 @@ body {
 }
 
 .landing-core h1 {
-  margin: 66px 0 22px;
+  margin: 78px 0 24px;
   color: #050608;
-  font-size: clamp(58px, 6.4vw, 86px);
-  font-weight: 860;
-  line-height: 1.18;
+  font-size: clamp(64px, 7.2vw, 92px);
+  font-weight: 900;
+  line-height: 1.15;
   letter-spacing: 0;
 }
 
 .landing-core p {
-  margin: 0 0 48px;
+  margin: 0 0 58px;
   color: #6b7280;
   font-size: 24px;
   line-height: 1.45;
@@ -1998,16 +1947,16 @@ body {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 18px;
-  width: min(760px, 100%);
-  min-height: 90px;
+  width: min(760px, calc(100vw - 78px));
+  min-height: 92px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.82);
   padding: 10px 14px 10px 32px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 18px 58px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(18px);
 }
 
 .landing-input-shell svg {
@@ -2030,72 +1979,6 @@ body {
   font-size: 18px;
   font-weight: 760;
 }
-
-.ambient-cards {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.ambient-card {
-  position: absolute;
-  display: grid;
-  gap: 8px;
-  min-width: 214px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 22px;
-  color: #111318;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 30px 70px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(20px);
-}
-
-.ambient-card strong {
-  font-size: 15px;
-  font-weight: 760;
-}
-
-.ambient-card em {
-  color: #6b7280;
-  font-size: 13px;
-  font-style: normal;
-}
-
-.ambient-card pre {
-  margin: 0;
-  color: #111827;
-  font: 13px/1.6 "SFMono-Regular", Consolas, monospace;
-  white-space: pre-wrap;
-}
-
-.mini-icon {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-}
-
-.mini-icon.teal { background: rgba(31, 200, 189, 0.13); color: #12aaa0; }
-.mini-icon.green { background: rgba(119, 200, 55, 0.15); color: #70be28; }
-.mini-icon.blue { background: rgba(44, 121, 231, 0.13); color: #2b74df; }
-.mini-icon.yellow { background: rgba(244, 194, 75, 0.18); color: #c98f00; }
-
-.ambient-card.card-one { top: 10%; right: 8%; transform: rotate(7deg); }
-.ambient-card.card-two { top: 28%; left: 2.5%; transform: rotate(-3deg); }
-.ambient-card.card-three { right: 2.5%; bottom: 22%; transform: rotate(-8deg); }
-.ambient-card.card-four { top: 17%; left: -1.5%; transform: rotate(8deg); }
-.ambient-card.card-five { top: 5%; left: 24%; transform: rotate(-7deg); }
-
-.ambient-cards.app .ambient-card.card-one { left: -62px; top: 12%; right: auto; }
-.ambient-cards.app .ambient-card.card-two { right: -30px; top: 42%; left: auto; }
-.ambient-cards.app .ambient-card.card-three { left: 14px; bottom: 11%; right: auto; }
-.ambient-cards.app .ambient-card.card-four { right: 7%; top: 22%; left: auto; }
-.ambient-cards.app .ambient-card.card-five { top: auto; right: 4%; bottom: 9%; left: auto; transform: rotate(0deg); }
 
 .vault-app {
   position: relative;
@@ -2472,14 +2355,14 @@ body {
 
 @media (max-width: 980px) {
   .landing-core {
-    justify-content: start;
-    padding-top: 110px;
+    justify-content: center;
+    padding-top: 12px;
   }
 
   .landing-core h1 {
-    margin-top: 56px;
-    font-size: clamp(48px, 12vw, 76px);
-    line-height: 1.08;
+    margin-top: 78px;
+    font-size: clamp(54px, 8.8vw, 86px);
+    line-height: 1.15;
   }
 
   .landing-input-shell {
@@ -2490,15 +2373,6 @@ body {
   .landing-input-shell .btn {
     min-width: 140px;
     height: 54px;
-  }
-
-  .ambient-card {
-    opacity: 0.8;
-  }
-
-  .ambient-card.card-three,
-  .ambient-card.card-four {
-    display: none;
   }
 
   .vault-app {
@@ -2663,7 +2537,7 @@ body {
     min-height: 100dvh;
     border-radius: 0;
     background-position: center top;
-    background-size: auto 100%;
+    background-size: cover;
   }
 
   .landing-core {
@@ -2912,7 +2786,6 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
 }
 
-.vault-theme.theme-dark .ambient-card,
 .vault-theme.theme-dark .vault-clipboard-card,
 .vault-theme.theme-dark .history-item,
 .vault-theme.theme-dark .utility-panel,
@@ -2925,15 +2798,12 @@ body {
     0 30px 80px rgba(0, 0, 0, 0.36);
 }
 
-.vault-theme.theme-dark .ambient-card strong,
-.vault-theme.theme-dark .ambient-card pre,
 .vault-theme.theme-dark .history-leading h3,
 .vault-theme.theme-dark .vault-bottom-composer input,
 .vault-theme.theme-dark .tag-manager input {
   color: var(--text);
 }
 
-.vault-theme.theme-dark .ambient-card em,
 .vault-theme.theme-dark .vault-card-head p,
 .vault-theme.theme-dark .history-item > span,
 .vault-theme.theme-dark .history-leading p,
@@ -3115,10 +2985,6 @@ body {
 }
 
 @media (max-width: 980px) {
-  .ambient-cards.app {
-    display: none;
-  }
-
   .details-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3150,11 +3016,6 @@ body {
 
 .vault-theme.theme-dark .dashboard-app {
   background: #0a0d12;
-}
-
-.dashboard-app .reactbits-backdrop,
-.dashboard-app .ambient-cards {
-  display: none;
 }
 
 .dashboard-content {

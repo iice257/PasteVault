@@ -169,7 +169,7 @@
     <path d="M76 850h28l12 12v34H76zM104 850v12h12M84 878h24M84 888h17" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="1790" cy="720" r="35" fill="#FFFFFF" stroke="#E2E8F0"/>
     <text x="1773" y="732" font-family="SF Mono, Consolas, monospace" font-size="30" font-weight="700" fill="#475569">{}</text>
-    <circle cx="468" cy="124" r="34" fill="#FFFFFF" stroke="#E2E8F0"/>
-    <path d="M456 124l26-26a16 16 0 1 1 23 23l-7 7M480 148l-5 5a16 16 0 0 1-23-23l26-26" stroke="#475569" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <circle cx="390" cy="126" r="34" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <path d="M378 126l26-26a16 16 0 1 1 23 23l-7 7M402 150l-5 5a16 16 0 0 1-23-23l26-26" stroke="#475569" stroke-width="4" fill="none" stroke-linecap="round"/>
   </g>
 </svg>

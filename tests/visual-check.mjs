@@ -21,6 +21,10 @@ const landingCards = await page.locator(".vault-landing .ambient-card").count();
 if (landingCards !== 0) {
   throw new Error(`Expected landing background image to replace old card artifacts, found ${landingCards} rendered cards.`);
 }
+const retiredArtifacts = await page.locator(".ambient-card, .ambient-cards, .reactbits-backdrop").count();
+if (retiredArtifacts !== 0) {
+  throw new Error(`Expected retired artifact layers to be removed from the DOM, found ${retiredArtifacts}.`);
+}
 const landingBackground = await page.locator(".vault-landing").evaluate((element) => getComputedStyle(element).backgroundImage);
 if (!landingBackground.includes("landing-background.svg")) {
   throw new Error("Expected landing to use the single landing background image asset.");
