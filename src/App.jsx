@@ -479,7 +479,6 @@ function LandingExperience() {
 
   return (
     <div className="vault-landing">
-      <FloatingAmbientCards variant="landing" />
       <main className="landing-core">
         <LogoMark size="large" />
         <h1>The fastest way to<br />move text between devices</h1>

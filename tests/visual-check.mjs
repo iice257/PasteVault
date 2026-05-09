@@ -13,9 +13,17 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, de
 await page.addInitScript(() => window.localStorage.setItem("pastevault-theme", "dark"));
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.screenshot({ path: join(outputDir, "root.png"), fullPage: true });
-const landingRegions = await page.locator(".vault-landing, .landing-input-shell, .ambient-card").count();
-if (landingRegions < 3) {
+const landingRegions = await page.locator(".vault-landing, .landing-input-shell").count();
+if (landingRegions !== 2) {
   throw new Error(`Expected paste-first landing experience, found ${landingRegions} landing regions.`);
+}
+const landingCards = await page.locator(".vault-landing .ambient-card").count();
+if (landingCards !== 0) {
+  throw new Error(`Expected landing background image to replace old card artifacts, found ${landingCards} rendered cards.`);
+}
+const landingBackground = await page.locator(".vault-landing").evaluate((element) => getComputedStyle(element).backgroundImage);
+if (!landingBackground.includes("landing-background.svg")) {
+  throw new Error("Expected landing to use the single landing background image asset.");
 }
 
 for (const theme of ["dark", "light"]) {

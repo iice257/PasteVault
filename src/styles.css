@@ -1912,12 +1912,26 @@ body {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.22), rgba(248, 250, 252, 0.18)),
+    url("/landing-background.svg") center / cover no-repeat,
+    #f8fafc;
   overflow: hidden;
+}
+
+.vault-landing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18) 28%, transparent 48%);
 }
 
 .landing-core {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   display: grid;
   justify-items: center;
   width: min(920px, calc(100vw - 40px));
@@ -2648,6 +2662,8 @@ body {
   .vault-landing {
     min-height: 100dvh;
     border-radius: 0;
+    background-position: center top;
+    background-size: auto 100%;
   }
 
   .landing-core {

@@ -1,0 +1,175 @@
+<svg width="1800" height="1000" viewBox="0 0 1800 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#64748B" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#64748B" flood-opacity="0.08"/>
+    </filter>
+    <filter id="strongShadow" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#111827" flood-opacity="0.22"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#111827" flood-opacity="0.12"/>
+    </filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2F6FB"/>
+      <stop offset="0.28" stop-color="#FFFFFF"/>
+      <stop offset="0.58" stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#EEF3F9"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#F8FAFC" stop-opacity="0.72"/>
+    </linearGradient>
+    <linearGradient id="terminal" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#333B46"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="sticky" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFBE5"/>
+      <stop offset="1" stop-color="#F4E8A8"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#5EEAD4"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#79A7FF"/>
+      <stop offset="1" stop-color="#0B7CFF"/>
+    </linearGradient>
+    <linearGradient id="lime" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#E7F74E"/>
+      <stop offset="1" stop-color="#9BD41B"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1800" height="1000" fill="url(#bg)"/>
+  <ellipse cx="296" cy="134" rx="360" ry="190" fill="#E7EEF8" opacity="0.46"/>
+  <ellipse cx="1518" cy="292" rx="312" ry="188" fill="#E8EFF8" opacity="0.5"/>
+  <ellipse cx="878" cy="838" rx="440" ry="150" fill="#E9EEF6" opacity="0.42"/>
+
+  <g transform="translate(44 52) rotate(-4)" filter="url(#shadow)">
+    <rect width="334" height="208" rx="24" fill="url(#glass)" stroke="#E2E8F0"/>
+    <text x="42" y="48" font-family="SF Pro Display, Inter, Arial" font-size="16" font-weight="700" fill="#111827">API Response</text>
+    <rect x="250" y="26" width="42" height="20" rx="6" fill="#DDF7F5" stroke="#B8E8E6"/>
+    <text x="260" y="41" font-family="SF Mono, Consolas, monospace" font-size="10" font-weight="700" fill="#06A7A3">JSON</text>
+    <path d="M311 28h11v13h-11zM306 35h11v13h-11z" stroke="#64748B" stroke-width="2" fill="none" stroke-linejoin="round"/>
+    <line x1="42" y1="74" x2="292" y2="74" stroke="#E5EAF1"/>
+    <text x="48" y="112" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#64748B">1</text>
+    <text x="48" y="142" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#64748B">2</text>
+    <text x="48" y="172" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#64748B">3</text>
+    <text x="84" y="112" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#334155">{</text>
+    <text x="108" y="142" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#334155">"status": </text>
+    <text x="196" y="142" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#039855">"success"</text>
+    <text x="108" y="172" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#334155">"code": </text>
+    <text x="180" y="172" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#2563EB">200</text>
+  </g>
+
+  <g transform="translate(35 315) rotate(-6)" filter="url(#shadow)">
+    <rect width="220" height="82" rx="18" fill="url(#glass)" stroke="#E2E8F0"/>
+    <path d="M35 42h26v22H35zM41 42V32a7 7 0 0 1 14 0v10" stroke="#6AC51D" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <text x="90" y="36" font-family="SF Pro Display, Inter, Arial" font-size="16" font-weight="700" fill="#111827">Encrypted</text>
+    <text x="90" y="60" font-family="SF Pro Text, Inter, Arial" font-size="13" fill="#64748B">AES-256-GCM</text>
+    <path d="M191 33l17 6v18c0 10-8 16-17 20-9-4-17-10-17-20V39l17-6z" stroke="#6AC51D" stroke-width="3" fill="none"/>
+  </g>
+
+  <g transform="translate(66 455) rotate(2)" filter="url(#shadow)">
+    <rect width="250" height="94" rx="20" fill="url(#glass)" stroke="#E2E8F0"/>
+    <path d="M38 27h30v42H38zM68 48h34M91 36l13 12-13 12" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="112" y="43" font-family="SF Pro Display, Inter, Arial" font-size="15" font-weight="700" fill="#111827">Sent to MacBook Pro</text>
+    <text x="112" y="66" font-family="SF Pro Text, Inter, Arial" font-size="13" fill="#64748B">Open on another device</text>
+    <circle cx="226" cy="66" r="5" fill="#7CCB25"/>
+  </g>
+
+  <g transform="translate(30 628) rotate(-6)" filter="url(#shadow)">
+    <rect width="260" height="202" rx="22" fill="url(#glass)" stroke="#E2E8F0"/>
+    <rect x="24" y="28" width="38" height="38" rx="10" fill="#FEF3C7"/>
+    <text x="33" y="52" font-family="SF Mono, Consolas, monospace" font-size="12" font-weight="700" fill="#D99B00">TXT</text>
+    <text x="78" y="43" font-family="SF Pro Display, Inter, Arial" font-size="15" font-weight="700" fill="#111827">Meeting notes</text>
+    <text x="78" y="65" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">1.1 KB   ·   2h ago</text>
+    <path d="M224 28v20M214 38h20" stroke="#11B6B0" stroke-width="4" stroke-linecap="round"/>
+    <rect x="24" y="92" width="210" height="78" rx="8" fill="#F8FAFC" stroke="#E5EAF1"/>
+    <text x="40" y="118" font-family="SF Mono, Consolas, monospace" font-size="12" fill="#475569">· Q2 roadmap discussion</text>
+    <text x="40" y="141" font-family="SF Mono, Consolas, monospace" font-size="12" fill="#475569">· User authentication</text>
+    <text x="40" y="164" font-family="SF Mono, Consolas, monospace" font-size="12" fill="#475569">· Real-time sync</text>
+  </g>
+
+  <g transform="translate(335 755) rotate(-4)" filter="url(#strongShadow)">
+    <rect width="282" height="150" rx="20" fill="url(#terminal)"/>
+    <circle cx="30" cy="24" r="7" fill="#FF5F57"/>
+    <circle cx="54" cy="24" r="7" fill="#FFBD2E"/>
+    <circle cx="78" cy="24" r="7" fill="#28C840"/>
+    <text x="232" y="34" font-family="SF Mono, Consolas, monospace" font-size="13" fill="#CBD5E1">bash</text>
+    <text x="30" y="72" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#5EEAD4">$</text>
+    <text x="52" y="72" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#E5E7EB">npm run build</text>
+    <text x="30" y="100" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#E5E7EB">&gt; vite build</text>
+    <text x="30" y="130" font-family="SF Mono, Consolas, monospace" font-size="15" fill="#67E88B">✓ built in 1.23s</text>
+  </g>
+
+  <g transform="translate(694 848) rotate(4)" filter="url(#shadow)">
+    <rect width="260" height="96" rx="18" fill="#FFFFFF" fill-opacity="0.62" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="10 8"/>
+    <path d="M56 30h25l16 16v30H56zM81 30v16h16" stroke="#475569" stroke-width="3" fill="none" stroke-linejoin="round"/>
+    <text x="114" y="50" font-family="SF Pro Display, Inter, Arial" font-size="15" font-weight="700" fill="#111827">Drop a file to import</text>
+    <text x="114" y="74" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">.txt, .json, .md up to 10MB</text>
+  </g>
+
+  <g transform="translate(1345 40) rotate(6)" filter="url(#shadow)">
+    <rect width="316" height="76" rx="18" fill="url(#glass)" stroke="#E2E8F0"/>
+    <circle cx="38" cy="38" r="18" fill="#7ED321"/>
+    <path d="M28 38l8 8 15-19" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="74" y="35" font-family="SF Pro Display, Inter, Arial" font-size="16" font-weight="700" fill="#111827">Copied!</text>
+    <text x="74" y="58" font-family="SF Pro Text, Inter, Arial" font-size="13" fill="#64748B">Link copied to clipboard</text>
+    <path d="M287 32l12 12M299 32l-12 12" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(1482 178) rotate(4)" filter="url(#shadow)">
+    <rect width="280" height="108" rx="22" fill="url(#glass)" stroke="#E2E8F0"/>
+    <path d="M34 55l29-29a18 18 0 0 1 25 25l-7 7M58 80l-5 5a18 18 0 0 1-25-25l29-29" stroke="#0EA5A7" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <text x="92" y="42" font-family="SF Pro Display, Inter, Arial" font-size="16" fill="#111827">One-time link</text>
+    <text x="92" y="68" font-family="SF Mono, Consolas, monospace" font-size="14" font-weight="700" fill="#069B9A">pvlt.link/9f3a7b6c</text>
+    <text x="92" y="91" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">Expires in 7 days</text>
+  </g>
+
+  <g transform="translate(1560 360) rotate(-8)" filter="url(#shadow)">
+    <rect width="236" height="188" rx="22" fill="url(#glass)" stroke="#E2E8F0"/>
+    <rect x="20" y="28" width="42" height="42" rx="10" fill="#F1F5F9"/>
+    <text x="30" y="54" font-family="SF Mono, Consolas, monospace" font-size="12" font-weight="700" fill="#64748B">TXT</text>
+    <text x="78" y="46" font-family="SF Pro Display, Inter, Arial" font-size="16" font-weight="700" fill="#111827">Imported notes.txt</text>
+    <text x="78" y="70" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">940 B   ·   Just now</text>
+    <rect x="20" y="96" width="196" height="70" rx="8" fill="#F8FAFC" stroke="#E5EAF1"/>
+    <text x="36" y="118" font-family="SF Mono, Consolas, monospace" font-size="11" fill="#475569">Project ideas</text>
+    <text x="36" y="139" font-family="SF Mono, Consolas, monospace" font-size="11" fill="#475569">- Offline support</text>
+    <text x="36" y="158" font-family="SF Mono, Consolas, monospace" font-size="11" fill="#475569">- Encrypted storage</text>
+  </g>
+
+  <g transform="translate(1494 600) rotate(8)" filter="url(#shadow)">
+    <rect width="235" height="244" rx="24" fill="url(#sticky)" stroke="#EEDC8A"/>
+    <text x="30" y="42" font-family="SF Pro Text, Inter, Arial" font-size="12" font-weight="700" fill="#64748B">QUICK IDEA</text>
+    <text x="32" y="95" font-family="Comic Sans MS, Bradley Hand, cursive" font-size="22" fill="#111827">A universal clipboard</text>
+    <text x="32" y="126" font-family="Comic Sans MS, Bradley Hand, cursive" font-size="22" fill="#111827">that just works,</text>
+    <text x="32" y="157" font-family="Comic Sans MS, Bradley Hand, cursive" font-size="22" fill="#111827">anywhere.</text>
+    <text x="30" y="218" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">Today, 9:41 AM</text>
+    <path d="M214 20l22-22M221 27l-14-14" stroke="#86C928" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(1478 875)" filter="url(#shadow)">
+    <rect width="340" height="80" rx="18" fill="url(#glass)" stroke="#E2E8F0"/>
+    <circle cx="42" cy="40" r="19" fill="#EFF6FF"/>
+    <path d="M42 21a19 19 0 1 0 0 38 19 19 0 0 0 0-38zM23 40h38M42 21c8 8 8 30 0 38M42 21c-8 8-8 30 0 38" stroke="#1A73E8" stroke-width="2.5" fill="none"/>
+    <text x="82" y="34" font-family="SF Pro Display, Inter, Arial" font-size="16" font-weight="700" fill="#111827">Link preview</text>
+    <text x="82" y="58" font-family="SF Pro Text, Inter, Arial" font-size="13" fill="#64748B">pastebin.com/raw/xyz123</text>
+    <path d="M311 30l12 10-12 10" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g filter="url(#strongShadow)">
+    <circle cx="1262" cy="120" r="30" fill="url(#teal)"/>
+    <path d="M1248 119h28v24h-28zM1255 119v-8h14v8M1255 131h14M1255 138h10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="1517" cy="356" r="28" fill="url(#lime)"/>
+    <path d="M1505 356h25v20h-25zM1511 356v-9a7 7 0 0 1 14 0v9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="1058" cy="895" r="30" fill="url(#teal)"/>
+    <text x="1038" y="905" font-family="SF Mono, Consolas, monospace" font-size="24" font-weight="700" fill="#fff">&lt;/&gt;</text>
+    <circle cx="90" cy="870" r="34" fill="url(#blue)"/>
+    <path d="M76 850h28l12 12v34H76zM104 850v12h12M84 878h24M84 888h17" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="1790" cy="720" r="35" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="1773" y="732" font-family="SF Mono, Consolas, monospace" font-size="30" font-weight="700" fill="#475569">{}</text>
+    <circle cx="468" cy="124" r="34" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <path d="M456 124l26-26a16 16 0 1 1 23 23l-7 7M480 148l-5 5a16 16 0 0 1-23-23l26-26" stroke="#475569" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
