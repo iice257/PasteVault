@@ -8,12 +8,11 @@ import {
   Clock3,
   Download,
   FileInput,
-  HelpCircle,
   Link2,
+  Lock,
   MoreHorizontal,
   Pin,
   Search,
-  Settings,
   Star,
   Sun,
   Trash2,
@@ -24,6 +23,7 @@ import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./components/ui/dropdown-menu";
 import { ReactBitsBackdrop } from "./components/ReactBitsBackdrop";
+import { useTheme } from "./hooks/useTheme";
 
 const sampleJson = `{
   "name": "Alice Johnson",
@@ -47,14 +47,32 @@ const historyItems = [
 
 const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown"];
 const sortOptions = ["Newest", "Oldest", "Largest", "Smallest", "Recently updated"];
+const defaultClipboardId = "clip_9f8a7b6c3d2e1f0a";
+
+function getClipboardId() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  const match = path.match(/^\/clip\/([^/]+)$/);
+
+  if (!match) {
+    return defaultClipboardId;
+  }
+
+  try {
+    return decodeURIComponent(match[1]) || defaultClipboardId;
+  } catch {
+    return defaultClipboardId;
+  }
+}
 
 function App() {
-  const initialTheme = new URLSearchParams(window.location.search).get("theme") === "light" ? "light" : "dark";
-  const [theme, setTheme] = useState(initialTheme);
+  return <ClipboardApp clipboardId={getClipboardId()} />;
+}
+
+function ClipboardApp({ clipboardId }) {
+  const { isDark, toggleTheme } = useTheme();
   const [format, setFormat] = useState("JSON");
   const [sort, setSort] = useState("Newest");
   const [toastVisible, setToastVisible] = useState(true);
-  const isDark = theme === "dark";
 
   const visibleItems = useMemo(() => (isDark ? historyItems.slice(0, 6) : historyItems), [isDark]);
 
@@ -64,14 +82,14 @@ function App() {
       <div className="app-frame">
         <Sidebar />
         <main className="app-main">
-        <Header onThemeChange={() => setTheme(isDark ? "light" : "dark")} />
+          <Header clipboardId={clipboardId} isDark={isDark} onThemeChange={toggleTheme} />
           <div className="content-grid">
             <section className="workspace-panel">
-              <EditorCard format={format} setFormat={setFormat} isDark={isDark} />
+              <EditorCard clipboardId={clipboardId} format={format} setFormat={setFormat} isDark={isDark} />
               <HistoryPanel items={visibleItems} sort={sort} setSort={setSort} isDark={isDark} />
               {!isDark && <ImportDropzone />}
             </section>
-            <DetailsPanel isDark={isDark} />
+            <DetailsPanel clipboardId={clipboardId} isDark={isDark} />
           </div>
         </main>
         {toastVisible && isDark && (
@@ -108,14 +126,6 @@ function Sidebar() {
         ))}
       </div>
       <div className="sidebar-bottom">
-        <button className="nav-item" type="button">
-          <Settings size={22} />
-          <span>Settings</span>
-        </button>
-        <button className="nav-item" type="button">
-          <HelpCircle size={22} />
-          <span>Help</span>
-        </button>
         <div className="storage-card">
           <span>Storage</span>
           <strong>2.4 MB <em>/ 10 MB</em></strong>
@@ -129,43 +139,58 @@ function Sidebar() {
   );
 }
 
-function Header({ onThemeChange }) {
+function Header({ clipboardId, isDark, onThemeChange }) {
   return (
     <header className="header">
       <div className="brand">
         <div className="brand-icon">
           <Clipboard size={24} />
         </div>
-        <h1>Modern Online Clipboard</h1>
+        <div>
+          <h1>PasteVault</h1>
+          <span className="clipboard-route">/clip/{clipboardId}</span>
+        </div>
       </div>
       <div className="header-actions">
         <span className="saved-state">
           <Check size={18} />
-          All changes saved
+          Link clipboard saved
         </span>
+        <button className="password-pill" type="button">
+          <Lock size={16} />
+          Password optional
+        </button>
         <kbd>Cmd K</kbd>
-        <button className="round-action" type="button" onClick={onThemeChange} aria-label="Toggle theme">
+        <button className="round-action" type="button" onClick={onThemeChange} aria-label="Toggle theme" aria-pressed={!isDark}>
           <Sun size={22} />
         </button>
-        <button className="avatar" type="button" aria-label="Account">D</button>
-        <ChevronDown size={18} />
       </div>
     </header>
   );
 }
 
-function EditorCard({ format, setFormat, isDark }) {
+function EditorCard({ clipboardId, format, setFormat, isDark }) {
   return (
     <section className="editor-card">
       {isDark && (
         <label className="title-field">
-          <span>Title (optional)</span>
+          <span>Clipboard title</span>
           <div>
             <input value="Create user endpoint" readOnly />
             <em>23 / 120</em>
           </div>
         </label>
       )}
+      <div className="link-context">
+        <label>
+          <span>Clipboard ID</span>
+          <input value={clipboardId} readOnly />
+        </label>
+        <label>
+          <span>Password</span>
+          <input value="" readOnly placeholder="Optional" />
+        </label>
+      </div>
       <div className="section-title-row">
         <h2>Paste anything</h2>
         <DropdownMenu>
@@ -213,7 +238,7 @@ function EditorCard({ format, setFormat, isDark }) {
         </Button>
         <Button className="share-draft">
           <Link2 size={18} />
-          Share draft
+          Copy link
         </Button>
       </div>
     </section>
@@ -313,7 +338,7 @@ function HistoryItem({ item, isDark }) {
   );
 }
 
-function DetailsPanel({ isDark }) {
+function DetailsPanel({ clipboardId, isDark }) {
   return (
     <aside className="details-panel">
       <div className="details-title-row">
@@ -326,7 +351,7 @@ function DetailsPanel({ isDark }) {
       <div className="clip-heading">
         <h3>Create user endpoint</h3>
         <p>
-          Just now <span /> JSON <span /> 256 B {isDark ? "" : "  •  2.4 KB"}
+          {clipboardId} <span /> JSON <span /> 256 B {isDark ? "" : " - 2.4 KB"}
         </p>
       </div>
       <div className="details-actions">
@@ -336,7 +361,7 @@ function DetailsPanel({ isDark }) {
         </Button>
         <Button>
           <Link2 size={18} />
-          Share
+          Copy link
         </Button>
         <Button variant="danger">
           <Trash2 size={18} />
@@ -355,7 +380,8 @@ function DetailsPanel({ isDark }) {
         <div><dt>Characters</dt><dd>126</dd></div>
         <div><dt>Lines</dt><dd>7</dd></div>
         <div><dt>Pinned</dt><dd>Yes</dd></div>
-        <div><dt>ID</dt><dd>clip_9f8a7b6c3d2e1f0a</dd></div>
+        <div><dt>ID</dt><dd>{clipboardId}</dd></div>
+        <div><dt>Password</dt><dd>Optional, not set</dd></div>
         <div className="tags-row">
           <dt>Tags</dt>
           <dd>

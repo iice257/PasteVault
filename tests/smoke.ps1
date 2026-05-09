@@ -8,8 +8,7 @@ $required = @(
   "src/styles.css",
   "src/components/ui/button.jsx",
   "src/components/ui/dropdown-menu.jsx",
-  "manifest.webmanifest",
-  "sw.js"
+  "manifest.webmanifest"
 )
 
 foreach ($file in $required) {
@@ -39,8 +38,10 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
   "theme-dark",
   "theme-light",
   "ReactBitsBackdrop",
+  "Password optional",
+  "Clipboard ID",
   "Selected clip",
-  "Share draft",
+  "Copy link",
   "Clip saved successfully"
 ) | ForEach-Object {
   if ($app -notmatch [regex]::Escape($_)) {

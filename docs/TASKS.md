@@ -7,13 +7,12 @@
 - Add one-tap composer actions.
 - Add searchable and sortable history.
 - Add selected clip detail panel.
-- Add share-link import/export flows.
-- Add offline service worker.
+- Add copy-link oriented UI.
 - Add smoke test.
 
 ## Next
 
 - Add QR code generation without external services.
-- Add optional passphrase encryption for share links.
-- Add hosted realtime room mode.
+- Add optional password protection for `/clip/:id`.
+- Add hosted realtime clipboard storage.
 - Add Playwright browser checks once a browser runner is available.

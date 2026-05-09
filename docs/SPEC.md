@@ -6,7 +6,7 @@ Calm utility, immediate action, no fake productivity chrome. The composer, histo
 
 ## Primary Workspace
 
-The app opens directly to a clipboard composer with Save, Paste, Copy latest, and Share draft controls. History is searchable, sortable, persistent, and detail actions are one tap away.
+The app opens directly to a clipboard composer with Save, Paste, Copy latest, and Copy link controls. History is searchable, sortable, persistent, and detail actions are one tap away.
 
 ## Interaction Thesis
 
@@ -28,17 +28,27 @@ Clip:
 
 Persistence uses IndexedDB. Share links encode a single clip in the URL hash so the server never sees clipboard contents.
 
+Clipboard:
+
+- `id`
+- `passwordHash` optional
+- `createdAt`
+- `updatedAt`
+- `clips`
+
+The product architecture is link-first: `/clip/:id` is the workspace context, and an optional password protects the clipboard when backend storage is connected. There are no accounts.
+
 ## MVP
 
 - Durable local clipboard history.
-- One-tap save, paste, copy latest, copy selected, share selected, and delete.
+- One-tap save, paste, copy latest, copy selected, copy link, and delete.
 - Deduplication by exact text.
 - Search, sort, pin, import, export.
-- Installable/offline static app shell.
+- Responsive desktop and mobile clipboard workspace.
 
 ## Later
 
-- Optional encrypted realtime rooms.
+- Optional password-protected realtime clipboards.
 - QR codes for quick phone-to-laptop transfer.
 - File/image clips.
 - Browser extension capture.
