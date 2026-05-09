@@ -13,22 +13,22 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, de
 await page.addInitScript(() => window.localStorage.setItem("pastevault-theme", "dark"));
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.screenshot({ path: join(outputDir, "root.png"), fullPage: true });
-const rootRegions = await page.locator(".sidebar, .editor-card, .history-panel, .details-panel").count();
-if (rootRegions !== 4) {
-  throw new Error(`Expected unified clipboard app on the root route, found ${rootRegions} primary regions.`);
+const landingRegions = await page.locator(".vault-landing, .landing-input-shell, .ambient-card").count();
+if (landingRegions < 3) {
+  throw new Error(`Expected paste-first landing experience, found ${landingRegions} landing regions.`);
 }
 
 for (const theme of ["dark", "light"]) {
   await page.addInitScript((value) => window.localStorage.setItem("pastevault-theme", value), theme);
   await page.goto(`${baseUrl}/clip/visual-check-board`, { waitUntil: "networkidle" });
   await page.screenshot({ path: join(outputDir, `${theme}.png`), fullPage: true });
-  const checks = await page.locator(".sidebar, .editor-card, .history-panel, .details-panel").count();
-  if (checks !== 4) {
-    throw new Error(`Expected 4 primary UI regions in ${theme} mode, found ${checks}.`);
+  const checks = await page.locator(".vault-clipboard-card, .editor-card, .history-panel").count();
+  if (checks !== 3) {
+    throw new Error(`Expected 3 primary clipboard regions in ${theme} mode, found ${checks}.`);
   }
-  const routeLabel = await page.locator(".clipboard-route").textContent();
-  if (routeLabel !== "/clip/visual-check-board") {
-    throw new Error(`Expected deep-link clipboard id in ${theme} mode, found ${routeLabel}.`);
+  const heading = await page.locator(".vault-card-head h1").textContent();
+  if (heading !== "Clipboard visual-check...") {
+    throw new Error(`Expected deep-link clipboard id in ${theme} mode, found ${heading}.`);
   }
 }
 

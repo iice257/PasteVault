@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
+  ArrowRight,
   Check,
   ChevronDown,
   Clipboard,
   ClipboardCopy,
   Clock3,
+  Code2,
   Download,
   FileInput,
+  FileText,
   Link2,
   Lock,
   MoreHorizontal,
+  Paperclip,
   Pin,
   Search,
+  ShieldCheck,
   Star,
   Sun,
   Trash2,
@@ -432,7 +437,80 @@ async function copyText(value) {
 }
 
 function App() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+
+  if (path === "/") {
+    return <LandingExperience />;
+  }
+
   return <ClipboardApp clipboardId={getClipboardId()} />;
+}
+
+function LandingExperience() {
+  const [entry, setEntry] = useState("");
+
+  const openClipboard = useCallback((overrideValue) => {
+    const value = (overrideValue ?? entry).trim();
+    if (!value) {
+      window.location.href = `/clip/${defaultClipboardId}`;
+      return;
+    }
+
+    const linkMatch = value.match(/(?:\/clip\/|^)([a-zA-Z0-9_-]{3,80})$/);
+    if (linkMatch && value.length <= 140) {
+      window.location.href = `/clip/${encodeURIComponent(linkMatch[1])}`;
+      return;
+    }
+
+    const clipboardId = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+    const format = value.startsWith("{") || value.startsWith("[") ? "JSON" : "Plain text";
+    const clip = createClip({ title: inferTitle(value, format), content: value, format, pinned: true });
+    saveRecord(clipboardId, {
+      version: appVersion,
+      id: clipboardId,
+      updatedAt: nowIso(),
+      protection: null,
+      payload: { clips: [clip], selectedId: clip.id }
+    });
+    window.location.href = `/clip/${clipboardId}`;
+  }, [entry]);
+
+  return (
+    <div className="vault-landing">
+      <FloatingAmbientCards variant="landing" />
+      <main className="landing-core">
+        <LogoMark size="large" />
+        <h1>The fastest way to<br />move text between devices</h1>
+        <p>Paste once. Open the link anywhere. Optional password. No account.</p>
+        <form
+          className="landing-input-shell"
+          onSubmit={(event) => {
+            event.preventDefault();
+            openClipboard();
+          }}
+        >
+          <Clipboard size={25} />
+          <input
+            value={entry}
+            placeholder="Paste something or enter a clipboard link"
+            onChange={(event) => setEntry(event.target.value)}
+            onPaste={(event) => {
+              const pasted = event.clipboardData.getData("text");
+              if (pasted.trim()) {
+                event.preventDefault();
+                setEntry(pasted);
+                window.setTimeout(() => openClipboard(pasted), 0);
+              }
+            }}
+          />
+          <Button variant="primary" type="submit">
+            Open clipboard
+            <ArrowRight size={24} />
+          </Button>
+        </form>
+      </main>
+    </div>
+  );
 }
 
 function ClipboardApp({ clipboardId }) {
@@ -462,6 +540,7 @@ function ClipboardApp({ clipboardId }) {
   const [cryptoKey, setCryptoKey] = useState(null);
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "Local saved");
+  const shortClipboardId = clipboardId.length > 12 ? `${clipboardId.slice(0, 12)}...` : clipboardId;
 
   const selectedClip = useMemo(
     () => clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null,
@@ -819,10 +898,14 @@ function ClipboardApp({ clipboardId }) {
         clips: decrypted.clips.map(normalizeClip).filter(Boolean),
         selectedId: decrypted.selectedId
       };
+      const nextSelected = normalized.clips.find((clip) => clip.id === normalized.selectedId) ?? normalized.clips[0] ?? null;
       setCryptoKey(key);
       setLocked(false);
       setClips(normalized.clips);
-      setSelectedId(normalized.selectedId ?? normalized.clips[0]?.id ?? null);
+      setSelectedId(nextSelected?.id ?? null);
+      setDraftTitle(nextSelected?.title ?? "");
+      setDraftContent(nextSelected?.content ?? "");
+      setFormat(nextSelected?.format ?? "JSON");
       setPasswordInput("");
       setPasswordPanelOpen(false);
       showToast("Clipboard unlocked");
@@ -845,7 +928,9 @@ function ClipboardApp({ clipboardId }) {
       return;
     }
     try {
-      const protectedRecord = await buildProtectedRecord(clipboardId, payload, passwordInput);
+      const latestRecord = loadRecord(clipboardId);
+      const latestPayload = latestRecord.payload ?? payload;
+      const protectedRecord = await buildProtectedRecord(clipboardId, latestPayload, passwordInput);
       saveRecord(clipboardId, protectedRecord.record);
       void pushRemoteRecord(clipboardId, protectedRecord.record)
         .then(() => setSyncStatus("Cloud saved"))
@@ -919,20 +1004,14 @@ function ClipboardApp({ clipboardId }) {
 
   return (
     <Shell isDark={isDark}>
-      <div className="app-frame">
-        <Sidebar
-          mode={mode}
-          setMode={setMode}
-          onImport={() => fileRef.current?.click()}
-          onExport={() => exportClipboard(clipboardId, payload)}
-          storageUsage={storageUsage}
-          storagePercent={stats.storagePercent}
-        />
-        <main className="app-main">
+      <div className="vault-app">
+        <FloatingAmbientCards variant="app" />
+        <main className="vault-app-main">
           <Header
             clipboardId={clipboardId}
             isDark={isDark}
             onThemeChange={toggleTheme}
+            onCopyLink={handleCopyLink}
             syncStatus={syncStatus}
             passwordPanelOpen={passwordPanelOpen}
             setPasswordPanelOpen={setPasswordPanelOpen}
@@ -952,8 +1031,23 @@ function ClipboardApp({ clipboardId }) {
           {locked ? (
             <PasswordGate passwordInput={passwordInput} setPasswordInput={setPasswordInput} onUnlock={handleUnlock} error={error} />
           ) : (
-            <div className="content-grid">
-              <section className="workspace-panel">
+            <>
+              <section className="vault-clipboard-card">
+                <div className="vault-card-head">
+                  <div>
+                    <h1>Clipboard {shortClipboardId}</h1>
+                    <p>
+                      <span className="status-dot" /> Saved
+                      <span /> {format}
+                      <span /> {formatBytes(stats.bytes)}
+                      <span /> <Lock size={13} /> Password optional
+                    </p>
+                  </div>
+                  <div className="vault-card-actions">
+                    <span><Check size={17} /> {syncStatus}</span>
+                    <button type="button" aria-label="More actions"><MoreHorizontal size={22} /></button>
+                  </div>
+                </div>
                 <EditorCard
                   clipboardId={clipboardId}
                   draftTitle={draftTitle}
@@ -972,6 +1066,8 @@ function ClipboardApp({ clipboardId }) {
                   onCopyLatest={handleCopyLatest}
                   onCopyLink={handleCopyLink}
                 />
+              </section>
+              <div className="vault-history-row">
                 <HistoryPanel
                   items={filteredItems}
                   selectedId={selectedClip?.id}
@@ -987,8 +1083,7 @@ function ClipboardApp({ clipboardId }) {
                   onSelect={selectClip}
                   onToggleStar={(clip) => replaceClips(clips.map((item) => item.id === clip.id ? { ...item, starred: !item.starred } : item), clip.id)}
                 />
-                {!isDark && <ImportDropzone onImport={() => fileRef.current?.click()} />}
-              </section>
+              </div>
               <DetailsPanel
                 clipboardId={clipboardId}
                 clip={selectedClip}
@@ -1003,9 +1098,30 @@ function ClipboardApp({ clipboardId }) {
                 onAddTag={handleAddTag}
                 onRemoveTag={handleRemoveTag}
               />
-            </div>
+              <div className="vault-bottom-composer">
+                <input
+                  value={draftContent}
+                  placeholder="Paste or type..."
+                  onChange={(event) => setDraftContent(event.target.value)}
+                />
+                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach file">
+                  <Paperclip size={31} />
+                </button>
+                <Button variant="primary" onClick={handleSave}>Save</Button>
+              </div>
+            </>
           )}
         </main>
+        <div className="vault-hidden-controls" aria-hidden="true">
+          <Sidebar
+            mode={mode}
+            setMode={setMode}
+            onImport={() => fileRef.current?.click()}
+            onExport={() => exportClipboard(clipboardId, payload)}
+            storageUsage={storageUsage}
+            storagePercent={stats.storagePercent}
+          />
+        </div>
         <input ref={fileRef} type="file" accept=".txt,.json,.csv,.md,.html" className="file-input" onChange={handleImportFile} />
         {toast && (
           <div className="toast" role="status">
@@ -1023,9 +1139,50 @@ function ClipboardApp({ clipboardId }) {
 
 function Shell({ children, isDark }) {
   return (
-    <div className={isDark ? "theme-dark" : "theme-light"}>
+    <div className={isDark ? "theme-dark vault-theme" : "theme-light vault-theme"}>
       <ReactBitsBackdrop />
       {children}
+    </div>
+  );
+}
+
+function LogoMark({ size = "default" }) {
+  return (
+    <div className={`vault-logo ${size === "large" ? "large" : ""}`}>
+      <span><Clipboard size={size === "large" ? 36 : 27} /></span>
+      <strong>PasteVault</strong>
+    </div>
+  );
+}
+
+function FloatingAmbientCards({ variant }) {
+  const isLanding = variant === "landing";
+  return (
+    <div className={`ambient-cards ${isLanding ? "landing" : "app"}`} aria-hidden="true">
+      <article className="ambient-card card-one">
+        <span className="mini-icon teal"><Link2 size={22} /></span>
+        <strong>{isLanding ? "pvault.link/9f3a7b6c" : "API Response"}</strong>
+        <em>{isLanding ? "Click to open" : "2.4 KB · Just now"}</em>
+      </article>
+      <article className="ambient-card card-two">
+        <span className="mini-icon green"><Lock size={20} /></span>
+        <strong>{isLanding ? "ENCRYPTED" : "Encrypted"}</strong>
+        <em>{isLanding ? "AES-256-GCM" : "1.7 KB · 2d ago"}</em>
+      </article>
+      <article className="ambient-card card-three code">
+        <span className="mini-icon blue"><Code2 size={20} /></span>
+        <pre>{isLanding ? '{\n  "id": "9f3a7b6c",\n  "status": "success"\n}' : "npm run build && npm run deploy"}</pre>
+      </article>
+      <article className="ambient-card card-four">
+        <span className="mini-icon yellow"><FileText size={20} /></span>
+        <strong>{isLanding ? "CLIP IMPORTED" : "Imported notes.txt"}</strong>
+        <em>{isLanding ? "notes.txt · Just now" : "940 B · 1d ago"}</em>
+      </article>
+      <article className="ambient-card card-five">
+        <span className="mini-icon green"><ShieldCheck size={20} /></span>
+        <strong>{isLanding ? "Copied!" : "Clip saved successfully"}</strong>
+        <em>{isLanding ? "Link copied to clipboard" : "Auto-saved"}</em>
+      </article>
     </div>
   );
 }
@@ -1067,6 +1224,7 @@ function Header({
   clipboardId,
   isDark,
   onThemeChange,
+  onCopyLink,
   syncStatus,
   passwordPanelOpen,
   setPasswordPanelOpen,
@@ -1086,19 +1244,18 @@ function Header({
   return (
     <header className="header">
       <div className="brand">
-        <div className="brand-icon">
-          <Clipboard size={24} />
-        </div>
-        <div>
-          <h1>PasteVault</h1>
-          <span className="clipboard-route">/clip/{clipboardId}</span>
-        </div>
+        <LogoMark />
+        <span className="clipboard-route">/clip/{clipboardId}</span>
       </div>
       <div className="header-actions">
         <span className="saved-state">
           <Check size={18} />
           {syncStatus}
         </span>
+        <Button onClick={onCopyLink}>
+          <Link2 size={17} />
+          Copy link
+        </Button>
         <div className="password-wrap">
           <button
             className="password-pill"

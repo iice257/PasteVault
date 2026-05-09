@@ -4,7 +4,7 @@ const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4173";
 const boardId = `functional-${Date.now()}`;
 const password = "correct horse battery staple";
 const largeMarker = `large-marker-${Date.now()}`;
-const largeText = `${largeMarker}\n${"0123456789abcdef".repeat(14000)}`;
+const largeText = JSON.stringify({ marker: largeMarker, data: "0123456789abcdef".repeat(14000) }, null, 2);
 const storageKey = `pastevault:clipboard:${boardId}`;
 
 const browser = await chromium.launch({ channel: "msedge" });
@@ -19,11 +19,20 @@ await page.addInitScript(() => {
 });
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.getByPlaceholder("Paste something or enter a clipboard link").fill("Landing paste opens a clipboard");
+await page.getByRole("button", { name: /Open clipboard/i }).click();
+await page.waitForURL(/\/clip\/[a-zA-Z0-9_-]+$/);
+await page.getByLabel("Clipboard content").waitFor();
+const openedText = await page.getByLabel("Clipboard content").inputValue();
+if (!openedText.includes("Landing paste opens a clipboard")) {
+  throw new Error("Landing paste did not create and open a clipboard.");
+}
+
 await page.evaluate((key) => window.localStorage.removeItem(key), storageKey);
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
-await page.getByRole("button", { name: /^New$/ }).click();
 await page.getByLabel("Clipboard content").fill(largeText);
-await page.getByRole("button", { name: /^Save$/ }).click();
+await page.keyboard.press("Control+S");
+await page.getByRole("status").getByText("Clip saved successfully").waitFor();
 await page.getByPlaceholder("Search history").fill(largeMarker);
 await page.getByText(largeMarker).first().waitFor();
 
@@ -46,7 +55,11 @@ await page.getByRole("button", { name: /^Unlock clipboard$/ }).click();
 await page.getByText("Password did not unlock this clipboard.").waitFor();
 await page.getByPlaceholder("Clipboard password").fill(password);
 await page.getByRole("button", { name: /^Unlock clipboard$/ }).click();
-await page.getByText(largeMarker).first().waitFor();
+await page.getByLabel("Clipboard content").waitFor();
+await page.waitForFunction((marker) => {
+  const editor = document.querySelector("[aria-label='Clipboard content']");
+  return editor?.value.includes(marker);
+}, largeMarker);
 
 const otherId = `${boardId}-other`;
 await page.goto(`${baseUrl}/clip/${otherId}`, { waitUntil: "networkidle" });
