@@ -69,22 +69,16 @@ for (const theme of ["light", "dark"]) {
   }
 
   const requiredShell = {
+    sidebar: await page.locator(".pv-sidebar").isVisible(),
     header: await page.locator(".pv-dashboard-header").isVisible(),
-    floaters: await page.locator(".pv-dashboard-floaters .pv-floating-card, .pv-dashboard-floaters .pv-floating-code").count(),
+    search: await page.locator(".pv-global-search").isVisible(),
     editor: await page.locator(".pv-code-surface").isVisible(),
     details: await page.locator(".pv-clip-details").isVisible(),
     history: await page.locator(".pv-recent-strip").isVisible()
   };
-  const missing = Object.entries(requiredShell)
-    .filter(([name, value]) => (name === "floaters" ? value < 1 : !value))
-    .map(([name]) => name);
+  const missing = Object.entries(requiredShell).filter(([, visible]) => !visible).map(([name]) => name);
   if (missing.length) {
     throw new Error(`Expected desktop ${theme} PasteVault regions to be visible, missing: ${missing.join(", ")}.`);
-  }
-
-  const visibleRail = await page.locator(".pv-sidebar").evaluate((element) => getComputedStyle(element).display);
-  if (visibleRail !== "none") {
-    throw new Error(`Expected old sidebar rail hidden in primary ${theme} dashboard view.`);
   }
 
   const primaryActions = await page.getByRole("banner").getByRole("button").count();
