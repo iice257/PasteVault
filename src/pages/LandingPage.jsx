@@ -1,38 +1,64 @@
 import { useCallback, useState } from "react";
-import { ArrowRight, Clipboard, Moon, Sun } from "lucide-react";
-import BlurText from "../components/BlurText";
-import { Button } from "../components/ui/button";
-import { LogoMark } from "../components/layout/LogoMark";
-import { useTheme } from "../hooks/useTheme";
+import { ArrowRight, Clipboard } from "lucide-react";
+import { ActionButton } from "../components/pastevault/ActionButton";
+import { AppLogo } from "../components/pastevault/AppLogo";
 import {
   appVersion,
-  defaultClipboardId,
+  clipboardIdPattern,
   createClip,
+  defaultClipboardId,
   inferTitle,
   nowIso,
   saveRecord
 } from "../features/clipboard/clipboard-store";
 
+function detectFormat(value, name = "") {
+  const trimmed = value.trim();
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".json") || trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || trimmed.startsWith("npm ")) return "BASH";
+  if (lower.endsWith(".md")) return "Markdown";
+  if (lower.endsWith(".html")) return "HTML";
+  return "Plain text";
+}
+
+function parseClipboardTarget(value) {
+  try {
+    const parsed = new URL(value);
+    const match = parsed.pathname.match(/^\/clip\/([^/]+)$/);
+    if (match) {
+      const id = decodeURIComponent(match[1]).trim();
+      return clipboardIdPattern.test(id) ? id : "";
+    }
+  } catch {
+    // Not a URL; explicit route-like input and id-like strings are handled below.
+  }
+
+  const pathMatch = value.match(/^\/?clip\/([a-zA-Z0-9_-]{3,80})$/);
+  if (pathMatch) return pathMatch[1];
+
+  if (/^(clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
+    return value;
+  }
+
+  return "";
+}
+
 export default function LandingPage() {
   const [entry, setEntry] = useState("");
-  const { isDark, toggleTheme } = useTheme();
 
-  const openClipboard = useCallback((overrideValue) => {
-    const value = (overrideValue ?? entry).trim();
-    if (!value) {
-      window.location.href = `/clip/${defaultClipboardId}`;
-      return;
-    }
-
-    const linkMatch = value.match(/(?:\/clip\/|^)([a-zA-Z0-9_-]{3,80})$/);
-    if (linkMatch && value.length <= 140) {
-      window.location.href = `/clip/${encodeURIComponent(linkMatch[1])}`;
-      return;
-    }
-
+  const createClipboardFromText = useCallback((value, sourceName = "") => {
     const clipboardId = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
-    const format = value.startsWith("{") || value.startsWith("[") ? "JSON" : "Plain text";
-    const clip = createClip({ title: inferTitle(value, format), content: value, format, pinned: true });
+    const format = detectFormat(value, sourceName);
+    const clip = createClip({
+      id: sourceName ? `clip_${sourceName.replace(/[^a-z0-9]/gi, "_").slice(0, 24).toLowerCase()}` : undefined,
+      title: sourceName || inferTitle(value, format),
+      content: value,
+      format,
+      pinned: true,
+      tags: sourceName ? ["import"] : []
+    });
+
     saveRecord(clipboardId, {
       version: appVersion,
       id: clipboardId,
@@ -41,37 +67,32 @@ export default function LandingPage() {
       payload: { clips: [clip], selectedId: clip.id }
     });
     window.location.href = `/clip/${clipboardId}`;
-  }, [entry]);
+  }, []);
+
+  const openClipboard = useCallback((overrideValue) => {
+    const value = (overrideValue ?? entry).trim();
+    if (!value) {
+      window.location.href = `/clip/${defaultClipboardId}`;
+      return;
+    }
+
+    const clipboardTarget = parseClipboardTarget(value);
+    if (clipboardTarget) {
+      window.location.href = `/clip/${encodeURIComponent(clipboardTarget)}`;
+      return;
+    }
+
+    createClipboardFromText(value);
+  }, [createClipboardFromText, entry]);
 
   return (
-    <div className={`vault-landing landing-${isDark ? "dark" : "light"}`}>
-      <nav className="landing-nav" aria-label="PasteVault">
-        <LogoMark />
-        <div>
-          <button type="button" onClick={toggleTheme} aria-label="Toggle theme" aria-pressed={!isDark}>
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            Theme
-          </button>
-          <Button variant="primary" aria-label="Open default clipboard" onClick={() => openClipboard()}>
-            Open clipboard
-          </Button>
-        </div>
-      </nav>
-      <main className="landing-core">
-        <LogoMark size="large" />
-        <BlurText
-          as="h1"
-          text="The fastest way to move text between devices"
-          className="landing-blur-headline"
-          animateBy="words"
-          delay={55}
-          direction="top"
-          animationFrom={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-          animationTo={[{ filter: "blur(0px)", opacity: 1, y: 0 }]}
-        />
+    <div className="vault-landing pv-landing">
+      <main className="pv-landing-core">
+        <AppLogo />
+        <h1>The fastest way to move text between devices</h1>
         <p>Paste once. Open the link anywhere. Optional password. No account.</p>
         <form
-          className="landing-input-shell"
+          className="landing-input-shell pv-open-shell"
           onSubmit={(event) => {
             event.preventDefault();
             openClipboard();
@@ -91,18 +112,12 @@ export default function LandingPage() {
               }
             }}
           />
-          <Button variant="primary" type="submit">
+          <ActionButton variant="primary" type="submit">
             Open clipboard
             <ArrowRight size={24} />
-          </Button>
+          </ActionButton>
         </form>
       </main>
-      <section className="landing-proof" aria-label="PasteVault guarantees">
-        <span>Link based</span>
-        <span>No account</span>
-        <span>Optional password</span>
-        <span>Unlimited local history</span>
-      </section>
     </div>
   );
 }

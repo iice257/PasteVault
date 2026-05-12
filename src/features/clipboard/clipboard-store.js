@@ -1,18 +1,30 @@
-export const defaultClipboardId = "clip_9f8a7b6c3d2e1f0a";
+export const defaultClipboardId = "9f3a7b6c";
 export const appVersion = 2;
 export const maxImportBytes = 5 * 1024 * 1024;
 export const storageBudgetBytes = 10 * 1024 * 1024;
 export const pbkdf2Iterations = 210000;
-export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown"];
+export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH"];
 export const sortOptions = ["Newest", "Oldest", "Largest", "Smallest", "Recently updated"];
 export const filterOptions = ["All types", ...formatOptions, "CSV", "TXT", "JS"];
+export const clipboardIdPattern = /^[a-zA-Z0-9_-]{3,80}$/;
 
 export const sampleJson = `{
-  "name": "Alice Johnson",
-  "email": "alice.johnson@example.com",
-  "role": "admin",
-  "isActive": true,
-  "createdAt": "2024-05-16T14:22:31.123Z"
+  "status": "success",
+  "code": 200,
+  "data": {
+    "id": "usr_9f3a7b6c",
+    "name": "Alice Johnson",
+    "email": "alice.johnson@example.com",
+    "role": "admin",
+    "isActive": true,
+    "settings": {
+      "notifications": true,
+      "theme": "light",
+      "language": "en-US"
+    },
+    "createdAt": "2024-05-16T14:22:31.123Z",
+    "updatedAt": "2024-05-17T09:48:12.456Z"
+  }
 }`;
 
 export function getClipboardId() {
@@ -25,7 +37,7 @@ export function getClipboardId() {
 
   try {
     const decoded = decodeURIComponent(match[1]).trim();
-    if (!/^[a-zA-Z0-9_-]{3,80}$/.test(decoded)) {
+    if (!clipboardIdPattern.test(decoded)) {
       return defaultClipboardId;
     }
     return decoded;
@@ -42,16 +54,19 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function createClip({ title, content, format, pinned = false, starred = false, tags = [] }) {
+export function createClip({ id, title, content, format, pinned = false, starred = false, tags = [] }) {
   const timestamp = nowIso();
+  const safeContent = typeof content === "string" ? content : "";
+  const safeFormat = typeof format === "string" ? format : "Plain text";
+  const safeTitle = typeof title === "string" ? title : "";
   return {
-    id: `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
-    title: title.trim() || inferTitle(content, format),
-    content,
-    format,
+    id: id || `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
+    title: safeTitle.trim() || inferTitle(safeContent, safeFormat),
+    content: safeContent,
+    format: safeFormat,
     pinned,
     starred,
-    tags,
+    tags: Array.isArray(tags) ? tags.filter((tag) => typeof tag === "string").slice(0, 8) : [],
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -59,7 +74,8 @@ export function createClip({ title, content, format, pinned = false, starred = f
 
 export function createSeedClips() {
   const seed = createClip({
-    title: "Create user endpoint",
+    id: "clip_api_response",
+    title: "API Response",
     content: sampleJson,
     format: "JSON",
     pinned: true,
@@ -68,16 +84,14 @@ export function createSeedClips() {
   });
 
   const snippets = [
-    ["Select users", "SELECT u.id, u.name, u.email FROM users u WHERE u.active = 1 ORDER BY u.created_at DESC;", "SQL", ["sql"]],
-    ["cURL request", "curl -X POST https://api.example.com/v1/users \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\":\"Alice\"}'", "cURL", ["api"]],
-    ["Export API client", "export const apiClient = axios.create({ baseURL: 'https://api.example.com', timeout: 10000 })", "JavaScript", ["client"]],
-    ["Deploy command", "# Deploy to production\nnpm run build\nnpm run start", "Plain text", ["deploy"]],
-    ["JWT token", "5f4dcc3b5aa765d61d8327deb882cf99", "Plain text", ["token"]]
+    ["clip_meeting_notes", "Meeting notes", "Q2 roadmap discussion\n- Offline support\n- Encrypted storage\n- Share via link", "Plain text", ["notes"]],
+    ["clip_encrypted", "Encrypted", "********************************\n********************************\n********************************", "JSON", ["secure"]],
+    ["clip_deploy_command", "Deploy command", "npm run build && npm run deploy", "BASH", ["deploy"]]
   ];
 
   return [
     seed,
-    ...snippets.map(([title, content, format, tags]) => createClip({ title, content, format, tags }))
+    ...snippets.map(([id, title, content, format, tags]) => createClip({ id, title, content, format, tags }))
   ];
 }
 
@@ -101,6 +115,7 @@ export function normalizeRecord(parsed, clipboardId) {
     return {
       version: appVersion,
       id: clipboardId,
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : nowIso(),
       protection: parsed.protection,
       encryptedPayload: parsed.encryptedPayload
     };
@@ -110,6 +125,7 @@ export function normalizeRecord(parsed, clipboardId) {
     return {
       version: appVersion,
       id: clipboardId,
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : payloadUpdatedAt(parsed.payload),
       protection: null,
       payload: {
         clips: parsed.payload.clips.map(normalizeClip).filter(Boolean),
@@ -126,14 +142,21 @@ export function normalizeClip(clip) {
     return null;
   }
 
+  const content = clip.content;
+  const format = typeof clip.format === "string" && clip.format.trim() ? clip.format : "Plain text";
+
   return {
     id: typeof clip.id === "string" ? clip.id : `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
-    title: typeof clip.title === "string" ? clip.title : inferTitle(clip.content, clip.format),
-    content: clip.content,
-    format: typeof clip.format === "string" ? clip.format : "Plain text",
+    title: typeof clip.title === "string" && clip.title.trim() ? clip.title.trim().slice(0, 140) : inferTitle(content, format),
+    content,
+    format,
     pinned: Boolean(clip.pinned),
     starred: Boolean(clip.starred),
-    tags: Array.isArray(clip.tags) ? clip.tags.filter((tag) => typeof tag === "string").slice(0, 8) : [],
+    tags: Array.isArray(clip.tags) ? clip.tags
+      .filter((tag) => typeof tag === "string")
+      .map((tag) => tag.trim().slice(0, 32))
+      .filter(Boolean)
+      .slice(0, 8) : [],
     createdAt: typeof clip.createdAt === "string" ? clip.createdAt : nowIso(),
     updatedAt: typeof clip.updatedAt === "string" ? clip.updatedAt : nowIso()
   };
@@ -396,11 +419,31 @@ export function exportClipboard(clipboardId, payload) {
   const link = document.createElement("a");
   link.href = url;
   link.download = `${clipboardId}-pastevault-export.json`;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export async function copyText(value) {
-  await navigator.clipboard.writeText(value);
-}
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
 
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.inset = "0 auto auto 0";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) {
+    throw new Error("Clipboard write failed.");
+  }
+}

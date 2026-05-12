@@ -3,9 +3,15 @@ import { useEffect, useState } from "react";
 const THEME_KEY = "pastevault-theme";
 
 function getPreferredTheme() {
+  if (typeof window === "undefined") {
+    return "light";
+  }
   const stored = window.localStorage.getItem(THEME_KEY);
   if (stored === "light" || stored === "dark") {
     return stored;
+  }
+  if (!window.matchMedia) {
+    return "light";
   }
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
@@ -22,6 +28,7 @@ export function useTheme() {
   return {
     isDark: theme === "dark",
     theme,
+    setTheme,
     toggleTheme
   };
 }
