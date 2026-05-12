@@ -275,7 +275,7 @@ a {
 }
 
 .pv-landing::before {
-  display: flex;
+  display: none;
 }
 
 .pv-landing-nav {
@@ -1034,6 +1034,13 @@ a {
 
 .theme-dark .pv-code-surface {
   background: #090d14;
+}
+
+.theme-dark .pv-language-trigger,
+.theme-dark .select-trigger {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.09);
+  color: #f7f9fc;
 }
 
 .line-numbers,
@@ -2416,21 +2423,28 @@ a {
 /* Production layout overrides kept last so desktop/tablet/mobile shells do not drift. */
 @media (min-width: 1101px) {
   .pv-dashboard-header {
-    left: 272px;
-    justify-content: space-between;
+    right: 44px;
+    left: 44px;
+    justify-content: center;
   }
 
   .pv-dashboard-header .pv-logo {
-    position: static;
-    transform: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .pv-global-search {
-    position: static;
+    position: absolute;
+    left: 0;
   }
 
   .pv-sidebar {
-    display: flex;
+    display: none;
+  }
+
+  .pv-dashboard-floaters {
+    display: block;
   }
 }
 
@@ -2450,12 +2464,6 @@ a {
 
   .pv-detail-list {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 1500px) {
-  .pv-clip-details {
-    display: none;
   }
 }
 
@@ -2492,47 +2500,56 @@ a {
   color: #f7f9fc;
 }
 
+/* Final reference-aligned shell polish. The default clipboard view is a centered
+   workspace with floating context cards; secondary navigation remains routed
+   but does not occupy the first viewport. */
 @media (min-width: 1281px) {
   .pv-dashboard-stage {
-    padding: 106px 390px 42px 260px;
+    padding: 134px 24px 42px;
   }
 
   .pv-workbench,
   .pv-recent-strip {
-    width: min(1040px, calc(100vw - 720px));
+    width: min(1090px, calc(100vw - 560px));
   }
 
   .pv-clip-details {
-    position: fixed;
-    top: 106px;
-    right: 28px;
-    z-index: 14;
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 9;
     display: grid;
-    width: 342px;
-    max-height: calc(100dvh - 132px);
-    margin: 0;
-    overflow: auto;
+    width: min(1090px, calc(100vw - 560px));
+    max-height: none;
+    margin: 82px auto 0;
+    overflow: visible;
     grid-template-columns: 1fr;
   }
 }
 
 @media (min-width: 1101px) and (max-width: 1280px) {
   .pv-dashboard-stage {
-    padding-right: 28px;
+    padding: 126px 24px 42px;
   }
 
   .pv-workbench,
   .pv-recent-strip {
-    width: min(1040px, calc(100vw - 320px));
+    width: min(1040px, calc(100vw - 96px));
   }
 
   .pv-clip-details {
-    display: none;
+    display: grid;
+    width: min(1040px, calc(100vw - 96px));
+    margin: 52px auto 0;
   }
 }
 
 @media (max-width: 1280px) {
   .pv-clip-details {
-    display: none;
+    position: relative;
+    top: auto;
+    right: auto;
+    max-height: none;
+    overflow: visible;
   }
 }

@@ -574,9 +574,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       <DashboardHeader
         theme={theme}
         setTheme={setTheme}
-        search={search}
-        setSearch={setSearch}
-        searchRef={searchRef}
+        search={historyMode ? search : undefined}
+        setSearch={historyMode ? setSearch : undefined}
+        searchRef={historyMode ? searchRef : undefined}
         onSearchFocus={() => setHistoryMode(true)}
         onCopyLink={handleCopyLink}
         onPassword={() => setPasswordOpen(true)}

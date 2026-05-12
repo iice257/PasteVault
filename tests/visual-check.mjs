@@ -69,16 +69,22 @@ for (const theme of ["light", "dark"]) {
   }
 
   const requiredShell = {
-    sidebar: await page.locator(".pv-sidebar").isVisible(),
     header: await page.locator(".pv-dashboard-header").isVisible(),
-    search: await page.locator(".pv-global-search").isVisible(),
+    floaters: await page.locator(".pv-dashboard-floaters .pv-floating-card, .pv-dashboard-floaters .pv-floating-code").count(),
     editor: await page.locator(".pv-code-surface").isVisible(),
-    details: await page.locator(".pv-clip-details").isVisible(),
-    history: await page.locator(".pv-recent-strip").isVisible()
+    details: await page.locator(".pv-clip-details").count(),
+    history: await page.locator(".pv-recent-strip").count()
   };
-  const missing = Object.entries(requiredShell).filter(([, visible]) => !visible).map(([name]) => name);
+  const missing = Object.entries(requiredShell)
+    .filter(([name, value]) => (name === "floaters" || name === "details" || name === "history" ? value < 1 : !value))
+    .map(([name]) => name);
   if (missing.length) {
     throw new Error(`Expected desktop ${theme} PasteVault regions to be visible, missing: ${missing.join(", ")}.`);
+  }
+
+  const visibleRail = await page.locator(".pv-sidebar").evaluate((element) => getComputedStyle(element).display);
+  if (visibleRail !== "none") {
+    throw new Error(`Expected old sidebar rail hidden in primary ${theme} dashboard view.`);
   }
 
   const primaryActions = await page.getByRole("banner").getByRole("button").count();
