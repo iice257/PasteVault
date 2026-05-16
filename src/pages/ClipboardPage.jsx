@@ -11,8 +11,11 @@ import {
   Lock,
   PanelLeft,
   MoreHorizontal,
+  Pin,
   Search,
   Settings,
+  ShieldCheck,
+  Share2,
   Star,
   Upload,
   UserCircle2,
@@ -58,6 +61,7 @@ import {
   exportClipboard,
   fetchRemoteRecord,
   filterOptions,
+  formatAge,
   formatBytes,
   hydrateClipboard,
   inferTitle,
@@ -633,77 +637,83 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           </nav>
         </section>
 
-        {activeSection === "editor" && (
-          <ClipboardEditor
-            clipboardId={clipboardTitle(clipboardId)}
-            title={draftTitle}
-            content={draftContent}
-            format={format}
-            stats={stats}
-            passwordLabel={protection ? "Password enabled" : "Password optional"}
-            syncStatus={syncStatus}
-            onContentChange={setDraftContent}
-            onFormatChange={setFormat}
-            onCopy={() => handleCopy(draftContent)}
-            onFormat={handleFormat}
-            onSave={handleSave}
-            onRename={handleRename}
-            onDuplicate={handleDuplicate}
-            onExport={() => exportClipboard(clipboardId, payload)}
-            onDelete={handleDelete}
-            onClear={handleClear}
-            onNewClip={handleNewClip}
-            onCopyLatest={handleCopyLatest}
-          />
-        )}
+        <div className="pv-dashboard-grid">
+          <div className="pv-main-column">
+            <div className={activeSection === "editor" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="editor">
+              <ClipboardEditor
+                clipboardId={clipboardTitle(clipboardId)}
+                title={draftTitle}
+                content={draftContent}
+                format={format}
+                stats={stats}
+                passwordLabel={protection ? "Password enabled" : "Password optional"}
+                syncStatus={syncStatus}
+                onContentChange={setDraftContent}
+                onFormatChange={setFormat}
+                onCopy={() => handleCopy(draftContent)}
+                onFormat={handleFormat}
+                onSave={handleSave}
+                onRename={handleRename}
+                onDuplicate={handleDuplicate}
+                onExport={() => exportClipboard(clipboardId, payload)}
+                onDelete={handleDelete}
+                onClear={handleClear}
+                onNewClip={handleNewClip}
+                onCopyLatest={handleCopyLatest}
+              />
+            </div>
 
-        {activeSection === "history" && (
-          <HistorySection
-            clips={filteredClips}
-            selectedId={selectedId}
-            search={search}
-            setSearch={setSearch}
-            searchRef={searchRef}
-            sort={sort}
-            setSort={setSort}
-            filter={filter}
-            setFilter={setFilter}
-            onOpen={selectClip}
-            onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
-            onToggleStar={(clip) => handleToggleFlag("starred", clip)}
-          />
-        )}
+            <div className={activeSection === "history" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="history">
+              <HistoryTable
+                clips={filteredClips}
+                selectedId={selectedId}
+                search={search}
+                setSearch={setSearch}
+                searchRef={searchRef}
+                sort={sort}
+                setSort={setSort}
+                filter={filter}
+                setFilter={setFilter}
+                onOpen={selectClip}
+                onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
+                onToggleStar={(clip) => handleToggleFlag("starred", clip)}
+              />
+            </div>
 
-        {activeSection === "details" && (
-          <DetailsPanel
-            selectedClip={selectedClip}
-            draftTitle={draftTitle}
-            draftContent={draftContent}
-            format={format}
-            stats={stats}
-            protection={protection}
-            clips={clips}
-            replaceClips={replaceClips}
-            onCopy={() => handleCopy(draftContent)}
-            onCopyLink={handleCopyLink}
-            onDelete={handleDelete}
-            onTogglePin={() => handleToggleFlag("pinned")}
-          />
-        )}
+            {activeSection === "tools" && (
+              <ToolsPanel
+                clipboardId={clipboardTitle(clipboardId)}
+                storageUsage={storageUsage}
+                onPaste={handlePasteFromClipboard}
+                onImport={() => fileRef.current?.click()}
+                onExport={() => exportClipboard(clipboardId, payload)}
+                onPassword={() => setPasswordOpen(true)}
+                onCopyLink={handleCopyLink}
+                onCopyLatest={handleCopyLatest}
+                onNewClip={handleNewClip}
+              />
+            )}
+          </div>
 
-        {activeSection === "tools" && (
-          <ToolsPanel
-            clipboardId={clipboardTitle(clipboardId)}
-            storageUsage={storageUsage}
-            onPaste={handlePasteFromClipboard}
-            onImport={() => fileRef.current?.click()}
-            onExport={() => exportClipboard(clipboardId, payload)}
-            onPassword={() => setPasswordOpen(true)}
-            onCopyLink={handleCopyLink}
-            onCopyLatest={handleCopyLatest}
-            onNewClip={handleNewClip}
-          />
-        )}
+          <div className={activeSection === "details" ? "pv-mobile-section pv-inspector-column is-active" : "pv-mobile-section pv-inspector-column"} data-section="details">
+            <DetailsPanel
+              selectedClip={selectedClip}
+              draftTitle={draftTitle}
+              draftContent={draftContent}
+              format={format}
+              stats={stats}
+              protection={protection}
+              clips={clips}
+              replaceClips={replaceClips}
+              onCopy={() => handleCopy(draftContent)}
+              onCopyLink={handleCopyLink}
+              onDelete={handleDelete}
+              onTogglePin={() => handleToggleFlag("pinned")}
+              onPassword={() => setPasswordOpen(true)}
+              onExport={() => exportClipboard(clipboardId, payload)}
+            />
+          </div>
+        </div>
 
         <FileImportDropzone inputRef={fileRef} onImport={handleImportFile} compact />
         <BottomPasteBar value={draftContent} onChange={setDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
@@ -879,30 +889,119 @@ function getStoredProfile() {
   }
 }
 
-function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin }) {
+function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin, onPassword, onExport }) {
   return (
     <section className="details-panel pv-clip-details pv-section-panel" aria-label="Selected clip">
-      <header>
-        <h2>Selected clip</h2>
-        <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><MoreHorizontal size={18} /></button>
+      <header className="pv-inspector-tabs">
+        <div>
+          <button className="is-active" type="button">Details</button>
+          <button type="button" onClick={onCopy}>Preview</button>
+        </div>
+        <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><Pin size={17} /></button>
       </header>
-      <strong>{selectedClip?.title ?? draftTitle}</strong>
-      <p>{format} - {formatBytes(stats.bytes)} - {stats.lines} lines</p>
-      <div>
-        <ActionButton icon={ClipboardCopy} variant="primary" onClick={onCopy}>Copy</ActionButton>
-        <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
-        <ActionButton icon={Trash2} variant="danger" onClick={onDelete}>Delete</ActionButton>
+      <div className="pv-inspector-title">
+        <strong>{selectedClip?.title ?? draftTitle}</strong>
+        <span><Pin size={14} />Pinned</span>
+        <p>{formatAge(selectedClip?.updatedAt ?? nowIso())} - {formatBytes(stats.bytes)}</p>
       </div>
       <dl className="pv-detail-list">
         <div><dt>Format</dt><dd>{format}</dd></div>
         <div><dt>Size</dt><dd>{formatBytes(stats.bytes)} ({stats.bytes.toLocaleString()} B)</dd></div>
+        {selectedClip && <div><dt>Created</dt><dd>{new Date(selectedClip.createdAt).toLocaleString()}</dd></div>}
+        {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
         <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
         <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
-        <div><dt>Password</dt><dd>{protection ? "Enabled" : "Optional per clipboard"}</dd></div>
-        {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
+        <div><dt>ID</dt><dd>{selectedClip?.id ?? "draft"}</dd></div>
+        <div><dt>Owner</dt><dd><span className="pv-owner-pill">You</span></dd></div>
       </dl>
       <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
+      <div className="pv-inspector-card">
+        <h3><ShieldCheck size={17} />Security</h3>
+        <strong>{protection ? "Password enabled" : "Unencrypted"}</strong>
+        <p>{protection ? "Password protection is enabled for this clipboard." : "No password set for this clip"}</p>
+        <ActionButton compact icon={Lock} onClick={onPassword}>Set password</ActionButton>
+      </div>
+      <div className="pv-inspector-card">
+        <h3><Share2 size={17} />Share clip</h3>
+        <p>Share securely with anyone via a private link.</p>
+        <ActionButton compact icon={Link2} onClick={onCopyLink}>Create share link</ActionButton>
+      </div>
+      <div className="pv-inspector-card">
+        <h3><Download size={17} />Export</h3>
+        <p>Download or export in different formats.</p>
+        <ActionButton compact icon={Download} onClick={onExport}>Export clip</ActionButton>
+      </div>
+      <div className="pv-inspector-actions">
+        <ActionButton icon={ClipboardCopy} variant="primary" onClick={onCopy}>Copy</ActionButton>
+        <ActionButton icon={Trash2} variant="danger" onClick={onDelete}>Delete</ActionButton>
+      </div>
       {draftContent.length > 6000 && <p className="pv-empty-text">Large content stays in the editor. Metadata remains responsive here.</p>}
+    </section>
+  );
+}
+
+function HistoryTable({ clips, selectedId, search, setSearch, searchRef, sort, setSort, filter, setFilter, onOpen, onTogglePin, onToggleStar }) {
+  return (
+    <section className="history-panel pv-history-table-card" aria-label="Recent clipboard history">
+      <header>
+        <h2>History</h2>
+        <HistoryControls search={search} setSearch={setSearch} searchRef={searchRef} sort={sort} setSort={setSort} filter={filter} setFilter={setFilter} compact />
+      </header>
+      <div className="pv-history-table" role="table" aria-label="Clipboard history rows">
+        {clips.slice(0, 5).map((clip) => (
+          <button className={clip.id === selectedId ? "pv-history-row is-selected" : "pv-history-row"} type="button" role="row" key={clip.id} onClick={() => onOpen(clip.id)}>
+            <span className="pv-history-doc"><ClipboardList size={17} /></span>
+            <span className="pv-history-row-main">
+              <strong>{clip.title}</strong>
+              <small>{formatAge(clip.updatedAt)} - {formatBytes(textBytes(clip.content))}</small>
+            </span>
+            <span className={`pv-chip pv-chip-${shortFormat(clip.format).toLowerCase()}`}>{shortFormat(clip.format)}</span>
+            <span className="pv-history-secure"><Lock size={15} /></span>
+            <span className="pv-owner-pill">{clip.starred ? "Team" : "You"}</span>
+            <span className="pv-history-menu">
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={clip.pinned ? `Unpin ${clip.title}` : `Pin ${clip.title}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onTogglePin(clip);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onTogglePin(clip);
+                  }
+                }}
+              >
+                <Pin size={15} fill={clip.pinned ? "currentColor" : "none"} />
+              </span>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={clip.starred ? `Unstar ${clip.title}` : `Star ${clip.title}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleStar(clip);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onToggleStar(clip);
+                  }
+                }}
+              >
+                <Star size={15} fill={clip.starred ? "currentColor" : "none"} />
+              </span>
+              <MoreHorizontal size={17} />
+            </span>
+          </button>
+        ))}
+        {!clips.length && <p className="pv-empty-text">No clips match this view.</p>}
+      </div>
+      <a className="pv-history-view-all" href="/history">View all history</a>
     </section>
   );
 }

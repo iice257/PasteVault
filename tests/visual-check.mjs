@@ -87,10 +87,10 @@ for (const theme of ["light", "dark"]) {
     sidebar: await page.locator(".pv-sidebar").isVisible(),
     editor: await page.locator(".pv-code-surface").isVisible(),
     details: await page.locator(".pv-clip-details").count(),
-    history: await page.locator(".pv-history-page").count()
+    history: await page.locator(".pv-history-table-card").count()
   };
   const missing = Object.entries(requiredShell)
-    .filter(([name, value]) => (name === "details" || name === "history" ? value !== 0 : !value))
+    .filter(([name, value]) => (name === "details" || name === "history" ? value < 1 : !value))
     .map(([name]) => name);
   if (missing.length) {
     throw new Error(`Expected desktop ${theme} PasteVault regions to be visible, missing: ${missing.join(", ")}.`);
@@ -101,11 +101,11 @@ for (const theme of ["light", "dark"]) {
     throw new Error(`Expected sidebar navigation visible in primary ${theme} dashboard view.`);
   }
 
-  await page.getByRole("button", { name: "History" }).click();
-  if (!(await page.locator(".pv-history-page").isVisible())) {
+  await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
+  if (!(await page.locator(".pv-history-table-card").isVisible())) {
     throw new Error(`Expected ${theme} history section to open from the sidebar.`);
   }
-  await page.getByRole("button", { name: "Details" }).click();
+  await page.getByLabel("Workspace navigation").getByRole("button", { name: "Details" }).click();
   if (!(await page.locator(".pv-clip-details").isVisible())) {
     throw new Error(`Expected ${theme} details section to open from the sidebar.`);
   }

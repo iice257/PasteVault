@@ -56,7 +56,7 @@ await page.getByRole("menuitem", { name: "JSON" }).click();
 await page.locator(".vault-card-actions").getByRole("button", { name: "Save" }).click();
 await page.getByRole("status").getByText("Clip saved successfully").waitFor();
 
-await page.getByRole("button", { name: "History" }).click();
+await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
 await page.locator(".history-toolbar .sort-trigger").click();
 await page.getByRole("menuitem", { name: "Largest" }).click();
 await page.locator(".history-toolbar .filter-trigger").click();
@@ -64,7 +64,7 @@ await page.getByRole("menuitem", { name: "JSON" }).click();
 await page.getByPlaceholder("Search history").fill("dropdown");
 await page.getByText("{\"from\":\"dropdown\"}").first().waitFor();
 
-await page.getByRole("button", { name: "Details" }).click();
+await page.getByLabel("Workspace navigation").getByRole("button", { name: "Details" }).click();
 await page.locator(".details-panel input[placeholder='Add tag...']").fill("tested");
 await page.locator(".details-panel input[placeholder='Add tag...']").press("Enter");
 await page.locator(".details-panel .tag").filter({ hasText: "tested" }).waitFor();
@@ -81,7 +81,7 @@ await page.getByRole("button", { name: "Top bar more actions" }).click();
 await page.getByRole("menuitem", { name: "Export board" }).click();
 await downloadPromise;
 
-await page.getByRole("button", { name: "Editor" }).click();
+await page.getByLabel("Workspace navigation").getByRole("button", { name: "Editor" }).click();
 await page.locator(".vault-card-actions").getByRole("button", { name: "More actions" }).click();
 await page.getByRole("menuitem", { name: "Copy latest" }).click();
 await page.getByRole("status").getByText("Clip copied").waitFor();
