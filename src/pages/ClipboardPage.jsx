@@ -3,6 +3,7 @@ import {
   ClipboardPaste,
   ClipboardList,
   ClipboardCopy,
+  Cloud,
   Download,
   FilePlus2,
   History,
@@ -14,6 +15,7 @@ import {
   Settings,
   Star,
   Upload,
+  UserCircle2,
   Trash2,
   Zap,
   X
@@ -605,6 +607,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         storageUsage={storageUsage}
         onImport={() => fileRef.current?.click()}
         onExport={() => exportClipboard(clipboardId, payload)}
+        onAccount={() => showToast("Sign in for cloud sync is not configured yet")}
       />
       <main className={`pv-dashboard-stage pv-section-${activeSection}`}>
         <section className="pv-mobile-hero" aria-label="Clipboard summary">
@@ -785,8 +788,9 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
   );
 }
 
-function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExport }) {
+function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExport, onAccount }) {
   const [collapsed, setCollapsed] = useState(false);
+  const profile = getStoredProfile();
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
   const storageLabel = `${formatBytes(storageUsage)} / ${formatBytes(storageBudgetBytes)}`;
   const sections = [
@@ -845,9 +849,34 @@ function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExpo
           <i><b style={{ width: `${storagePercent}%` }} /></i>
           <em><Zap size={15} /> Local-first</em>
         </div>
+        <button className="pv-account-panel" type="button" onClick={onAccount} aria-label={profile ? "Open user profile" : "Sign in for cloud sync"}>
+          <span className="pv-account-avatar" aria-hidden="true">
+            {profile?.avatar ? <img src={profile.avatar} alt="" /> : profile?.name ? profile.name.slice(0, 1).toUpperCase() : <UserCircle2 size={22} />}
+          </span>
+          <span className="pv-account-copy">
+            <strong>{profile?.name ?? "Sign in for cloud sync"}</strong>
+            <small>{profile?.email ?? "Sync clipboards across devices"}</small>
+          </span>
+          <Cloud size={17} />
+        </button>
       </SidebarFooter>
     </Sidebar>
   );
+}
+
+function getStoredProfile() {
+  try {
+    const rawProfile = window.localStorage.getItem("pastevault-user-profile");
+    const profile = rawProfile ? JSON.parse(rawProfile) : null;
+    if (!profile || typeof profile !== "object") return null;
+    return {
+      avatar: typeof profile.avatar === "string" ? profile.avatar : "",
+      email: typeof profile.email === "string" ? profile.email : "",
+      name: typeof profile.name === "string" ? profile.name : ""
+    };
+  } catch {
+    return null;
+  }
 }
 
 function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin }) {

@@ -209,34 +209,25 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  color: var(--ink);
-  font-size: 30px;
-  font-weight: 900;
-  letter-spacing: -0.025em;
+  width: 310px;
+  max-width: min(48vw, 310px);
+  height: 82px;
 }
 
-.pv-logo span {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border: 4px solid currentColor;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 14px 28px rgba(7, 8, 12, 0.12);
+.pv-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .pv-logo-compact {
-  font-size: 18px;
-  letter-spacing: -0.015em;
+  width: 160px;
+  height: 43px;
 }
 
-.pv-logo-compact span {
-  width: 38px;
-  height: 38px;
-  border-width: 2.5px;
-  border-radius: 12px;
+.theme-dark .pv-logo img {
+  filter: invert(1);
 }
 
 .pv-file-input {
@@ -704,6 +695,8 @@ a {
 .pv-dashboard-header .pv-logo {
   position: absolute;
   left: 50%;
+  width: 188px;
+  height: 50px;
   transform: translateX(-50%);
 }
 
@@ -838,6 +831,76 @@ a {
   color: #0a7b77;
   font-style: normal;
   font-weight: 760;
+}
+
+.pv-account-panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  padding: 10px;
+  text-align: left;
+  box-shadow: 0 12px 30px rgba(28, 38, 58, 0.07);
+}
+
+.theme-dark .pv-account-panel {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pv-account-panel:hover {
+  border-color: rgba(24, 199, 192, 0.32);
+}
+
+.pv-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(24, 199, 192, 0.16), rgba(117, 199, 45, 0.16));
+  color: #079a95;
+  font-weight: 900;
+}
+
+.pv-account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pv-account-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pv-account-copy strong,
+.pv-account-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-account-copy strong {
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.pv-account-copy small {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.theme-dark .pv-account-copy small {
+  color: #94a0b4;
 }
 
 .pv-dashboard-stage {
@@ -2577,12 +2640,18 @@ a {
   .pv-sidebar-header,
   .pv-sidebar-footer {
     display: flex;
-    align-items: center;
     gap: 10px;
   }
 
   .pv-sidebar-header {
+    align-items: center;
     justify-content: space-between;
+  }
+
+  .pv-sidebar-footer {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: auto;
   }
 
   .pv-sidebar-content {
@@ -2659,7 +2728,9 @@ a {
   .pv-sidebar.is-collapsed .pv-sidebar-menu-button span,
   .pv-sidebar.is-collapsed .pv-storage-panel span,
   .pv-sidebar.is-collapsed .pv-storage-panel strong,
-  .pv-sidebar.is-collapsed .pv-storage-panel em {
+  .pv-sidebar.is-collapsed .pv-storage-panel em,
+  .pv-sidebar.is-collapsed .pv-account-copy,
+  .pv-sidebar.is-collapsed .pv-account-panel > svg {
     display: none;
   }
 
@@ -2674,6 +2745,26 @@ a {
   .pv-sidebar.is-collapsed .pv-sidebar-menu-button {
     justify-content: center;
     padding: 0;
+  }
+
+  .pv-sidebar.is-collapsed .pv-storage-panel {
+    gap: 0;
+  }
+
+  .pv-sidebar.is-collapsed .pv-storage-panel i {
+    height: 36px;
+    width: 8px;
+    justify-self: center;
+  }
+
+  .pv-sidebar.is-collapsed .pv-storage-panel b {
+    width: 100% !important;
+  }
+
+  .pv-sidebar.is-collapsed .pv-account-panel {
+    justify-content: center;
+    grid-template-columns: auto;
+    padding: 8px;
   }
 
   .pv-dashboard-stage {
