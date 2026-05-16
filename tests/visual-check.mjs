@@ -31,9 +31,9 @@ if (landingRegions !== 2) {
   throw new Error(`Expected paste-first landing shell and input, found ${landingRegions} landing regions.`);
 }
 
-const landingBackground = await landingPage.locator(".vault-landing").evaluate((element) => getComputedStyle(element).backgroundImage);
-if (landingBackground !== "none") {
-  throw new Error(`Expected plain landing background with no artifact image, found ${landingBackground}.`);
+const landingBackground = await landingPage.locator(".vault-landing").evaluate((element) => getComputedStyle(element, "::before").backgroundImage);
+if (!landingBackground.includes("landing-background.svg")) {
+  throw new Error(`Expected supplied landing background image behind the hero, found ${landingBackground}.`);
 }
 
 const retiredArtifacts = await landingPage.locator(".ambient-card, .ambient-cards, .reactbits-backdrop, .pv-floating-card, .pv-terminal-card, .pv-sticky-note, .pv-link-preview").count();

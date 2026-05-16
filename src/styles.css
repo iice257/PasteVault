@@ -264,7 +264,19 @@ a {
 }
 
 .pv-landing::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  display: block;
+  height: 100svh;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.58)),
+    url("/landing-background.svg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .pv-landing-nav {
