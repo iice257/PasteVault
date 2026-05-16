@@ -67,7 +67,6 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
   ".editor-card",
   ".history-panel",
   ".details-panel",
-  "landing-background.svg",
   ".toast"
 ) | ForEach-Object {
   if ($css -notmatch [regex]::Escape($_)) {

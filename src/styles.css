@@ -254,9 +254,7 @@ a {
   position: relative;
   min-height: 100dvh;
   overflow: hidden;
-  background:
-    url("/landing-background.svg") center / cover no-repeat,
-    linear-gradient(180deg, #fbfcfe 0%, #f5f7fb 100%);
+  background: #ffffff;
   color: var(--ink);
 }
 
@@ -684,17 +682,11 @@ a {
   min-height: 100dvh;
   overflow: hidden;
   color: var(--ink);
-  background:
-    radial-gradient(circle at 22% 12%, rgba(222, 229, 239, 0.72), transparent 28%),
-    radial-gradient(circle at 76% 16%, rgba(224, 231, 241, 0.78), transparent 30%),
-    radial-gradient(circle at 48% 78%, rgba(215, 222, 233, 0.74), transparent 38%),
-    linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
+  background: #ffffff;
 }
 
 .pv-dashboard.theme-dark {
-  background:
-    radial-gradient(circle at 50% -8%, rgba(24, 199, 192, 0.13), transparent 28%),
-    linear-gradient(180deg, #0a0e15 0%, #090c12 100%);
+  background: #050505;
 }
 
 .pv-dashboard-header {
@@ -2036,10 +2028,11 @@ a {
   .pv-dashboard {
     min-height: 100dvh;
     overflow: visible;
-    background:
-      radial-gradient(circle at 18% 12%, rgba(226, 232, 241, 0.82), transparent 26%),
-      radial-gradient(circle at 88% 28%, rgba(226, 232, 241, 0.88), transparent 30%),
-      linear-gradient(180deg, #fbfcfe 0%, #f5f7fb 100%);
+    background: #ffffff;
+  }
+
+  .pv-dashboard.theme-dark {
+    background: #050505;
   }
 
   .pv-dashboard-header {
@@ -2075,51 +2068,6 @@ a {
       linear-gradient(90deg, #050608 0 6px, transparent 6px 10px, #050608 10px 18px, transparent 18px 24px, #050608 24px 34px, transparent 34px 42px, #050608 42px 76px);
     border-radius: 6px;
     opacity: 0.9;
-  }
-
-  .pv-dashboard-floaters {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-  }
-
-  .pv-dashboard-floaters .pv-floating-card,
-  .pv-dashboard-floaters .pv-floating-code,
-  .pv-orb,
-  .pv-dash-api,
-  .pv-dash-notes,
-  .pv-dash-deploy,
-  .pv-dash-import,
-  .pv-dash-encrypted,
-  .pv-dash-share {
-    opacity: 0.58;
-  }
-
-  .pv-dash-api,
-  .pv-dash-notes,
-  .pv-dash-deploy,
-  .pv-dash-import,
-  .pv-dash-encrypted,
-  .pv-dash-share {
-    display: none;
-  }
-
-  .pv-dash-share {
-    display: flex;
-    top: 108px;
-    right: -156px;
-    left: auto;
-    bottom: auto;
-    width: 286px;
-    transform: rotate(7deg);
-  }
-
-  .pv-dash-import {
-    display: flex;
-    top: 332px;
-    right: -156px;
-    width: 230px;
-    transform: rotate(7deg);
   }
 
   .pv-mobile-hero {
@@ -2444,8 +2392,14 @@ a {
   }
 
   .pv-dashboard-floaters {
-    display: block;
+    display: none;
   }
+}
+
+.pv-dashboard-floaters,
+.pv-dashboard-floaters *,
+.pv-orb {
+  display: none !important;
 }
 
 @media (min-width: 1501px) {

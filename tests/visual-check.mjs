@@ -32,11 +32,11 @@ if (landingRegions !== 2) {
 }
 
 const landingBackground = await landingPage.locator(".vault-landing").evaluate((element) => getComputedStyle(element).backgroundImage);
-if (!landingBackground.includes("landing-background.svg")) {
-  throw new Error("Expected landing to use the supplied single background image asset.");
+if (landingBackground !== "none") {
+  throw new Error(`Expected plain landing background with no artifact image, found ${landingBackground}.`);
 }
 
-const retiredArtifacts = await landingPage.locator(".ambient-card, .ambient-cards, .reactbits-backdrop").count();
+const retiredArtifacts = await landingPage.locator(".ambient-card, .ambient-cards, .reactbits-backdrop, .pv-floating-card, .pv-terminal-card, .pv-sticky-note, .pv-link-preview").count();
 if (retiredArtifacts !== 0) {
   throw new Error(`Expected retired artifact layers to be removed from the DOM, found ${retiredArtifacts}.`);
 }
@@ -68,15 +68,24 @@ for (const theme of ["light", "dark"]) {
     throw new Error(`Expected deep-link clipboard id heading in ${theme} mode, found ${heading}.`);
   }
 
+  const dashboardBackground = await page.locator(".pv-dashboard").evaluate((element) => getComputedStyle(element).backgroundImage);
+  if (dashboardBackground !== "none") {
+    throw new Error(`Expected plain ${theme} dashboard background with no artifact gradients, found ${dashboardBackground}.`);
+  }
+
+  const dashboardArtifacts = await page.locator(".pv-dashboard-floaters, .pv-dashboard-floaters .pv-floating-card, .pv-dashboard-floaters .pv-floating-code, .pv-orb").count();
+  if (dashboardArtifacts !== 0) {
+    throw new Error(`Expected dashboard background artifacts removed in ${theme} mode, found ${dashboardArtifacts}.`);
+  }
+
   const requiredShell = {
     header: await page.locator(".pv-dashboard-header").isVisible(),
-    floaters: await page.locator(".pv-dashboard-floaters .pv-floating-card, .pv-dashboard-floaters .pv-floating-code").count(),
     editor: await page.locator(".pv-code-surface").isVisible(),
     details: await page.locator(".pv-clip-details").count(),
     history: await page.locator(".pv-recent-strip").count()
   };
   const missing = Object.entries(requiredShell)
-    .filter(([name, value]) => (name === "floaters" || name === "details" || name === "history" ? value < 1 : !value))
+    .filter(([name, value]) => (name === "details" || name === "history" ? value < 1 : !value))
     .map(([name]) => name);
   if (missing.length) {
     throw new Error(`Expected desktop ${theme} PasteVault regions to be visible, missing: ${missing.join(", ")}.`);

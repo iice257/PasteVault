@@ -22,7 +22,6 @@ import { AppLogo } from "../components/pastevault/AppLogo";
 import { BottomPasteBar } from "../components/pastevault/BottomPasteBar";
 import { ClipboardEditor } from "../components/pastevault/ClipboardEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
-import { FloatingCard, FloatingCodeCard } from "../components/pastevault/FloatingCard";
 import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
@@ -593,13 +592,6 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         onExport={() => exportClipboard(clipboardId, payload)}
       />
       <main className={historyMode ? "pv-dashboard-stage pv-history-mode" : "pv-dashboard-stage"}>
-        <DashboardFloaters
-          clips={clips}
-          onClip={(id) => selectClip(id)}
-          onCopy={handleCopyLink}
-          onImport={() => fileRef.current?.click()}
-        />
-
         <section className="pv-mobile-hero" aria-label="Clipboard summary">
           <AppLogo />
           <h1>{clipboardTitle(clipboardId)}</h1>
@@ -832,35 +824,6 @@ function DashboardRail({ active, storageUsage, onImport, onExport }) {
         <em><Zap size={15} /> Local-first</em>
       </div>
     </aside>
-  );
-}
-
-function DashboardFloaters({ clips, onClip, onCopy, onImport }) {
-  const api = clips.find((clip) => clip.title === "API Response") ?? clips[0];
-  const notes = clips.find((clip) => clip.title === "Meeting notes");
-  const encrypted = clips.find((clip) => clip.title === "Encrypted");
-  const deploy = clips.find((clip) => clip.title === "Deploy command");
-
-  return (
-    <div className="pv-dashboard-floaters" aria-hidden="false">
-      {api && (
-        <FloatingCodeCard
-          className="pv-dash-api"
-          title="API Response"
-          tag="JSON"
-          rotation={7}
-          lines={["{", '  "status": "success",', '  "code": 200,', '  "data": { ... }', "}"]}
-          onClick={() => onClip(api.id)}
-        />
-      )}
-      {notes && <FloatingCard className="pv-dash-notes" icon="file" title="Meeting notes" meta="1.1 KB - 2h ago" rotation={-3} onClick={() => onClip(notes.id)} />}
-      {encrypted && <FloatingCard className="pv-dash-encrypted" icon="lock" title="Encrypted" meta="1.7 KB - 2d ago" rotation={5} onClick={() => onClip(encrypted.id)} />}
-      {deploy && <FloatingCard className="pv-dash-deploy" icon="terminal" title="Deploy command" meta="128 B - 5h ago" rotation={-5} onClick={() => onClip(deploy.id)} />}
-      <FloatingCard className="pv-dash-import" icon="file" title="Imported notes.txt" meta="940 B - 1d ago" rotation={-3} onClick={onImport} />
-      <FloatingCard className="pv-dash-share" icon="link" title="Share this clipboard" meta="pastevault.app/clip/9f3a7b6c" rotation={-4} onClick={onCopy} />
-      <button className="pv-orb pv-orb-link" type="button" onClick={onCopy} aria-label="Copy dashboard link"><Link2 size={23} /></button>
-      <button className="pv-orb pv-orb-lock" type="button" onClick={() => encrypted && onClip(encrypted.id)} aria-label="Open encrypted clip"><Lock size={23} /></button>
-    </div>
   );
 }
 
