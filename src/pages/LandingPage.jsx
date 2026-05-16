@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ArrowRight, Clipboard } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clipboard, DatabaseZap, KeyRound, Link2, Mouse } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
 import {
@@ -87,9 +87,9 @@ export default function LandingPage() {
 
   return (
     <div className="vault-landing pv-landing">
-      <main className="pv-landing-core">
+      <main className="pv-landing-core" aria-labelledby="landing-title">
         <AppLogo />
-        <h1>The fastest way to move text between devices</h1>
+        <h1 id="landing-title">The fastest way to move text between devices</h1>
         <p>Paste once. Open the link anywhere. Optional password. No account.</p>
         <form
           className="landing-input-shell pv-open-shell"
@@ -117,7 +117,47 @@ export default function LandingPage() {
             <ArrowRight size={24} />
           </ActionButton>
         </form>
+        <a className="pv-scroll-cue" href="#how-it-works" aria-label="Scroll to learn how PasteVault works">
+          <Mouse size={18} />
+          Scroll for the quick tour
+        </a>
       </main>
+      <section className="pv-landing-section pv-landing-feature" id="how-it-works">
+        <div>
+          <span><Link2 size={18} /> Link-first clipboard</span>
+          <h2>Paste something. Get a clipboard URL. Move on.</h2>
+        </div>
+        <p>
+          PasteVault keeps the entry path deliberately short: text or link in, clipboard out. Use it for payloads,
+          commands, notes, JSON, env vars, and anything else that should not involve sending yourself a message.
+        </p>
+      </section>
+      <section className="pv-landing-section pv-landing-split">
+        <article>
+          <KeyRound size={26} />
+          <h2>Password when it matters</h2>
+          <p>Set a password per clipboard id, remove it later, and keep the no-account flow intact.</p>
+        </article>
+        <article>
+          <DatabaseZap size={26} />
+          <h2>History without friction</h2>
+          <p>Save clips locally, search by title/content/tag, import files, export boards, and keep recent work close.</p>
+        </article>
+      </section>
+      <section className="pv-landing-section pv-landing-proof">
+        <h2>Built for the dev tab you keep open all day.</h2>
+        <div>
+          {["JSON formatting", "Copy latest", "File import", "Deep links", "Theme toggle", "Keyboard save"].map((item) => (
+            <span key={item}><CheckCircle2 size={16} /> {item}</span>
+          ))}
+        </div>
+      </section>
+      <footer className="pv-landing-footer">
+        <AppLogo compact />
+        <strong>PasteVault</strong>
+        <p>No account. Optional password. One link for the thing you need on another device.</p>
+        <ActionButton variant="primary" onClick={() => openClipboard()}>Launch PasteVault <ArrowRight size={20} /></ActionButton>
+      </footer>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   History,
   Link2,
   Lock,
+  PanelLeft,
   MoreHorizontal,
   Search,
   Settings,
@@ -26,9 +27,22 @@ import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
 import { RecentHistoryCard } from "../components/pastevault/RecentHistoryCard";
-import { ThemeMenu } from "../components/pastevault/ThemeMenu";
+import { ThemeToggle } from "../components/pastevault/ThemeToggle";
 import { Toast } from "../components/pastevault/Toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger
+} from "../components/ui/sidebar";
 import { useTheme } from "../hooks/useTheme";
 import {
   appVersion,
@@ -80,7 +94,7 @@ function shortFormat(format) {
 }
 
 export default function ClipboardPage({ clipboardId, initialHistory = false, initialSettings = false }) {
-  const { theme, setTheme, isDark } = useTheme();
+  const { theme, isDark, toggleTheme } = useTheme();
   const fileRef = useRef(null);
   const searchRef = useRef(null);
   const [initialState] = useState(() => hydrateClipboard(clipboardId));
@@ -103,7 +117,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
-  const [historyMode, setHistoryMode] = useState(initialHistory);
+  const [activeSection, setActiveSection] = useState(() => (initialHistory ? "history" : initialSettings ? "tools" : "editor"));
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
 
   const selectedClip = useMemo(
@@ -265,7 +279,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setDraftTitle(clip.title);
     setDraftContent(clip.content);
     setFormat(clip.format);
-    setHistoryMode(false);
+    setActiveSection("editor");
     setError("");
   }, [clips]);
 
@@ -389,7 +403,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setDraftTitle("");
     setDraftContent("");
     setFormat("Plain text");
-    setHistoryMode(false);
+    setActiveSection("editor");
     setError("");
     setSyncStatus("Unsaved changes");
     showToast("New clip ready");
@@ -539,7 +553,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   if (locked) {
     return (
       <div className={`pv-dashboard vault-theme theme-${theme}`}>
-        <DashboardHeader theme={theme} setTheme={setTheme} onCopyLink={handleCopyLink} onPassword={() => setPasswordOpen(true)} />
+        <DashboardHeader theme={theme} toggleTheme={toggleTheme} onCopyLink={handleCopyLink} onPassword={() => setPasswordOpen(true)} />
         <main className="pv-locked-state">
           <Lock size={42} />
           <h1>This clipboard is password protected</h1>
@@ -572,11 +586,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     <div className={`pv-dashboard vault-theme theme-${theme} ${isDark ? "theme-dark" : "theme-light"}`}>
       <DashboardHeader
         theme={theme}
-        setTheme={setTheme}
-        search={historyMode ? search : undefined}
-        setSearch={historyMode ? setSearch : undefined}
-        searchRef={historyMode ? searchRef : undefined}
-        onSearchFocus={() => setHistoryMode(true)}
+        toggleTheme={toggleTheme}
+        search={activeSection === "history" ? search : undefined}
+        setSearch={activeSection === "history" ? setSearch : undefined}
+        searchRef={activeSection === "history" ? searchRef : undefined}
+        onSearchFocus={() => setActiveSection("history")}
         onCopyLink={handleCopyLink}
         onPassword={() => setPasswordOpen(true)}
         onPaste={handlePasteFromClipboard}
@@ -586,12 +600,13 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         onNewClip={handleNewClip}
       />
       <DashboardRail
-        active={historyMode ? "history" : "clipboard"}
+        active={activeSection}
+        onSectionChange={setActiveSection}
         storageUsage={storageUsage}
         onImport={() => fileRef.current?.click()}
         onExport={() => exportClipboard(clipboardId, payload)}
       />
-      <main className={historyMode ? "pv-dashboard-stage pv-history-mode" : "pv-dashboard-stage"}>
+      <main className={`pv-dashboard-stage pv-section-${activeSection}`}>
         <section className="pv-mobile-hero" aria-label="Clipboard summary">
           <AppLogo />
           <h1>{clipboardTitle(clipboardId)}</h1>
@@ -599,11 +614,23 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           <div className="pv-mobile-actions">
             <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
             <ActionButton icon={Lock} onClick={() => setPasswordOpen(true)}>Password</ActionButton>
-            <ThemeMenu theme={theme} setTheme={setTheme} />
+            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
           </div>
+          <nav className="pv-mobile-section-tabs" aria-label="Clipboard sections">
+            {[
+              ["editor", "Editor"],
+              ["history", "History"],
+              ["details", "Details"],
+              ["tools", "Tools"]
+            ].map(([key, label]) => (
+              <button className={activeSection === key ? "is-active" : ""} type="button" key={key} onClick={() => setActiveSection(key)}>
+                {label}
+              </button>
+            ))}
+          </nav>
         </section>
 
-        {!historyMode && (
+        {activeSection === "editor" && (
           <ClipboardEditor
             clipboardId={clipboardTitle(clipboardId)}
             title={draftTitle}
@@ -627,7 +654,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           />
         )}
 
-        {historyMode && (
+        {activeSection === "history" && (
           <HistorySection
             clips={filteredClips}
             selectedId={selectedId}
@@ -644,58 +671,36 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           />
         )}
 
-        <section className="history-panel pv-recent-strip" aria-label="Recent clipboard history">
-          <header>
-            <h2>Recent history</h2>
-            <a href="/history">See all</a>
-          </header>
-          <HistoryControls
-            search={search}
-            setSearch={setSearch}
-            searchRef={searchRef}
-            sort={sort}
-            setSort={setSort}
-            filter={filter}
-            setFilter={setFilter}
-            compact
+        {activeSection === "details" && (
+          <DetailsPanel
+            selectedClip={selectedClip}
+            draftTitle={draftTitle}
+            draftContent={draftContent}
+            format={format}
+            stats={stats}
+            protection={protection}
+            clips={clips}
+            replaceClips={replaceClips}
+            onCopy={() => handleCopy(draftContent)}
+            onCopyLink={handleCopyLink}
+            onDelete={handleDelete}
+            onTogglePin={() => handleToggleFlag("pinned")}
           />
-          <div>
-            {filteredClips.slice(0, 4).map((clip) => (
-              <RecentHistoryCard
-                key={clip.id}
-                clip={clip}
-                selected={clip.id === selectedId}
-                onOpen={() => selectClip(clip.id)}
-                onTogglePin={() => handleToggleFlag("pinned", clip)}
-                onToggleStar={() => handleToggleFlag("starred", clip)}
-              />
-            ))}
-            {!filteredClips.length && <p className="pv-empty-text">No clips match this view.</p>}
-          </div>
-        </section>
+        )}
 
-        <section className="details-panel pv-clip-details" aria-label="Selected clip">
-          <header>
-            <h2>Selected clip</h2>
-            <button type="button" onClick={() => handleToggleFlag("pinned")} aria-label="Toggle pinned"><MoreHorizontal size={18} /></button>
-          </header>
-          <strong>{selectedClip?.title ?? draftTitle}</strong>
-          <p>{format} - {formatBytes(stats.bytes)} - {stats.lines} lines</p>
-          <div>
-            <ActionButton icon={ClipboardCopy} variant="primary" onClick={() => handleCopy(draftContent)}>Copy</ActionButton>
-            <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
-            <ActionButton icon={Trash2} variant="danger" onClick={handleDelete}>Delete</ActionButton>
-          </div>
-          <dl className="pv-detail-list">
-            <div><dt>Format</dt><dd>{format}</dd></div>
-            <div><dt>Size</dt><dd>{formatBytes(stats.bytes)} ({stats.bytes.toLocaleString()} B)</dd></div>
-            <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
-            <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
-            <div><dt>Password</dt><dd>{protection ? "Enabled" : "Optional per clipboard"}</dd></div>
-            {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
-          </dl>
-          <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
-        </section>
+        {activeSection === "tools" && (
+          <ToolsPanel
+            clipboardId={clipboardTitle(clipboardId)}
+            storageUsage={storageUsage}
+            onPaste={handlePasteFromClipboard}
+            onImport={() => fileRef.current?.click()}
+            onExport={() => exportClipboard(clipboardId, payload)}
+            onPassword={() => setPasswordOpen(true)}
+            onCopyLink={handleCopyLink}
+            onCopyLatest={handleCopyLatest}
+            onNewClip={handleNewClip}
+          />
+        )}
 
         <FileImportDropzone inputRef={fileRef} onImport={handleImportFile} compact />
         <BottomPasteBar value={draftContent} onChange={setDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
@@ -722,7 +727,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   );
 }
 
-function DashboardHeader({ theme, setTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
+function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
   return (
     <header className="pv-dashboard-header" role="banner">
       {setSearch ? (
@@ -743,7 +748,7 @@ function DashboardHeader({ theme, setTheme, search, setSearch, searchRef, onSear
       <div className="pv-dashboard-actions">
         <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
         <ActionButton icon={Lock} onClick={onPassword} aria-label="Password optional">Password</ActionButton>
-        <ThemeMenu theme={theme} setTheme={setTheme} />
+        <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
         {onPaste && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -780,50 +785,125 @@ function DashboardHeader({ theme, setTheme, search, setSearch, searchRef, onSear
   );
 }
 
-function DashboardRail({ active, storageUsage, onImport, onExport }) {
+function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExport }) {
+  const [collapsed, setCollapsed] = useState(false);
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
   const storageLabel = `${formatBytes(storageUsage)} / ${formatBytes(storageBudgetBytes)}`;
-  const items = [
-    ["clipboard", "Clipboard", <ClipboardList size={20} />, "/clipboard"],
-    ["history", "History", <History size={20} />, "/history"],
-    ["starred", "Starred", <Star size={20} />, "/history"],
-    ["imports", "Imports", <Upload size={20} />, "#import"],
-    ["exports", "Exports", <Download size={20} />, "#export"],
-    ["settings", "Settings", <Settings size={20} />, "/settings"]
+  const sections = [
+    ["editor", "Editor", ClipboardList],
+    ["history", "History", History],
+    ["details", "Details", Star],
+    ["tools", "Tools", Settings]
+  ];
+  const actions = [
+    ["imports", "Import file", Upload, onImport],
+    ["exports", "Export board", Download, onExport]
   ];
 
   return (
-    <aside className="pv-sidebar sidebar" aria-label="Workspace navigation">
-      <AppLogo compact />
-      <nav>
-        {items.map(([key, label, icon, href]) => (
-          <a
-            className={active === key ? "is-active" : ""}
-            href={href}
-            key={key}
-            onClick={(event) => {
-              if (key === "imports") {
-                event.preventDefault();
-                onImport();
-              }
-              if (key === "exports") {
-                event.preventDefault();
-                onExport();
-              }
-            }}
-          >
-            {icon}
-            {label}
-          </a>
-        ))}
-      </nav>
-      <div className="pv-storage-panel">
-        <span>Storage</span>
-        <strong>{storageLabel}</strong>
-        <i><b style={{ width: `${storagePercent}%` }} /></i>
-        <em><Zap size={15} /> Local-first</em>
+    <Sidebar className="sidebar" collapsed={collapsed} aria-label="Workspace navigation">
+      <SidebarHeader>
+        <AppLogo compact />
+        <SidebarTrigger onClick={() => setCollapsed((value) => !value)}>
+          <PanelLeft size={18} />
+        </SidebarTrigger>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sections.map(([key, label, Icon]) => (
+                <SidebarMenuItem key={key}>
+                  <SidebarMenuButton icon={Icon} isActive={active === key} onClick={() => onSectionChange(key)}>
+                    {label}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Files</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {actions.map(([key, label, Icon, action]) => (
+                <SidebarMenuItem key={key}>
+                  <SidebarMenuButton icon={Icon} onClick={action}>
+                    {label}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        <div className="pv-storage-panel">
+          <span>Storage</span>
+          <strong>{storageLabel}</strong>
+          <i><b style={{ width: `${storagePercent}%` }} /></i>
+          <em><Zap size={15} /> Local-first</em>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin }) {
+  return (
+    <section className="details-panel pv-clip-details pv-section-panel" aria-label="Selected clip">
+      <header>
+        <h2>Selected clip</h2>
+        <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><MoreHorizontal size={18} /></button>
+      </header>
+      <strong>{selectedClip?.title ?? draftTitle}</strong>
+      <p>{format} - {formatBytes(stats.bytes)} - {stats.lines} lines</p>
+      <div>
+        <ActionButton icon={ClipboardCopy} variant="primary" onClick={onCopy}>Copy</ActionButton>
+        <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
+        <ActionButton icon={Trash2} variant="danger" onClick={onDelete}>Delete</ActionButton>
       </div>
-    </aside>
+      <dl className="pv-detail-list">
+        <div><dt>Format</dt><dd>{format}</dd></div>
+        <div><dt>Size</dt><dd>{formatBytes(stats.bytes)} ({stats.bytes.toLocaleString()} B)</dd></div>
+        <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
+        <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
+        <div><dt>Password</dt><dd>{protection ? "Enabled" : "Optional per clipboard"}</dd></div>
+        {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
+      </dl>
+      <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
+      {draftContent.length > 6000 && <p className="pv-empty-text">Large content stays in the editor. Metadata remains responsive here.</p>}
+    </section>
+  );
+}
+
+function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onCopyLatest, onNewClip }) {
+  const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
+
+  return (
+    <section className="pv-tools-panel pv-section-panel" aria-label="Clipboard tools">
+      <header>
+        <span>Clipboard {clipboardId}</span>
+        <h1>Tools</h1>
+        <p>Secondary actions live here so the editor can stay focused and visible.</p>
+      </header>
+      <div className="pv-tools-grid">
+        <ActionButton icon={ClipboardPaste} variant="primary" onClick={onPaste}>Paste from clipboard</ActionButton>
+        <ActionButton icon={Upload} onClick={onImport}>Import file</ActionButton>
+        <ActionButton icon={Download} onClick={onExport}>Export board</ActionButton>
+        <ActionButton icon={Lock} onClick={onPassword}>Password</ActionButton>
+        <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
+        <ActionButton icon={ClipboardCopy} onClick={onCopyLatest}>Copy latest</ActionButton>
+        <ActionButton icon={FilePlus2} onClick={onNewClip}>New clip</ActionButton>
+      </div>
+      <div className="pv-tools-storage">
+        <span>Storage</span>
+        <strong>{formatBytes(storageUsage)} / {formatBytes(storageBudgetBytes)}</strong>
+        <i><b style={{ width: `${storagePercent}%` }} /></i>
+        <p>Local-first storage with remote sync fallback when configured.</p>
+      </div>
+    </section>
   );
 }
 

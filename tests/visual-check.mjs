@@ -45,6 +45,10 @@ const openButtonVisible = await landingPage.getByRole("button", { name: "Open cl
 if (!openButtonVisible) {
   throw new Error("Expected visible landing Open clipboard action.");
 }
+const footerVisibleAfterScroll = await landingPage.locator(".pv-landing-footer").count();
+if (footerVisibleAfterScroll !== 1) {
+  throw new Error("Expected appended landing sections and footer to exist below the first viewport.");
+}
 await assertNoOverflow(landingPage, "landing desktop");
 await landingPage.close();
 
@@ -80,20 +84,30 @@ for (const theme of ["light", "dark"]) {
 
   const requiredShell = {
     header: await page.locator(".pv-dashboard-header").isVisible(),
+    sidebar: await page.locator(".pv-sidebar").isVisible(),
     editor: await page.locator(".pv-code-surface").isVisible(),
     details: await page.locator(".pv-clip-details").count(),
-    history: await page.locator(".pv-recent-strip").count()
+    history: await page.locator(".pv-history-page").count()
   };
   const missing = Object.entries(requiredShell)
-    .filter(([name, value]) => (name === "details" || name === "history" ? value < 1 : !value))
+    .filter(([name, value]) => (name === "details" || name === "history" ? value !== 0 : !value))
     .map(([name]) => name);
   if (missing.length) {
     throw new Error(`Expected desktop ${theme} PasteVault regions to be visible, missing: ${missing.join(", ")}.`);
   }
 
   const visibleRail = await page.locator(".pv-sidebar").evaluate((element) => getComputedStyle(element).display);
-  if (visibleRail !== "none") {
-    throw new Error(`Expected old sidebar rail hidden in primary ${theme} dashboard view.`);
+  if (visibleRail === "none") {
+    throw new Error(`Expected sidebar navigation visible in primary ${theme} dashboard view.`);
+  }
+
+  await page.getByRole("button", { name: "History" }).click();
+  if (!(await page.locator(".pv-history-page").isVisible())) {
+    throw new Error(`Expected ${theme} history section to open from the sidebar.`);
+  }
+  await page.getByRole("button", { name: "Details" }).click();
+  if (!(await page.locator(".pv-clip-details").isVisible())) {
+    throw new Error(`Expected ${theme} details section to open from the sidebar.`);
   }
 
   const primaryActions = await page.getByRole("banner").getByRole("button").count();
@@ -114,14 +128,18 @@ for (const theme of ["light", "dark"]) {
     throw new Error(`Expected ${theme} mobile dashboard class, found ${rootClass}.`);
   }
 
-  const mobilePieces = await page.locator(".pv-mobile-hero, .pv-code-surface, .pv-recent-strip, .pv-bottom-paste").count();
-  if (mobilePieces !== 4) {
-    throw new Error(`Expected mobile hero, editor, recent history, and bottom paste bar in ${theme} mobile mode, found ${mobilePieces}.`);
+  const mobilePieces = await page.locator(".pv-mobile-hero, .pv-code-surface, .pv-bottom-paste").count();
+  if (mobilePieces !== 3) {
+    throw new Error(`Expected mobile hero, editor, and bottom paste bar in ${theme} mobile mode, found ${mobilePieces}.`);
   }
 
   const mobileActions = await page.locator(".pv-mobile-actions button").count();
   if (mobileActions < 3) {
     throw new Error(`Expected three mobile clipboard actions in ${theme} mode, found ${mobileActions}.`);
+  }
+  const mobileSectionTabs = await page.locator(".pv-mobile-section-tabs button").count();
+  if (mobileSectionTabs !== 4) {
+    throw new Error(`Expected four mobile section tabs in ${theme} mode, found ${mobileSectionTabs}.`);
   }
   if (await page.locator(".pv-sidebar").isVisible()) {
     throw new Error(`Expected desktop sidebar to collapse away in ${theme} mobile mode.`);

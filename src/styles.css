@@ -2402,6 +2402,411 @@ a {
   display: none !important;
 }
 
+/* Landing expansion */
+.vault-landing,
+.pv-landing {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.pv-landing-core {
+  min-height: 100svh;
+}
+
+.pv-scroll-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 34px;
+  color: #667085;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.pv-scroll-cue svg {
+  color: #0aa9a3;
+}
+
+.pv-landing-section,
+.pv-landing-footer {
+  position: relative;
+  z-index: 4;
+  width: min(1120px, calc(100vw - 44px));
+  margin: 0 auto;
+  color: #07080a;
+}
+
+.pv-landing-section {
+  padding: 88px 0;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.pv-landing-section h2 {
+  margin: 0;
+  color: #050608;
+  font-size: clamp(34px, 4vw, 62px);
+  font-weight: 920;
+  line-height: 1.04;
+  letter-spacing: -0.052em;
+}
+
+.pv-landing-section p {
+  margin: 0;
+  color: #667085;
+  font-size: 19px;
+  line-height: 1.7;
+}
+
+.pv-landing-feature {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.7fr);
+  gap: clamp(36px, 7vw, 100px);
+  align-items: end;
+}
+
+.pv-landing-feature span,
+.pv-landing-proof span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 999px;
+  background: #fff;
+  padding: 9px 13px;
+  color: #0a8c87;
+  font-size: 13px;
+  font-weight: 850;
+  box-shadow: 0 10px 26px rgba(28, 38, 58, 0.07);
+}
+
+.pv-landing-feature h2 {
+  margin-top: 22px;
+}
+
+.pv-landing-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.pv-landing-split article {
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 28px;
+  background: #fff;
+  padding: 34px;
+  box-shadow: 0 20px 54px rgba(28, 38, 58, 0.08);
+}
+
+.pv-landing-split svg {
+  color: #0aa9a3;
+}
+
+.pv-landing-split h2 {
+  font-size: clamp(28px, 2.9vw, 42px);
+}
+
+.pv-landing-proof {
+  display: grid;
+  gap: 30px;
+  text-align: center;
+}
+
+.pv-landing-proof div {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pv-landing-proof span {
+  color: #344054;
+}
+
+.pv-landing-proof span svg {
+  color: #71c72d;
+}
+
+.pv-landing-footer {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 70px 0 82px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: center;
+}
+
+.pv-landing-footer strong {
+  font-size: clamp(40px, 5vw, 72px);
+  font-weight: 930;
+  letter-spacing: -0.06em;
+}
+
+.pv-landing-footer p {
+  max-width: 620px;
+  margin: 0 0 10px;
+  color: #667085;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* Sidebar-driven dashboard */
+@media (min-width: 1101px) {
+  .pv-sidebar {
+    display: flex;
+    width: 252px;
+    gap: 18px;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    background: #ffffff;
+    padding: 24px 18px;
+    backdrop-filter: none;
+    transition: width 180ms ease, padding 180ms ease;
+  }
+
+  .theme-dark .pv-sidebar {
+    background: #050505;
+  }
+
+  .pv-sidebar.is-collapsed {
+    width: 86px;
+    padding-inline: 14px;
+  }
+
+  .pv-sidebar-header,
+  .pv-sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pv-sidebar-header {
+    justify-content: space-between;
+  }
+
+  .pv-sidebar-content {
+    display: grid;
+    align-content: start;
+    gap: 22px;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .pv-sidebar-group {
+    display: grid;
+    gap: 9px;
+  }
+
+  .pv-sidebar-group-label {
+    margin: 0;
+    padding: 0 10px;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .pv-sidebar-menu {
+    display: grid;
+    gap: 6px;
+  }
+
+  .pv-sidebar-menu-button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    color: #344054;
+    padding: 0 12px;
+    font-weight: 760;
+    text-align: left;
+  }
+
+  .theme-dark .pv-sidebar-menu-button {
+    color: #d8dee9;
+  }
+
+  .pv-sidebar-menu-button:hover,
+  .pv-sidebar-menu-button.is-active {
+    background: rgba(24, 199, 192, 0.1);
+    color: #069b95;
+  }
+
+  .pv-sidebar-trigger {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--ink);
+  }
+
+  .theme-dark .pv-sidebar-trigger {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .pv-sidebar.is-collapsed .pv-logo strong,
+  .pv-sidebar.is-collapsed .pv-sidebar-group-label,
+  .pv-sidebar.is-collapsed .pv-sidebar-menu-button span,
+  .pv-sidebar.is-collapsed .pv-storage-panel span,
+  .pv-sidebar.is-collapsed .pv-storage-panel strong,
+  .pv-sidebar.is-collapsed .pv-storage-panel em {
+    display: none;
+  }
+
+  .pv-sidebar.is-collapsed .pv-sidebar-header {
+    justify-content: center;
+  }
+
+  .pv-sidebar.is-collapsed .pv-logo {
+    display: none;
+  }
+
+  .pv-sidebar.is-collapsed .pv-sidebar-menu-button {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .pv-dashboard-stage {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    padding: 118px 34px 28px 286px;
+  }
+
+  .pv-workbench,
+  .pv-history-page,
+  .pv-section-panel {
+    width: min(1120px, calc(100vw - 370px));
+    margin: 0 auto;
+  }
+
+  .pv-workbench {
+    min-height: 0;
+    height: calc(100dvh - 156px);
+    overflow: hidden;
+    padding: 34px;
+  }
+
+  .pv-workbench-head {
+    margin-bottom: 24px;
+  }
+
+  .pv-code-surface {
+    min-height: 0;
+    height: max(360px, calc(100dvh - 344px));
+  }
+
+  .pv-history-page,
+  .pv-section-panel {
+    max-height: calc(100dvh - 156px);
+    overflow: auto;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 34px;
+    box-shadow: 0 20px 52px rgba(28, 38, 58, 0.1);
+  }
+
+  .theme-dark .pv-history-page,
+  .theme-dark .pv-section-panel {
+    background: rgba(13, 17, 24, 0.95);
+  }
+
+  .pv-section-panel.pv-clip-details {
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 9;
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 0 auto;
+  }
+}
+
+.pv-tools-panel {
+  display: grid;
+  gap: 28px;
+}
+
+.pv-tools-panel header {
+  display: grid;
+  gap: 8px;
+}
+
+.pv-tools-panel header span {
+  color: #0a8c87;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.pv-tools-panel h1 {
+  margin: 0;
+  font-size: clamp(42px, 5vw, 68px);
+  font-weight: 930;
+  letter-spacing: -0.055em;
+}
+
+.pv-tools-panel p {
+  margin: 0;
+  color: #667085;
+}
+
+.pv-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pv-tools-grid .pv-action {
+  justify-content: flex-start;
+  min-height: 58px;
+}
+
+.pv-tools-storage {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.pv-tools-storage span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pv-tools-storage strong {
+  font-size: 22px;
+}
+
+.pv-tools-storage i {
+  display: block;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(102, 112, 133, 0.18);
+}
+
+.pv-tools-storage b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #15c3bd, #7bd22d);
+}
+
 @media (min-width: 1501px) {
   .pv-clip-details {
     position: fixed;
@@ -2454,9 +2859,8 @@ a {
   color: #f7f9fc;
 }
 
-/* Final reference-aligned shell polish. The default clipboard view is a centered
-   workspace with floating context cards; secondary navigation remains routed
-   but does not occupy the first viewport. */
+/* Final reference-aligned shell polish. The clipboard view is a centered
+   workspace, with secondary sections controlled by the app sidebar. */
 @media (min-width: 1281px) {
   .pv-dashboard-stage {
     padding: 134px 24px 42px;
@@ -2505,5 +2909,116 @@ a {
     right: auto;
     max-height: none;
     overflow: visible;
+  }
+}
+
+@media (min-width: 1101px) {
+  .pv-dashboard-stage {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    padding: 118px 34px 28px 286px;
+  }
+
+  .pv-workbench,
+  .pv-history-page,
+  .pv-section-panel {
+    width: min(1120px, calc(100vw - 370px));
+    margin: 0 auto;
+  }
+
+  .pv-workbench {
+    min-height: 0;
+    height: calc(100dvh - 156px);
+    overflow: hidden;
+    padding: 34px;
+  }
+
+  .pv-code-surface {
+    min-height: 0;
+    height: max(360px, calc(100dvh - 344px));
+  }
+
+  .pv-section-panel.pv-clip-details {
+    position: relative;
+    top: auto;
+    right: auto;
+    display: grid;
+    width: min(1120px, calc(100vw - 370px));
+    max-height: calc(100dvh - 156px);
+    margin: 0 auto;
+    overflow: auto;
+  }
+
+  .pv-recent-strip {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .pv-landing-section {
+    padding: 64px 0;
+  }
+
+  .pv-landing-feature,
+  .pv-landing-split {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-landing-section h2 {
+    font-size: clamp(34px, 10vw, 50px);
+  }
+}
+
+@media (max-width: 760px) {
+  .pv-mobile-section-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-top: 22px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    padding: 6px;
+  }
+
+  .pv-mobile-section-tabs button {
+    min-height: 40px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #667085;
+    font-size: 13px;
+    font-weight: 820;
+  }
+
+  .pv-mobile-section-tabs button.is-active {
+    background: #050608;
+    color: #fff;
+  }
+
+  .theme-dark .pv-mobile-section-tabs {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-dark .pv-mobile-section-tabs button.is-active {
+    background: #f7f9fc;
+    color: #050608;
+  }
+
+  .pv-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-section-panel {
+    width: 100%;
+    margin-top: 24px;
+  }
+}
+
+@media (min-width: 761px) {
+  .pv-mobile-section-tabs {
+    display: none;
   }
 }

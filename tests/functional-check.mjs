@@ -33,8 +33,9 @@ await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
 await page.getByLabel("Clipboard content").fill(largeText);
 await page.keyboard.press("Control+S");
 await page.getByRole("status").getByText("Clip saved successfully").waitFor();
+await page.getByRole("button", { name: "History" }).click();
 await page.getByPlaceholder("Search history").fill(largeMarker);
-await page.getByText(largeMarker).first().waitFor();
+await page.locator(".pv-history-card").first().waitFor();
 
 await page.getByRole("button", { name: /Password optional/i }).click();
 await page.getByPlaceholder("8+ characters").fill(password);
