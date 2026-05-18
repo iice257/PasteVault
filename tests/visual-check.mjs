@@ -32,7 +32,7 @@ if (landingRegions !== 2) {
 }
 
 const landingBackground = await landingPage.locator(".vault-landing").evaluate((element) => getComputedStyle(element, "::before").backgroundImage);
-if (!landingBackground.includes("landing-background.svg")) {
+if (!landingBackground.includes("pastevault-bg.png")) {
   throw new Error(`Expected supplied landing background image behind the hero, found ${landingBackground}.`);
 }
 
