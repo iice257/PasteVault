@@ -1,5 +1,6 @@
 import { Readable } from "node:stream";
 import handler from "../api/clip/[id].js";
+import sessionHandler from "../api/session/[id].js";
 
 function createReq({ method, id, body = "", ip = "127.0.0.1" }) {
   const req = Readable.from(body ? [body] : []);
@@ -31,6 +32,17 @@ async function invoke(options) {
   const req = createReq(options);
   const res = createRes();
   await handler(req, res);
+  return {
+    status: res.statusCode,
+    headers: res.headers,
+    body: res.body ? JSON.parse(res.body) : null
+  };
+}
+
+async function invokeSession(options) {
+  const req = createReq(options);
+  const res = createRes();
+  await sessionHandler(req, res);
   return {
     status: res.statusCode,
     headers: res.headers,
@@ -93,6 +105,43 @@ const malformedEncryptedRecord = await invoke({
 });
 if (malformedEncryptedRecord.status !== 400) {
   throw new Error(`Expected encrypted payload without sync/protection rejection, received ${malformedEncryptedRecord.status}.`);
+}
+
+const sessionState = {
+  vaultId: id,
+  sessionId: "session_api_check",
+  deviceId: "device_api_check",
+  theme: "dark",
+  viewMode: "history",
+  selectedTab: "preview",
+  editorSettings: {
+    autosaveEnabled: false,
+    sidebarCollapsed: true
+  },
+  updatedAt: new Date().toISOString()
+};
+
+const savedSession = await invokeSession({
+  method: "PUT",
+  id,
+  body: JSON.stringify(sessionState)
+});
+if (savedSession.status !== 200 || savedSession.body.ok !== true) {
+  throw new Error(`Expected session state save, received ${savedSession.status}.`);
+}
+
+const fetchedSession = await invokeSession({ method: "GET", id });
+if (fetchedSession.status !== 200 || fetchedSession.body.vaultId !== id || fetchedSession.body.theme !== "dark") {
+  throw new Error(`Expected session state fetch, received ${fetchedSession.status}.`);
+}
+
+const badSession = await invokeSession({
+  method: "PUT",
+  id,
+  body: JSON.stringify({ ...sessionState, vaultId: "../wrong" })
+});
+if (badSession.status !== 400) {
+  throw new Error(`Expected invalid session state rejection, received ${badSession.status}.`);
 }
 
 console.log("API checks passed.");

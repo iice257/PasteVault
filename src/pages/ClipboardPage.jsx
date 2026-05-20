@@ -90,10 +90,14 @@ import {
   clearDraftState,
   createSessionId,
   createVaultChannel,
+  fetchRemoteSessionState,
   getDeviceId,
   normalizeSessionState,
   postVaultMessage,
+  pushRemoteSessionState,
   readSessionState,
+  remoteContentPollMs,
+  remoteSessionPollMs,
   sessionStateKey,
   vaultMessageTypes,
   writeDraftState,
@@ -239,7 +243,35 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       type: vaultMessageTypes.sessionState,
       state: normalized
     });
+    void pushRemoteSessionState(clipboardId, normalized).catch(() => {});
   }, [activeSection, autosaveEnabled, clipboardId, detailsTab, format, locked, sidebarCollapsed, theme]);
+
+  const applyRemoteSessionState = useCallback((incoming) => {
+    const state = normalizeSessionState(incoming, clipboardId);
+    if (!state || state.sessionId === sessionIdRef.current) return;
+    const updatedAt = new Date(state.updatedAt).getTime();
+    if (Number.isFinite(updatedAt) && updatedAt <= lastRemoteSessionAtRef.current) return;
+    if (Number.isFinite(updatedAt)) {
+      lastRemoteSessionAtRef.current = updatedAt;
+    }
+
+    if (state.theme && state.theme !== theme) {
+      setTheme(state.theme);
+    }
+    if (state.viewMode && state.viewMode !== activeSection) {
+      setActiveSection(state.viewMode);
+    }
+    if (state.selectedTab && state.selectedTab !== detailsTab) {
+      setDetailsTab(state.selectedTab);
+    }
+    if (typeof state.editorSettings.sidebarCollapsed === "boolean") {
+      setSidebarCollapsed(state.editorSettings.sidebarCollapsed);
+    }
+    if (typeof state.editorSettings.autosaveEnabled === "boolean") {
+      setAutosaveEnabled(state.editorSettings.autosaveEnabled);
+      setSyncStatus(state.editorSettings.autosaveEnabled ? (hasUnsavedRef.current ? "Saving..." : "Autosave on") : (hasUnsavedRef.current ? "Unsaved changes" : "Autosave off"));
+    }
+  }, [activeSection, clipboardId, detailsTab, setTheme, theme]);
 
   const applyRecordToState = useCallback((record, status = "Clipboard updated") => {
     const normalizedVersion = recordContentVersion(record);
@@ -300,9 +332,32 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         return false;
       }
 
+      let versionSource = currentRecord;
+      try {
+        const remoteRecord = await fetchRemoteRecord(clipboardId);
+        const remoteVersion = recordContentVersion(remoteRecord);
+        if (remoteRecord && remoteVersion > baseVersion && !options.force) {
+          const conflict = {
+            baseVersion,
+            currentVersion: remoteVersion,
+            detectedAt: nowIso()
+          };
+          setSaveConflict(conflict);
+          setSyncStatus("Conflict: reload latest before saving");
+          setError("This vault changed on another device. Reload latest or force save after reviewing your local draft.");
+          showToast("This vault changed on another device. Review before overwriting.", "error");
+          return false;
+        }
+        if (remoteRecord && remoteVersion > currentVersion) {
+          versionSource = remoteRecord;
+        }
+      } catch {
+        // Remote storage is optional; local-first saving still works offline.
+      }
+
       setSyncStatus("Saving...");
       const timestamp = nowIso();
-      const nextVersion = nextContentVersion(currentRecord, baseVersion);
+      const nextVersion = nextContentVersion(versionSource, baseVersion);
       const settings = normalizeVaultSettings({
         autosaveEnabled,
         ...(options.settings ?? {})
@@ -400,6 +455,26 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     return true;
   }, [autosaveEnabled, cryptoKey, persistPayload, protection]);
 
+  const remoteRecordToLocalRecord = useCallback(async (remote) => {
+    const remoteVersion = recordContentVersion(remote);
+    if (remote.sync?.mode === "link") {
+      const remotePayload = await decryptLinkSyncRecord(remote);
+      const normalizedClips = remotePayload.clips.map(normalizeClip).filter(Boolean);
+      const nextSelected = normalizedClips.find((clip) => clip.id === remotePayload.selectedId) ?? normalizedClips[0] ?? null;
+      return {
+        version: appVersion,
+        id: clipboardId,
+        contentVersion: remoteVersion,
+        updatedAt: remote.updatedAt ?? nowIso(),
+        lastSavedAt: remote.lastSavedAt ?? remote.updatedAt ?? nowIso(),
+        settings: normalizeVaultSettings(remote.settings),
+        protection: null,
+        payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
+      };
+    }
+    return normalizeRecord(remote, clipboardId);
+  }, [clipboardId]);
+
   const handleExternalSavedRecord = useCallback((externalRecord, status = "Synced from another session") => {
     const record = normalizeRecord(externalRecord, clipboardId);
     const incomingVersion = recordContentVersion(record);
@@ -432,35 +507,17 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         const remoteVersion = recordContentVersion(remote);
         if (!startup.freshLocal && remoteVersion <= startup.contentVersion && remoteUpdatedAt <= localUpdatedAt) return;
 
-        if (remote.sync?.mode === "link") {
-          const remotePayload = await decryptLinkSyncRecord(remote);
-          const normalizedClips = remotePayload.clips.map(normalizeClip).filter(Boolean);
-          const nextSelected = normalizedClips.find((clip) => clip.id === remotePayload.selectedId) ?? normalizedClips[0] ?? null;
-          const localRecord = {
-            version: appVersion,
-            id: clipboardId,
-            contentVersion: remoteVersion,
-            updatedAt: remote.updatedAt ?? nowIso(),
-            lastSavedAt: remote.lastSavedAt ?? remote.updatedAt ?? nowIso(),
-            settings: normalizeVaultSettings(remote.settings),
-            protection: null,
-            payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
-          };
-          saveRecord(clipboardId, localRecord);
-          if (!active) return;
-          applyRecordToState(localRecord, "Cloud synced");
-        } else if (remote.protection && remote.encryptedPayload) {
-          saveRecord(clipboardId, remote);
-          if (!active) return;
-          applyRecordToState(remote, "Cloud locked");
-        }
+        const localRecord = await remoteRecordToLocalRecord(remote);
+        saveRecord(clipboardId, localRecord);
+        if (!active) return;
+        applyRecordToState(localRecord, localRecord.protection ? "Cloud locked" : "Cloud synced");
       } catch {
         if (active) setSyncStatus("Saved locally - cloud unavailable");
       }
     }
     void syncRemoteClipboard();
     return () => { active = false; };
-  }, [applyRecordToState, clipboardId]);
+  }, [applyRecordToState, clipboardId, remoteRecordToLocalRecord]);
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -482,36 +539,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     const channel = createVaultChannel(clipboardId);
     channelRef.current = channel;
 
-    const applySessionState = (incoming) => {
-      const state = normalizeSessionState(incoming, clipboardId);
-      if (!state || state.sessionId === sessionIdRef.current) return;
-      const updatedAt = new Date(state.updatedAt).getTime();
-      if (Number.isFinite(updatedAt) && updatedAt <= lastRemoteSessionAtRef.current) return;
-      if (Number.isFinite(updatedAt)) {
-        lastRemoteSessionAtRef.current = updatedAt;
-      }
-
-      if (state.theme && state.theme !== theme) {
-        setTheme(state.theme);
-      }
-      if (state.viewMode && state.viewMode !== activeSection) {
-        setActiveSection(state.viewMode);
-      }
-      if (state.selectedTab && state.selectedTab !== detailsTab) {
-        setDetailsTab(state.selectedTab);
-      }
-      if (typeof state.editorSettings.sidebarCollapsed === "boolean") {
-        setSidebarCollapsed(state.editorSettings.sidebarCollapsed);
-      }
-      if (typeof state.editorSettings.autosaveEnabled === "boolean") {
-        setAutosaveEnabled(state.editorSettings.autosaveEnabled);
-        setSyncStatus(state.editorSettings.autosaveEnabled ? (hasUnsavedRef.current ? "Saving..." : "Autosave on") : (hasUnsavedRef.current ? "Unsaved changes" : "Autosave off"));
-      }
-    };
-
     const handleChannelMessage = (event) => {
       if (event.data?.type === vaultMessageTypes.sessionState) {
-        applySessionState(event.data.state);
+        applyRemoteSessionState(event.data.state);
       }
       if (event.data?.type === vaultMessageTypes.contentSaved && event.data.sessionId !== sessionIdRef.current) {
         handleExternalSavedRecord(event.data.record, "Synced from another session");
@@ -521,7 +551,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     const handleSessionStorage = (event) => {
       if (event.key !== sessionStateKey(clipboardId) || !event.newValue) return;
       try {
-        applySessionState(JSON.parse(event.newValue));
+        applyRemoteSessionState(JSON.parse(event.newValue));
       } catch {
         // Ignore malformed peer session state. Content state is stored separately.
       }
@@ -531,11 +561,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     window.addEventListener("storage", handleSessionStorage);
 
     const existingSession = readSessionState(clipboardId);
-    if (existingSession) {
-      applySessionState(existingSession);
-    }
+    const initialSessionTimer = existingSession
+      ? window.setTimeout(() => applyRemoteSessionState(existingSession), 0)
+      : null;
 
     return () => {
+      if (initialSessionTimer) {
+        window.clearTimeout(initialSessionTimer);
+      }
       channel?.removeEventListener("message", handleChannelMessage);
       channel?.close();
       if (channelRef.current === channel) {
@@ -543,7 +576,56 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       }
       window.removeEventListener("storage", handleSessionStorage);
     };
-  }, [activeSection, clipboardId, detailsTab, handleExternalSavedRecord, setTheme, theme]);
+  }, [applyRemoteSessionState, clipboardId, handleExternalSavedRecord]);
+
+  useEffect(() => {
+    let active = true;
+    async function pollRemoteSession() {
+      if (!active || document.hidden) return;
+      try {
+        const state = await fetchRemoteSessionState(clipboardId);
+        if (active && state) {
+          applyRemoteSessionState(state);
+        }
+      } catch {
+        // Realtime UI state is best-effort without cloud storage.
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void pollRemoteSession();
+    }, remoteSessionPollMs);
+    void pollRemoteSession();
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [applyRemoteSessionState, clipboardId]);
+
+  useEffect(() => {
+    let active = true;
+    async function pollRemoteContent() {
+      if (!active || document.hidden) return;
+      try {
+        const remote = await fetchRemoteRecord(clipboardId);
+        if (!active || !remote) return;
+        if (recordContentVersion(remote) <= contentVersion) return;
+        const localRecord = await remoteRecordToLocalRecord(remote);
+        if (!active) return;
+        handleExternalSavedRecord(localRecord, "Synced from cloud");
+      } catch {
+        // Content still remains local-first when hosted sync is unavailable.
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void pollRemoteContent();
+    }, remoteContentPollMs);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [clipboardId, contentVersion, handleExternalSavedRecord, remoteRecordToLocalRecord]);
 
   useEffect(() => {
     if (!passwordOpen) return undefined;
@@ -665,10 +747,18 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
     try {
       const record = loadRecord(clipboardId);
-      saveRecord(clipboardId, {
+      const settingsRecord = {
         ...record,
         settings: normalizeVaultSettings({ ...record.settings, autosaveEnabled: nextAutosave })
-      });
+      };
+      saveRecord(clipboardId, settingsRecord);
+      if (settingsRecord.protection || settingsRecord.sync) {
+        void pushRemoteRecord(clipboardId, settingsRecord).catch(() => {});
+      } else if (settingsRecord.payload) {
+        void buildLinkSyncRecord(clipboardId, settingsRecord.payload, settingsRecord)
+          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
+          .catch(() => {});
+      }
     } catch {
       // The session state still syncs live; the next content save will persist the setting.
     }

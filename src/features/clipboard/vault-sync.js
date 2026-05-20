@@ -3,6 +3,9 @@ export const vaultMessageTypes = {
   contentSaved: "content-saved"
 };
 
+export const remoteSessionPollMs = 2500;
+export const remoteContentPollMs = 3000;
+
 const deviceIdKey = "pastevault:device-id";
 
 export function sessionStateKey(vaultId) {
@@ -74,4 +77,26 @@ export function createVaultChannel(vaultId) {
 export function postVaultMessage(channel, message) {
   if (!channel) return;
   channel.postMessage(message);
+}
+
+export async function fetchRemoteSessionState(vaultId) {
+  const response = await fetch(`/api/session/${encodeURIComponent(vaultId)}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store"
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Remote session fetch failed with ${response.status}`);
+  return normalizeSessionState(await response.json(), vaultId);
+}
+
+export async function pushRemoteSessionState(vaultId, state) {
+  const normalized = normalizeSessionState(state, vaultId);
+  if (!normalized) return;
+  const response = await fetch(`/api/session/${encodeURIComponent(vaultId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(normalized)
+  });
+  if (!response.ok) throw new Error(`Remote session save failed with ${response.status}`);
 }
