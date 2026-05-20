@@ -27,6 +27,7 @@ import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
 import { BottomPasteBar } from "../components/pastevault/BottomPasteBar";
 import { ClipboardEditor } from "../components/pastevault/ClipboardEditor";
+import { CodeBlockEditor } from "../components/pastevault/CodeBlockEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
 import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
@@ -136,6 +137,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     characters: draftContent.length,
     lines: Math.max(1, draftContent.split(/\r?\n/).length)
   }), [draftContent]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!selectedClip) return Boolean(draftTitle.trim() || draftContent.trim());
+    return selectedClip.title !== draftTitle || selectedClip.content !== draftContent || selectedClip.format !== format;
+  }, [draftContent, draftTitle, format, selectedClip]);
 
   const payload = useMemo(() => ({ clips, selectedId: selectedClip?.id ?? null }), [clips, selectedClip?.id]);
   const startupSyncRef = useRef({
@@ -278,6 +284,34 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     return () => window.removeEventListener("keydown", handleEscape);
   }, [passwordOpen]);
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined;
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const updateDraftContent = useCallback((value) => {
+    setDraftContent(value);
+    setSyncStatus("Unsaved changes");
+    setError("");
+  }, []);
+
+  const updateDraftFormat = useCallback((value) => {
+    setFormat(value);
+    setSyncStatus("Unsaved changes");
+    setError("");
+  }, []);
+
+  const updateDraftTitle = useCallback((value) => {
+    setDraftTitle(value);
+    setSyncStatus("Unsaved changes");
+    setError("");
+  }, []);
+
   const selectClip = useCallback((clipId) => {
     const clip = clips.find((item) => item.id === clipId);
     if (!clip) return;
@@ -355,15 +389,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         showToast("Clipboard is empty", "error");
         return;
       }
-      setDraftContent(text);
+      updateDraftContent(text);
       setDraftTitle((current) => current || inferTitle(text, format));
-      setSyncStatus("Unsaved changes");
       showToast("Pasted from clipboard");
     } catch {
       setError("Browser clipboard read was blocked.");
       showToast("Browser clipboard read was blocked", "error");
     }
-  }, [format, showToast]);
+  }, [format, showToast, updateDraftContent]);
 
   const handleFormat = useCallback(() => {
     if (format !== "JSON") {
@@ -371,17 +404,17 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       return;
     }
     try {
-      setDraftContent(JSON.stringify(JSON.parse(draftContent), null, 2));
+      updateDraftContent(JSON.stringify(JSON.parse(draftContent), null, 2));
       showToast("JSON formatted");
     } catch (formatError) {
       setError(`Invalid JSON: ${formatError.message}`);
       showToast("Invalid JSON", "error");
     }
-  }, [draftContent, format, showToast]);
+  }, [draftContent, format, showToast, updateDraftContent]);
 
   const handleRename = useCallback(async (value, inline = false) => {
     if (inline) {
-      setDraftTitle(value);
+      updateDraftTitle(value);
       return;
     }
     const nextTitle = window.prompt("Rename clip", draftTitle || selectedClip?.title || "Untitled");
@@ -391,7 +424,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       await replaceClips(clips.map((clip) => (clip.id === selectedClip.id ? { ...clip, title: nextTitle, updatedAt: nowIso() } : clip)), selectedClip.id);
       showToast("Clip renamed");
     }
-  }, [clips, draftTitle, replaceClips, selectedClip, showToast]);
+  }, [clips, draftTitle, replaceClips, selectedClip, showToast, updateDraftTitle]);
 
   const handleDuplicate = useCallback(async () => {
     const duplicate = createClip({
@@ -426,19 +459,19 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const handleDelete = useCallback(async () => {
     if (!selectedClip) {
-      setDraftContent("");
+      updateDraftContent("");
       showToast("Editor cleared");
       return;
     }
     const nextClips = clips.filter((clip) => clip.id !== selectedClip.id);
     await replaceClips(nextClips, nextClips[0]?.id ?? null);
     showToast("Clip deleted");
-  }, [clips, replaceClips, selectedClip, showToast]);
+  }, [clips, replaceClips, selectedClip, showToast, updateDraftContent]);
 
   const handleClear = useCallback(() => {
-    setDraftContent("");
+    updateDraftContent("");
     showToast("Content cleared");
-  }, [showToast]);
+  }, [showToast, updateDraftContent]);
 
   const handleImportFile = useCallback(async (event) => {
     const file = event.target.files?.[0];
@@ -648,8 +681,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                 stats={stats}
                 passwordLabel={protection ? "Password enabled" : "Password optional"}
                 syncStatus={syncStatus}
-                onContentChange={setDraftContent}
-                onFormatChange={setFormat}
+                onContentChange={updateDraftContent}
+                onFormatChange={updateDraftFormat}
                 onCopy={() => handleCopy(draftContent)}
                 onFormat={handleFormat}
                 onSave={handleSave}
@@ -716,7 +749,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         </div>
 
         <FileImportDropzone inputRef={fileRef} onImport={handleImportFile} compact />
-        <BottomPasteBar value={draftContent} onChange={setDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
+        <BottomPasteBar value={draftContent} onChange={updateDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
         {error && <p className="pv-inline-error">{error}</p>}
       </main>
 
@@ -889,48 +922,70 @@ function getStoredProfile() {
   }
 }
 
+function noop() {
+  return undefined;
+}
+
 function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin, onPassword, onExport }) {
+  const [activeTab, setActiveTab] = useState("details");
+
   return (
     <section className="details-panel pv-clip-details pv-section-panel" aria-label="Selected clip">
       <header className="pv-inspector-tabs">
         <div>
-          <button className="is-active" type="button">Details</button>
-          <button type="button" onClick={onCopy}>Preview</button>
+          <button className={activeTab === "details" ? "is-active" : ""} type="button" onClick={() => setActiveTab("details")}>Details</button>
+          <button className={activeTab === "preview" ? "is-active" : ""} type="button" onClick={() => setActiveTab("preview")}>Preview</button>
         </div>
         <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><Pin size={17} /></button>
       </header>
       <div className="pv-inspector-title">
         <strong>{selectedClip?.title ?? draftTitle}</strong>
-        <span><Pin size={14} />Pinned</span>
+        <span><Pin size={14} />{selectedClip?.pinned ? "Pinned" : "Unpinned"}</span>
         <p>{formatAge(selectedClip?.updatedAt ?? nowIso())} - {formatBytes(stats.bytes)}</p>
       </div>
-      <dl className="pv-detail-list">
-        <div><dt>Format</dt><dd>{format}</dd></div>
-        <div><dt>Size</dt><dd>{formatBytes(stats.bytes)} ({stats.bytes.toLocaleString()} B)</dd></div>
-        {selectedClip && <div><dt>Created</dt><dd>{new Date(selectedClip.createdAt).toLocaleString()}</dd></div>}
-        {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
-        <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
-        <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
-        <div><dt>ID</dt><dd>{selectedClip?.id ?? "draft"}</dd></div>
-        <div><dt>Owner</dt><dd><span className="pv-owner-pill">You</span></dd></div>
-      </dl>
-      <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
-      <div className="pv-inspector-card">
-        <h3><ShieldCheck size={17} />Security</h3>
-        <strong>{protection ? "Password enabled" : "Unencrypted"}</strong>
-        <p>{protection ? "Password protection is enabled for this clipboard." : "No password set for this clip"}</p>
-        <ActionButton compact icon={Lock} onClick={onPassword}>Set password</ActionButton>
-      </div>
-      <div className="pv-inspector-card">
-        <h3><Share2 size={17} />Share clip</h3>
-        <p>Share securely with anyone via a private link.</p>
-        <ActionButton compact icon={Link2} onClick={onCopyLink}>Create share link</ActionButton>
-      </div>
-      <div className="pv-inspector-card">
-        <h3><Download size={17} />Export</h3>
-        <p>Download or export in different formats.</p>
-        <ActionButton compact icon={Download} onClick={onExport}>Export clip</ActionButton>
-      </div>
+      {activeTab === "details" ? (
+        <>
+          <dl className="pv-detail-list">
+            <div><dt>Format</dt><dd>{format}</dd></div>
+            <div><dt>Size</dt><dd>{formatBytes(stats.bytes)} ({stats.bytes.toLocaleString()} B)</dd></div>
+            {selectedClip && <div><dt>Created</dt><dd>{new Date(selectedClip.createdAt).toLocaleString()}</dd></div>}
+            {selectedClip && <div><dt>Updated</dt><dd>{new Date(selectedClip.updatedAt).toLocaleString()}</dd></div>}
+            <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
+            <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
+            <div><dt>ID</dt><dd>{selectedClip?.id ?? "draft"}</dd></div>
+            <div><dt>Owner</dt><dd><span className="pv-owner-pill">You</span></dd></div>
+          </dl>
+          <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
+          <div className="pv-inspector-card">
+            <h3><ShieldCheck size={17} />Security</h3>
+            <strong>{protection ? "Password enabled" : "Unencrypted"}</strong>
+            <p>{protection ? "Password protection is enabled for this clipboard." : "No password set for this clip"}</p>
+            <ActionButton compact icon={Lock} onClick={onPassword}>Set password</ActionButton>
+          </div>
+          <div className="pv-inspector-card">
+            <h3><Share2 size={17} />Share clip</h3>
+            <p>Share securely with anyone via a private link.</p>
+            <ActionButton compact icon={Link2} onClick={onCopyLink}>Create share link</ActionButton>
+          </div>
+          <div className="pv-inspector-card">
+            <h3><Download size={17} />Export</h3>
+            <p>Download or export in different formats.</p>
+            <ActionButton compact icon={Download} onClick={onExport}>Export clip</ActionButton>
+          </div>
+        </>
+      ) : (
+        <div className="pv-inspector-preview">
+          <CodeBlockEditor
+            value={draftContent}
+            format={format}
+            readonly
+            onChange={noop}
+            onFormatChange={noop}
+            onCopy={onCopy}
+            onFormat={noop}
+          />
+        </div>
+      )}
       <div className="pv-inspector-actions">
         <ActionButton icon={ClipboardCopy} variant="primary" onClick={onCopy}>Copy</ActionButton>
         <ActionButton icon={Trash2} variant="danger" onClick={onDelete}>Delete</ActionButton>
@@ -949,7 +1004,19 @@ function HistoryTable({ clips, selectedId, search, setSearch, searchRef, sort, s
       </header>
       <div className="pv-history-table" role="table" aria-label="Clipboard history rows">
         {clips.slice(0, 5).map((clip) => (
-          <button className={clip.id === selectedId ? "pv-history-row is-selected" : "pv-history-row"} type="button" role="row" key={clip.id} onClick={() => onOpen(clip.id)}>
+          <div
+            className={clip.id === selectedId ? "pv-history-row is-selected" : "pv-history-row"}
+            role="row"
+            tabIndex={0}
+            key={clip.id}
+            onClick={() => onOpen(clip.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpen(clip.id);
+              }
+            }}
+          >
             <span className="pv-history-doc"><ClipboardList size={17} /></span>
             <span className="pv-history-row-main">
               <strong>{clip.title}</strong>
@@ -959,45 +1026,40 @@ function HistoryTable({ clips, selectedId, search, setSearch, searchRef, sort, s
             <span className="pv-history-secure"><Lock size={15} /></span>
             <span className="pv-owner-pill">{clip.starred ? "Team" : "You"}</span>
             <span className="pv-history-menu">
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 aria-label={clip.pinned ? `Unpin ${clip.title}` : `Pin ${clip.title}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   onTogglePin(clip);
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onTogglePin(clip);
-                  }
-                }}
               >
                 <Pin size={15} fill={clip.pinned ? "currentColor" : "none"} />
-              </span>
-              <span
-                role="button"
-                tabIndex={0}
+              </button>
+              <button
+                type="button"
                 aria-label={clip.starred ? `Unstar ${clip.title}` : `Star ${clip.title}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   onToggleStar(clip);
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onToggleStar(clip);
-                  }
-                }}
               >
                 <Star size={15} fill={clip.starred ? "currentColor" : "none"} />
-              </span>
-              <MoreHorizontal size={17} />
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label={`More actions for ${clip.title}`} onClick={(event) => event.stopPropagation()}>
+                    <MoreHorizontal size={17} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="pv-menu" align="end">
+                  <DropdownMenuItem onSelect={() => onOpen(clip.id)}>Open clip</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onTogglePin(clip)}>{clip.pinned ? "Unpin clip" : "Pin clip"}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onToggleStar(clip)}>{clip.starred ? "Remove star" : "Star clip"}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </span>
-          </button>
+          </div>
         ))}
         {!clips.length && <p className="pv-empty-text">No clips match this view.</p>}
       </div>

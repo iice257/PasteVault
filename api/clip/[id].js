@@ -1,5 +1,6 @@
 const maxBodyBytes = 1024 * 1024;
 const idPattern = /^[a-zA-Z0-9_-]{3,80}$/;
+const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
 const memoryStore = new Map();
 const rateBuckets = new Map();
 
@@ -31,6 +32,11 @@ function rateLimit(req) {
   const now = Date.now();
   const windowMs = 60_000;
   const limit = req.method === "GET" ? 120 : 40;
+  if (rateBuckets.size > 1000) {
+    for (const [bucketKey, bucket] of rateBuckets) {
+      if (bucket.resetAt <= now) rateBuckets.delete(bucketKey);
+    }
+  }
   const bucket = rateBuckets.get(key) ?? { count: 0, resetAt: now + windowMs };
   if (bucket.resetAt <= now) {
     bucket.count = 0;
@@ -95,7 +101,13 @@ async function getClip(id) {
   const key = storageKey(id);
   const result = await kvCommand(["GET", key]);
   if (result) {
-    return result.result ? JSON.parse(result.result) : null;
+    if (!result.result) return null;
+    try {
+      const parsed = JSON.parse(result.result);
+      return isValidRecord(parsed, id) ? parsed : null;
+    } catch {
+      return null;
+    }
   }
   return memoryStore.get(key) ?? null;
 }
@@ -112,10 +124,30 @@ async function setClip(id, value) {
 function isValidRecord(record, id) {
   if (!record || typeof record !== "object") return false;
   if (record.id !== id || record.version !== 2) return false;
-  if (record.encryptedPayload && typeof record.encryptedPayload.data === "string" && typeof record.encryptedPayload.iv === "string") {
-    return true;
+  if (typeof record.updatedAt !== "string" || Number.isNaN(new Date(record.updatedAt).getTime())) return false;
+  if (!isEncryptedPayload(record.encryptedPayload)) return false;
+  if (record.sync) {
+    return record.sync.mode === "link" && isBase64(record.sync.salt);
+  }
+  if (record.protection) {
+    return isBase64(record.protection.salt) && isEncryptedPayload(record.protection.verifier);
   }
   return false;
+}
+
+function isEncryptedPayload(payload) {
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    isBase64(payload.iv) &&
+    isBase64(payload.data) &&
+    payload.iv.length <= 32 &&
+    payload.data.length <= maxBodyBytes * 2
+  );
+}
+
+function isBase64(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= maxBodyBytes * 2 && base64Pattern.test(value);
 }
 
 export default async function handler(req, res) {
@@ -139,6 +171,9 @@ export default async function handler(req, res) {
   if (req.method === "PUT") {
     try {
       const body = await readBody(req);
+      if (!body.trim()) {
+        return json(res, 400, { error: "Request body is required." });
+      }
       const record = JSON.parse(body);
       if (!isValidRecord(record, id)) {
         return json(res, 400, { error: "Invalid encrypted clipboard payload." });

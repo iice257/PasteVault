@@ -55,7 +55,7 @@ const encryptedRecord = {
   sync: { mode: "link", salt: "AAAAAAAAAAAAAAAAAAAAAA==" },
   encryptedPayload: {
     iv: "AAAAAAAAAAAAAAAA",
-    data: "ciphertext"
+    data: "Y2lwaGVydGV4dA=="
   }
 };
 
@@ -76,6 +76,23 @@ if (fetched.status !== 200 || fetched.body.id !== id || !fetched.body.encryptedP
 const badId = await invoke({ method: "GET", id: "../etc/passwd" });
 if (badId.status !== 400) {
   throw new Error(`Expected invalid id rejection, received ${badId.status}.`);
+}
+
+const malformedEncryptedRecord = await invoke({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    version: 2,
+    id,
+    updatedAt: new Date().toISOString(),
+    encryptedPayload: {
+      iv: "AAAAAAAAAAAAAAAA",
+      data: "Y2lwaGVydGV4dA=="
+    }
+  })
+});
+if (malformedEncryptedRecord.status !== 400) {
+  throw new Error(`Expected encrypted payload without sync/protection rejection, received ${malformedEncryptedRecord.status}.`);
 }
 
 console.log("API checks passed.");

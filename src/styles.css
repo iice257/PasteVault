@@ -3435,6 +3435,7 @@ a {
     color: var(--pv-strong);
     padding: 0 14px;
     text-align: left;
+    cursor: pointer;
   }
 
   .pv-history-row:last-child {
@@ -3442,12 +3443,14 @@ a {
   }
 
   .pv-history-row:hover,
-  .pv-history-row.is-selected {
+  .pv-history-row.is-selected,
+  .pv-history-row:focus-visible {
     background: #f6fbfb;
   }
 
   .theme-dark .pv-history-row:hover,
-  .theme-dark .pv-history-row.is-selected {
+  .theme-dark .pv-history-row.is-selected,
+  .theme-dark .pv-history-row:focus-visible {
     background: rgba(24, 199, 192, 0.08);
   }
 
@@ -3484,6 +3487,25 @@ a {
 
   .pv-history-menu {
     gap: 7px;
+  }
+
+  .pv-history-menu button {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .pv-history-menu button:hover,
+  .pv-history-menu button:focus-visible {
+    background: rgba(24, 199, 192, 0.1);
+    color: #078a86;
+    outline: none;
   }
 
   .pv-history-view-all {
@@ -3533,6 +3555,24 @@ a {
   .pv-inspector-tabs button.is-active {
     color: #078a86;
     box-shadow: 0 2px 0 #0da4a0;
+  }
+
+  .pv-inspector-preview {
+    min-width: 0;
+  }
+
+  .pv-inspector-preview .pv-code-toolbar {
+    min-height: 40px;
+  }
+
+  .pv-inspector-preview .pv-code-surface {
+    min-height: 220px;
+    max-height: 360px;
+    overflow: hidden;
+  }
+
+  .pv-inspector-preview textarea {
+    cursor: default;
   }
 
   .pv-inspector-title {

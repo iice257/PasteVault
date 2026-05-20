@@ -68,6 +68,9 @@ await page.getByLabel("Workspace navigation").getByRole("button", { name: "Detai
 await page.locator(".details-panel input[placeholder='Add tag...']").fill("tested");
 await page.locator(".details-panel input[placeholder='Add tag...']").press("Enter");
 await page.locator(".details-panel .tag").filter({ hasText: "tested" }).waitFor();
+await page.getByRole("button", { name: "Preview" }).click();
+await page.locator(".details-panel .pv-inspector-preview").getByLabel("Clipboard content").waitFor();
+await page.getByLabel("Selected clip").getByRole("button", { name: "Details" }).click();
 
 await page.locator("input[type='file']").setInputFiles({
   name: "interaction-notes.txt",
@@ -85,6 +88,11 @@ await page.getByLabel("Workspace navigation").getByRole("button", { name: "Edito
 await page.locator(".vault-card-actions").getByRole("button", { name: "More actions" }).click();
 await page.getByRole("menuitem", { name: "Copy latest" }).click();
 await page.getByRole("status").getByText("Clip copied").waitFor();
+
+await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
+await page.getByRole("button", { name: /More actions for/i }).first().click();
+await page.getByRole("menuitem", { name: "Open clip" }).click();
+await page.getByLabel("Clipboard content").waitFor();
 
 await context.close();
 await browser.close();
