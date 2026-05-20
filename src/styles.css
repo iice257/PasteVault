@@ -965,6 +965,88 @@ a {
   gap: 22px;
 }
 
+.pv-sync-pill-row,
+.pv-unsaved-actions,
+.pv-autosave-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pv-autosave-toggle,
+.pv-autosave-strip button,
+.pv-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #475467;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 760;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.pv-autosave-toggle[aria-pressed="true"],
+.pv-autosave-strip button[aria-pressed="true"] {
+  border-color: rgba(20, 184, 166, 0.3);
+  background: #ecfeff;
+  color: #087f83;
+}
+
+.pv-sync-pill {
+  color: #1f9d55;
+  border-color: rgba(34, 197, 94, 0.18);
+  background: rgba(240, 253, 244, 0.9);
+}
+
+.pv-sync-pill.is-conflict {
+  color: #b42318;
+  border-color: rgba(244, 63, 94, 0.25);
+  background: #fff1f2;
+}
+
+.pv-unsaved-actions {
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.pv-autosave-strip {
+  justify-content: flex-start;
+  margin: 10px 0 14px;
+}
+
+.theme-dark .pv-autosave-toggle,
+.theme-dark .pv-autosave-strip button,
+.theme-dark .pv-sync-pill {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.theme-dark .pv-autosave-toggle[aria-pressed="true"],
+.theme-dark .pv-autosave-strip button[aria-pressed="true"] {
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(20, 184, 166, 0.18);
+  color: #5eead4;
+}
+
+.theme-dark .pv-sync-pill {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.theme-dark .pv-sync-pill.is-conflict {
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.28);
+  background: rgba(244, 63, 94, 0.12);
+}
+
 .pv-workbench-actions,
 .vault-card-actions {
   display: flex;

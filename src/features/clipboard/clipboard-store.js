@@ -50,6 +50,28 @@ export function storageKey(clipboardId) {
   return `pastevault:clipboard:${clipboardId}`;
 }
 
+export function defaultVaultSettings() {
+  return {
+    autosaveEnabled: true
+  };
+}
+
+export function normalizeVaultSettings(settings) {
+  return {
+    ...defaultVaultSettings(),
+    ...(settings && typeof settings === "object" ? settings : {})
+  };
+}
+
+export function recordContentVersion(record) {
+  const version = Number(record?.contentVersion ?? record?.payload?.version ?? 1);
+  return Number.isFinite(version) && version > 0 ? Math.floor(version) : 1;
+}
+
+export function nextContentVersion(record, baseVersion = 0) {
+  return Math.max(recordContentVersion(record), Number(baseVersion) || 0) + 1;
+}
+
 export function nowIso() {
   return new Date().toISOString();
 }
@@ -97,10 +119,14 @@ export function createSeedClips() {
 
 export function createPlainRecord(clipboardId) {
   const clips = createSeedClips();
+  const timestamp = nowIso();
   return {
     version: appVersion,
     id: clipboardId,
-    updatedAt: nowIso(),
+    contentVersion: 1,
+    updatedAt: timestamp,
+    lastSavedAt: timestamp,
+    settings: defaultVaultSettings(),
     protection: null,
     payload: { clips, selectedId: clips[0]?.id ?? null }
   };
@@ -112,20 +138,28 @@ export function normalizeRecord(parsed, clipboardId) {
   }
 
   if (parsed.protection && parsed.encryptedPayload) {
+    const updatedAt = typeof parsed.updatedAt === "string" ? parsed.updatedAt : nowIso();
     return {
       version: appVersion,
       id: clipboardId,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : nowIso(),
+      contentVersion: recordContentVersion(parsed),
+      updatedAt,
+      lastSavedAt: typeof parsed.lastSavedAt === "string" ? parsed.lastSavedAt : updatedAt,
+      settings: normalizeVaultSettings(parsed.settings),
       protection: parsed.protection,
       encryptedPayload: parsed.encryptedPayload
     };
   }
 
   if (Array.isArray(parsed.payload?.clips)) {
+    const updatedAt = typeof parsed.updatedAt === "string" ? parsed.updatedAt : payloadUpdatedAt(parsed.payload);
     return {
       version: appVersion,
       id: clipboardId,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : payloadUpdatedAt(parsed.payload),
+      contentVersion: recordContentVersion(parsed),
+      updatedAt,
+      lastSavedAt: typeof parsed.lastSavedAt === "string" ? parsed.lastSavedAt : updatedAt,
+      settings: normalizeVaultSettings(parsed.settings),
       protection: null,
       payload: {
         clips: parsed.payload.clips.map(normalizeClip).filter(Boolean),
@@ -233,7 +267,10 @@ export function hydrateClipboard(clipboardId) {
         protection: record.protection,
         error: "",
         freshLocal: !hadLocalRecord,
-        localUpdatedAt: record.updatedAt ?? nowIso()
+        localUpdatedAt: record.updatedAt ?? nowIso(),
+        contentVersion: recordContentVersion(record),
+        lastSavedAt: record.lastSavedAt ?? record.updatedAt ?? nowIso(),
+        settings: normalizeVaultSettings(record.settings)
       };
     }
 
@@ -248,7 +285,10 @@ export function hydrateClipboard(clipboardId) {
       protection: null,
       error: "",
       freshLocal: !hadLocalRecord,
-      localUpdatedAt: record.updatedAt ?? payloadUpdatedAt(record.payload)
+      localUpdatedAt: record.updatedAt ?? payloadUpdatedAt(record.payload),
+      contentVersion: recordContentVersion(record),
+      lastSavedAt: record.lastSavedAt ?? record.updatedAt ?? payloadUpdatedAt(record.payload),
+      settings: normalizeVaultSettings(record.settings)
     };
   } catch {
     const fallback = createPlainRecord(clipboardId);
@@ -264,7 +304,10 @@ export function hydrateClipboard(clipboardId) {
       protection: null,
       error: "Clipboard data was corrupt, so PasteVault recovered a clean board.",
       freshLocal: true,
-      localUpdatedAt: fallback.updatedAt
+      localUpdatedAt: fallback.updatedAt,
+      contentVersion: recordContentVersion(fallback),
+      lastSavedAt: fallback.lastSavedAt ?? fallback.updatedAt,
+      settings: normalizeVaultSettings(fallback.settings)
     };
   }
 }
@@ -375,15 +418,19 @@ export async function decryptValue(payload, key) {
   return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
-export async function buildProtectedRecord(clipboardId, payload, password) {
+export async function buildProtectedRecord(clipboardId, payload, password, metadata = {}) {
   const salt = arrayToBase64(crypto.getRandomValues(new Uint8Array(16)));
   const key = await derivePasswordKey(password, salt);
+  const timestamp = metadata.updatedAt ?? nowIso();
   return {
     key,
     record: {
       version: appVersion,
       id: clipboardId,
-      updatedAt: nowIso(),
+      contentVersion: Number(metadata.contentVersion) || 1,
+      updatedAt: timestamp,
+      lastSavedAt: metadata.lastSavedAt ?? timestamp,
+      settings: normalizeVaultSettings(metadata.settings),
       protection: {
         salt,
         verifier: await encryptValue({ ok: true }, key)
@@ -401,13 +448,17 @@ export function payloadUpdatedAt(payload) {
   return new Date(newestClipTime || Date.now()).toISOString();
 }
 
-export async function buildLinkSyncRecord(clipboardId, payload) {
+export async function buildLinkSyncRecord(clipboardId, payload, metadata = {}) {
   const salt = arrayToBase64(crypto.getRandomValues(new Uint8Array(16)));
   const key = await derivePasswordKey(clipboardId, salt);
+  const timestamp = metadata.updatedAt ?? nowIso();
   return {
     version: appVersion,
     id: clipboardId,
-    updatedAt: nowIso(),
+    contentVersion: Number(metadata.contentVersion) || 1,
+    updatedAt: timestamp,
+    lastSavedAt: metadata.lastSavedAt ?? timestamp,
+    settings: normalizeVaultSettings(metadata.settings),
     sync: {
       mode: "link",
       salt

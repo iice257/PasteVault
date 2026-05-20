@@ -69,11 +69,14 @@ import {
   loadRecord,
   maxImportBytes,
   mergeClipboardClips,
+  nextContentVersion,
   normalizeClip,
   normalizeRecord,
+  normalizeVaultSettings,
   nowIso,
   parseClipboardExport,
   pushRemoteRecord,
+  recordContentVersion,
   saveRecord,
   sortOptions,
   storageBudgetBytes,
@@ -83,6 +86,19 @@ import {
   encryptValue,
   validateContent
 } from "../features/clipboard/clipboard-store";
+import {
+  clearDraftState,
+  createSessionId,
+  createVaultChannel,
+  getDeviceId,
+  normalizeSessionState,
+  postVaultMessage,
+  readSessionState,
+  sessionStateKey,
+  vaultMessageTypes,
+  writeDraftState,
+  writeSessionState
+} from "../features/clipboard/vault-sync";
 
 function clipboardTitle(id) {
   return id.length > 15 ? `${id.slice(0, 12)}...` : id;
@@ -105,9 +121,15 @@ function shortFormat(format) {
 }
 
 export default function ClipboardPage({ clipboardId, initialHistory = false, initialSettings = false }) {
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme, isDark, setTheme } = useTheme();
   const fileRef = useRef(null);
   const searchRef = useRef(null);
+  const sessionIdRef = useRef(createSessionId());
+  const deviceIdRef = useRef(null);
+  const channelRef = useRef(null);
+  const latestDraftRef = useRef(null);
+  const hasUnsavedRef = useRef(false);
+  const lastRemoteSessionAtRef = useRef(0);
   const [initialState] = useState(() => hydrateClipboard(clipboardId));
   const [clips, setClips] = useState(initialState.clips);
   const [selectedId, setSelectedId] = useState(initialState.selectedId);
@@ -130,6 +152,15 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
   const [activeSection, setActiveSection] = useState(() => (initialHistory ? "history" : initialSettings ? "tools" : "editor"));
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
+  const [contentVersion, setContentVersion] = useState(() => initialState.contentVersion ?? 1);
+  const [draftBaseVersion, setDraftBaseVersion] = useState(() => initialState.contentVersion ?? 1);
+  const [lastSavedAt, setLastSavedAt] = useState(() => initialState.lastSavedAt ?? initialState.localUpdatedAt ?? nowIso());
+  const [autosaveEnabled, setAutosaveEnabled] = useState(() => normalizeVaultSettings(initialState.settings).autosaveEnabled);
+  const [lastEditedAt, setLastEditedAt] = useState("");
+  const [saveConflict, setSaveConflict] = useState(null);
+  const [boardDirty, setBoardDirty] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [detailsTab, setDetailsTab] = useState("details");
 
   const selectedClip = useMemo(
     () => clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null,
@@ -143,14 +174,31 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }), [draftContent]);
 
   const hasUnsavedChanges = useMemo(() => {
+    if (boardDirty) return true;
     if (!selectedClip) return Boolean(draftTitle.trim() || draftContent.trim());
     return selectedClip.title !== draftTitle || selectedClip.content !== draftContent || selectedClip.format !== format;
-  }, [draftContent, draftTitle, format, selectedClip]);
+  }, [boardDirty, draftContent, draftTitle, format, selectedClip]);
+
+  const localDraft = useMemo(() => ({
+    vaultId: clipboardId,
+    localContent: {
+      payload: { clips, selectedId: selectedClip?.id ?? null },
+      selectedId: selectedClip?.id ?? null,
+      title: draftTitle,
+      content: draftContent,
+      format
+    },
+    baseVersion: draftBaseVersion,
+    hasUnsavedChanges,
+    lastSavedAt,
+    lastEditedAt: lastEditedAt || nowIso()
+  }), [clipboardId, clips, draftBaseVersion, draftContent, draftTitle, format, hasUnsavedChanges, lastEditedAt, lastSavedAt, selectedClip?.id]);
 
   const payload = useMemo(() => ({ clips, selectedId: selectedClip?.id ?? null }), [clips, selectedClip?.id]);
   const startupSyncRef = useRef({
     freshLocal: initialState.freshLocal,
     localUpdatedAt: initialState.localUpdatedAt,
+    contentVersion: initialState.contentVersion ?? 1,
     payload,
     protection
   });
@@ -162,7 +210,47 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     window.__pastevaultToast = window.setTimeout(() => setToast(""), 3200);
   }, []);
 
+  const publishSessionState = useCallback((patch = {}) => {
+    if (!deviceIdRef.current) {
+      deviceIdRef.current = getDeviceId();
+    }
+
+    const state = {
+      vaultId: clipboardId,
+      sessionId: sessionIdRef.current,
+      deviceId: deviceIdRef.current,
+      theme,
+      viewMode: activeSection,
+      selectedTab: detailsTab,
+      isLocked: locked,
+      ...patch,
+      editorSettings: {
+        format,
+        sidebarCollapsed,
+        autosaveEnabled,
+        ...(patch.editorSettings ?? {})
+      },
+      updatedAt: nowIso()
+    };
+
+    const normalized = writeSessionState(clipboardId, state);
+    if (!normalized) return;
+    postVaultMessage(channelRef.current, {
+      type: vaultMessageTypes.sessionState,
+      state: normalized
+    });
+  }, [activeSection, autosaveEnabled, clipboardId, detailsTab, format, locked, sidebarCollapsed, theme]);
+
   const applyRecordToState = useCallback((record, status = "Clipboard updated") => {
+    const normalizedVersion = recordContentVersion(record);
+    const settings = normalizeVaultSettings(record.settings);
+    setContentVersion(normalizedVersion);
+    setDraftBaseVersion(normalizedVersion);
+    setLastSavedAt(record.lastSavedAt ?? record.updatedAt ?? nowIso());
+    setAutosaveEnabled(settings.autosaveEnabled);
+    setSaveConflict(null);
+    setBoardDirty(false);
+
     if (record.protection) {
       setProtection(record.protection);
       setLocked(true);
@@ -174,6 +262,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       setDraftContent("");
       setFormat("JSON");
       setSyncStatus(status);
+      clearDraftState(clipboardId, sessionIdRef.current);
       return;
     }
 
@@ -189,63 +278,147 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setFormat(nextSelected?.format ?? "JSON");
     setStorageUsage(storageUsageBytes());
     setSyncStatus(status);
-  }, []);
+    clearDraftState(clipboardId, sessionIdRef.current);
+  }, [clipboardId]);
 
-  const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey) => {
+  const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey, options = {}) => {
     try {
+      const currentRecord = loadRecord(clipboardId);
+      const currentVersion = recordContentVersion(currentRecord);
+      const baseVersion = Number(options.baseVersion ?? draftBaseVersion) || 1;
+
+      if (!options.force && currentVersion > baseVersion) {
+        const conflict = {
+          baseVersion,
+          currentVersion,
+          detectedAt: nowIso()
+        };
+        setSaveConflict(conflict);
+        setSyncStatus("Conflict: reload latest before saving");
+        setError("This vault changed elsewhere. Reload latest or force save after reviewing your local draft.");
+        showToast("This vault changed elsewhere. Review before overwriting.", "error");
+        return false;
+      }
+
+      setSyncStatus("Saving...");
+      const timestamp = nowIso();
+      const nextVersion = nextContentVersion(currentRecord, baseVersion);
+      const settings = normalizeVaultSettings({
+        autosaveEnabled,
+        ...(options.settings ?? {})
+      });
+      const metadata = {
+        contentVersion: nextVersion,
+        updatedAt: timestamp,
+        lastSavedAt: timestamp,
+        settings
+      };
+      let savedRecord;
+
       if (nextProtection) {
         if (!nextKey) {
           setError("Unlock this clipboard before saving protected changes.");
           return false;
         }
-        const protectedRecord = {
+        savedRecord = {
           version: appVersion,
           id: clipboardId,
-          updatedAt: nowIso(),
+          ...metadata,
           protection: nextProtection,
           encryptedPayload: await encryptValue(nextPayload, nextKey)
         };
-        saveRecord(clipboardId, protectedRecord);
-        setSyncStatus("Saved locally");
-        void pushRemoteRecord(clipboardId, protectedRecord)
-          .then(() => setSyncStatus("Cloud saved"))
-          .catch(() => setSyncStatus("Saved locally - cloud unavailable"));
       } else {
-        const localRecord = {
+        savedRecord = {
           version: appVersion,
           id: clipboardId,
-          updatedAt: nowIso(),
+          ...metadata,
           protection: null,
           payload: nextPayload
         };
-        saveRecord(clipboardId, localRecord);
-        setSyncStatus("Saved locally");
-        void buildLinkSyncRecord(clipboardId, nextPayload)
+      }
+
+      saveRecord(clipboardId, savedRecord);
+      setContentVersion(nextVersion);
+      setDraftBaseVersion(nextVersion);
+      setLastSavedAt(timestamp);
+      setAutosaveEnabled(settings.autosaveEnabled);
+      setSaveConflict(null);
+      setError("");
+      setBoardDirty(false);
+      setSyncStatus("Saved");
+      clearDraftState(clipboardId, sessionIdRef.current);
+      postVaultMessage(channelRef.current, {
+        type: vaultMessageTypes.contentSaved,
+        record: savedRecord,
+        sessionId: sessionIdRef.current
+      });
+
+      if (nextProtection) {
+        void pushRemoteRecord(clipboardId, savedRecord)
+          .then(() => setSyncStatus("Saved"))
+          .catch(() => setSyncStatus("Offline, saved locally"));
+      } else {
+        void buildLinkSyncRecord(clipboardId, nextPayload, metadata)
           .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
-          .then(() => setSyncStatus("Cloud saved"))
-          .catch(() => setSyncStatus("Saved locally - cloud unavailable"));
+          .then(() => setSyncStatus("Saved"))
+          .catch(() => setSyncStatus("Offline, saved locally"));
       }
       setStorageUsage(storageUsageBytes());
       return true;
     } catch (saveError) {
       const isQuotaError = saveError instanceof DOMException && saveError.name === "QuotaExceededError";
       setError(isQuotaError ? "Browser storage is full. Export or delete clips before saving more." : "PasteVault could not save this clipboard.");
+      setSyncStatus("Error");
       return false;
     }
-  }, [clipboardId, cryptoKey, protection]);
+  }, [autosaveEnabled, clipboardId, cryptoKey, draftBaseVersion, protection, showToast]);
 
-  const replaceClips = useCallback(async (nextClips, nextSelectedId) => {
+  const replaceClips = useCallback(async (nextClips, nextSelectedId, options = {}) => {
     const safeSelectedId = nextClips.some((clip) => clip.id === nextSelectedId) ? nextSelectedId : nextClips[0]?.id ?? null;
-    const didPersist = await persistPayload({ clips: nextClips, selectedId: safeSelectedId });
-    if (!didPersist) return false;
     const nextSelected = nextClips.find((clip) => clip.id === safeSelectedId) ?? null;
+    const shouldPersist = autosaveEnabled || options.persist || options.force;
+
+    if (!shouldPersist) {
+      setClips(nextClips);
+      setSelectedId(safeSelectedId);
+      setDraftTitle(nextSelected?.title ?? "");
+      setDraftContent(nextSelected?.content ?? "");
+      setFormat(nextSelected?.format ?? "JSON");
+      setBoardDirty(true);
+      setLastEditedAt(nowIso());
+      setSyncStatus("Unsaved changes");
+      return true;
+    }
+
+    const didPersist = await persistPayload({ clips: nextClips, selectedId: safeSelectedId }, protection, cryptoKey, options);
+    if (!didPersist) return false;
     setClips(nextClips);
     setSelectedId(safeSelectedId);
     setDraftTitle(nextSelected?.title ?? "");
     setDraftContent(nextSelected?.content ?? "");
     setFormat(nextSelected?.format ?? "JSON");
     return true;
-  }, [persistPayload]);
+  }, [autosaveEnabled, cryptoKey, persistPayload, protection]);
+
+  const handleExternalSavedRecord = useCallback((externalRecord, status = "Synced from another session") => {
+    const record = normalizeRecord(externalRecord, clipboardId);
+    const incomingVersion = recordContentVersion(record);
+    if (incomingVersion <= contentVersion) return;
+
+    if (hasUnsavedChanges) {
+      setSaveConflict({
+        baseVersion: draftBaseVersion,
+        currentVersion: incomingVersion,
+        detectedAt: nowIso()
+      });
+      setSyncStatus("External changes available");
+      showToast("Another session saved this vault. Save is paused until you review.", "error");
+      return;
+    }
+
+    applyRecordToState(record, status);
+    showToast(status);
+  }, [applyRecordToState, clipboardId, contentVersion, draftBaseVersion, hasUnsavedChanges, showToast]);
 
   useEffect(() => {
     let active = true;
@@ -256,7 +429,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         const startup = startupSyncRef.current;
         const remoteUpdatedAt = new Date(remote.updatedAt || 0).getTime();
         const localUpdatedAt = new Date(startup.localUpdatedAt || 0).getTime();
-        if (!startup.freshLocal && remoteUpdatedAt <= localUpdatedAt) return;
+        const remoteVersion = recordContentVersion(remote);
+        if (!startup.freshLocal && remoteVersion <= startup.contentVersion && remoteUpdatedAt <= localUpdatedAt) return;
 
         if (remote.sync?.mode === "link") {
           const remotePayload = await decryptLinkSyncRecord(remote);
@@ -265,7 +439,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           const localRecord = {
             version: appVersion,
             id: clipboardId,
+            contentVersion: remoteVersion,
             updatedAt: remote.updatedAt ?? nowIso(),
+            lastSavedAt: remote.lastSavedAt ?? remote.updatedAt ?? nowIso(),
+            settings: normalizeVaultSettings(remote.settings),
             protection: null,
             payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
           };
@@ -287,23 +464,86 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   useEffect(() => {
     const handleStorage = (event) => {
-      if (event.key !== storageKey(clipboardId) || !event.newValue) return;
-      if (hasUnsavedChanges) {
-        setSyncStatus("External changes available");
-        showToast("Another tab updated this clipboard. Save or reload to review.", "error");
-        return;
-      }
-      try {
-        const record = normalizeRecord(JSON.parse(event.newValue), clipboardId);
-        applyRecordToState(record, "Synced from another tab");
-        showToast("Clipboard synced from another tab");
-      } catch {
-        setSyncStatus("External sync failed");
+      if (!event.newValue) return;
+      if (event.key === storageKey(clipboardId)) {
+        try {
+          handleExternalSavedRecord(JSON.parse(event.newValue), "Synced from another tab");
+        } catch {
+          setSyncStatus("External sync failed");
+        }
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [applyRecordToState, clipboardId, hasUnsavedChanges, showToast]);
+  }, [clipboardId, handleExternalSavedRecord]);
+
+  useEffect(() => {
+    deviceIdRef.current = getDeviceId();
+    const channel = createVaultChannel(clipboardId);
+    channelRef.current = channel;
+
+    const applySessionState = (incoming) => {
+      const state = normalizeSessionState(incoming, clipboardId);
+      if (!state || state.sessionId === sessionIdRef.current) return;
+      const updatedAt = new Date(state.updatedAt).getTime();
+      if (Number.isFinite(updatedAt) && updatedAt <= lastRemoteSessionAtRef.current) return;
+      if (Number.isFinite(updatedAt)) {
+        lastRemoteSessionAtRef.current = updatedAt;
+      }
+
+      if (state.theme && state.theme !== theme) {
+        setTheme(state.theme);
+      }
+      if (state.viewMode && state.viewMode !== activeSection) {
+        setActiveSection(state.viewMode);
+      }
+      if (state.selectedTab && state.selectedTab !== detailsTab) {
+        setDetailsTab(state.selectedTab);
+      }
+      if (typeof state.editorSettings.sidebarCollapsed === "boolean") {
+        setSidebarCollapsed(state.editorSettings.sidebarCollapsed);
+      }
+      if (typeof state.editorSettings.autosaveEnabled === "boolean") {
+        setAutosaveEnabled(state.editorSettings.autosaveEnabled);
+        setSyncStatus(state.editorSettings.autosaveEnabled ? (hasUnsavedRef.current ? "Saving..." : "Autosave on") : (hasUnsavedRef.current ? "Unsaved changes" : "Autosave off"));
+      }
+    };
+
+    const handleChannelMessage = (event) => {
+      if (event.data?.type === vaultMessageTypes.sessionState) {
+        applySessionState(event.data.state);
+      }
+      if (event.data?.type === vaultMessageTypes.contentSaved && event.data.sessionId !== sessionIdRef.current) {
+        handleExternalSavedRecord(event.data.record, "Synced from another session");
+      }
+    };
+
+    const handleSessionStorage = (event) => {
+      if (event.key !== sessionStateKey(clipboardId) || !event.newValue) return;
+      try {
+        applySessionState(JSON.parse(event.newValue));
+      } catch {
+        // Ignore malformed peer session state. Content state is stored separately.
+      }
+    };
+
+    channel?.addEventListener("message", handleChannelMessage);
+    window.addEventListener("storage", handleSessionStorage);
+
+    const existingSession = readSessionState(clipboardId);
+    if (existingSession) {
+      applySessionState(existingSession);
+    }
+
+    return () => {
+      channel?.removeEventListener("message", handleChannelMessage);
+      channel?.close();
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
+      window.removeEventListener("storage", handleSessionStorage);
+    };
+  }, [activeSection, clipboardId, detailsTab, handleExternalSavedRecord, setTheme, theme]);
 
   useEffect(() => {
     if (!passwordOpen) return undefined;
@@ -326,23 +566,36 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  useEffect(() => {
+    latestDraftRef.current = localDraft;
+    hasUnsavedRef.current = hasUnsavedChanges;
+    if (hasUnsavedChanges) {
+      writeDraftState(clipboardId, sessionIdRef.current, localDraft);
+    } else {
+      clearDraftState(clipboardId, sessionIdRef.current);
+    }
+  }, [clipboardId, hasUnsavedChanges, localDraft]);
+
   const updateDraftContent = useCallback((value) => {
     setDraftContent(value);
-    setSyncStatus("Unsaved changes");
+    setLastEditedAt(nowIso());
+    setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
     setError("");
-  }, []);
+  }, [autosaveEnabled]);
 
   const updateDraftFormat = useCallback((value) => {
     setFormat(value);
-    setSyncStatus("Unsaved changes");
+    setLastEditedAt(nowIso());
+    setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
     setError("");
-  }, []);
+  }, [autosaveEnabled]);
 
   const updateDraftTitle = useCallback((value) => {
     setDraftTitle(value);
-    setSyncStatus("Unsaved changes");
+    setLastEditedAt(nowIso());
+    setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
     setError("");
-  }, []);
+  }, [autosaveEnabled]);
 
   const selectClip = useCallback((clipId) => {
     const clip = clips.find((item) => item.id === clipId);
@@ -352,15 +605,19 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setDraftContent(clip.content);
     setFormat(clip.format);
     setActiveSection("editor");
+    publishSessionState({ viewMode: "editor" });
     setError("");
-  }, [clips]);
+  }, [clips, publishSessionState]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (options = {}) => {
     const validation = validateContent(draftContent, format);
     if (validation) {
       setError(validation);
-      showToast(validation, "error");
-      return;
+      setSyncStatus("Error");
+      if (!options.silent) {
+        showToast(validation, "error");
+      }
+      return false;
     }
 
     const timestamp = nowIso();
@@ -370,11 +627,78 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     const nextClips = selectedClip
       ? clips.map((clip) => (clip.id === selectedClip.id ? nextClip : clip))
       : [nextClip, ...clips];
-    const didSave = await replaceClips(nextClips, nextClip.id);
-    if (!didSave) return;
+    const didSave = await replaceClips(nextClips, nextClip.id, { ...options, persist: true });
+    if (!didSave) return false;
     setError("");
-    showToast("Clip saved successfully");
+    if (!options.silent) {
+      showToast("Clip saved successfully");
+    }
+    return true;
   }, [clips, draftContent, draftTitle, format, replaceClips, selectedClip, showToast]);
+
+  const handleThemeToggle = useCallback(() => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    publishSessionState({ theme: nextTheme });
+  }, [publishSessionState, setTheme, theme]);
+
+  const handleSectionChange = useCallback((section) => {
+    setActiveSection(section);
+    publishSessionState({ viewMode: section });
+  }, [publishSessionState]);
+
+  const handleDetailsTabChange = useCallback((tab) => {
+    setDetailsTab(tab);
+    publishSessionState({ selectedTab: tab });
+  }, [publishSessionState]);
+
+  const handleSidebarCollapsedChange = useCallback((collapsed) => {
+    setSidebarCollapsed(collapsed);
+    publishSessionState({ editorSettings: { sidebarCollapsed: collapsed } });
+  }, [publishSessionState]);
+
+  const handleAutosaveToggle = useCallback(() => {
+    const nextAutosave = !autosaveEnabled;
+    setAutosaveEnabled(nextAutosave);
+    setSyncStatus(nextAutosave ? (hasUnsavedChanges ? "Saving..." : "Autosave on") : (hasUnsavedChanges ? "Unsaved changes" : "Autosave off"));
+    publishSessionState({ editorSettings: { autosaveEnabled: nextAutosave } });
+
+    try {
+      const record = loadRecord(clipboardId);
+      saveRecord(clipboardId, {
+        ...record,
+        settings: normalizeVaultSettings({ ...record.settings, autosaveEnabled: nextAutosave })
+      });
+    } catch {
+      // The session state still syncs live; the next content save will persist the setting.
+    }
+  }, [autosaveEnabled, clipboardId, hasUnsavedChanges, publishSessionState]);
+
+  const handleReloadLatest = useCallback(() => {
+    if (hasUnsavedChanges && !window.confirm("Discard local unsaved changes and reload the latest saved vault content?")) {
+      return;
+    }
+    try {
+      const record = loadRecord(clipboardId);
+      applyRecordToState(record, "Reloaded latest saved content");
+      showToast("Reloaded latest saved content");
+    } catch {
+      setError("PasteVault could not reload the latest saved content.");
+      showToast("Could not reload latest content", "error");
+    }
+  }, [applyRecordToState, clipboardId, hasUnsavedChanges, showToast]);
+
+  const handleForceSave = useCallback(() => {
+    void handleSave({ force: true });
+  }, [handleSave]);
+
+  useEffect(() => {
+    if (!autosaveEnabled || locked || !hasUnsavedChanges || saveConflict) return undefined;
+    const timer = window.setTimeout(() => {
+      void handleSave({ silent: true, baseVersion: draftBaseVersion });
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [autosaveEnabled, draftBaseVersion, draftContent, draftTitle, format, handleSave, hasUnsavedChanges, locked, saveConflict]);
 
   useEffect(() => {
     const handleKeydown = (event) => {
@@ -475,10 +799,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setDraftContent("");
     setFormat("Plain text");
     setActiveSection("editor");
+    publishSessionState({ viewMode: "editor" });
     setError("");
     setSyncStatus("Unsaved changes");
     showToast("New clip ready");
-  }, [showToast]);
+  }, [publishSessionState, showToast]);
 
   const handleCopyLatest = useCallback(async () => {
     const latest = [...clips].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
@@ -578,6 +903,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       const decrypted = await decryptValue(record.encryptedPayload, key);
       const normalizedClips = decrypted.clips.map(normalizeClip).filter(Boolean);
       const nextSelected = normalizedClips.find((clip) => clip.id === decrypted.selectedId) ?? normalizedClips[0] ?? null;
+      const recordVersion = recordContentVersion(record);
       setCryptoKey(key);
       setLocked(false);
       setClips(normalizedClips);
@@ -585,6 +911,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       setDraftTitle(nextSelected?.title ?? "");
       setDraftContent(nextSelected?.content ?? "");
       setFormat(nextSelected?.format ?? "JSON");
+      setContentVersion(recordVersion);
+      setDraftBaseVersion(recordVersion);
+      setLastSavedAt(record.lastSavedAt ?? record.updatedAt ?? nowIso());
+      setAutosaveEnabled(normalizeVaultSettings(record.settings).autosaveEnabled);
       setPasswordInput("");
       setPasswordOpen(false);
       showToast("Clipboard unlocked");
@@ -611,36 +941,72 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       return;
     }
     try {
-      const protectedRecord = await buildProtectedRecord(clipboardId, payload, passwordInput);
+      const currentRecord = loadRecord(clipboardId);
+      const timestamp = nowIso();
+      const nextVersion = nextContentVersion(currentRecord, draftBaseVersion);
+      const protectedRecord = await buildProtectedRecord(clipboardId, payload, passwordInput, {
+        contentVersion: nextVersion,
+        updatedAt: timestamp,
+        lastSavedAt: timestamp,
+        settings: { autosaveEnabled }
+      });
       saveRecord(clipboardId, protectedRecord.record);
       void pushRemoteRecord(clipboardId, protectedRecord.record).catch(() => {});
       setCryptoKey(protectedRecord.key);
       setProtection(protectedRecord.record.protection);
+      setContentVersion(nextVersion);
+      setDraftBaseVersion(nextVersion);
+      setLastSavedAt(timestamp);
       setLocked(false);
       setPasswordInput("");
       setPasswordConfirm("");
       setPasswordAcknowledged(false);
       setPasswordOpen(false);
       setStorageUsage(storageUsageBytes());
+      postVaultMessage(channelRef.current, {
+        type: vaultMessageTypes.contentSaved,
+        record: protectedRecord.record,
+        sessionId: sessionIdRef.current
+      });
       showToast("Password enabled");
     } catch {
       setError("PasteVault could not enable password protection for this clipboard.");
       showToast("Could not enable password", "error");
     }
-  }, [clipboardId, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
+  }, [autosaveEnabled, clipboardId, draftBaseVersion, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
 
   const handleRemovePassword = useCallback(async () => {
     if (!protection || locked) return;
-    const record = { version: appVersion, id: clipboardId, updatedAt: nowIso(), protection: null, payload };
+    const currentRecord = loadRecord(clipboardId);
+    const timestamp = nowIso();
+    const nextVersion = nextContentVersion(currentRecord, draftBaseVersion);
+    const record = {
+      version: appVersion,
+      id: clipboardId,
+      contentVersion: nextVersion,
+      updatedAt: timestamp,
+      lastSavedAt: timestamp,
+      settings: normalizeVaultSettings({ autosaveEnabled }),
+      protection: null,
+      payload
+    };
     saveRecord(clipboardId, record);
     setProtection(null);
     setCryptoKey(null);
+    setContentVersion(nextVersion);
+    setDraftBaseVersion(nextVersion);
+    setLastSavedAt(timestamp);
     setPasswordInput("");
     setPasswordConfirm("");
     setPasswordAcknowledged(false);
-    await buildLinkSyncRecord(clipboardId, payload).then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord)).catch(() => {});
+    postVaultMessage(channelRef.current, {
+      type: vaultMessageTypes.contentSaved,
+      record,
+      sessionId: sessionIdRef.current
+    });
+    await buildLinkSyncRecord(clipboardId, payload, record).then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord)).catch(() => {});
     showToast("Password removed");
-  }, [clipboardId, locked, payload, protection, showToast]);
+  }, [autosaveEnabled, clipboardId, draftBaseVersion, locked, payload, protection, showToast]);
 
   const filteredClips = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -659,7 +1025,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   if (locked) {
     return (
       <div className={`pv-dashboard vault-theme theme-${theme}`}>
-        <DashboardHeader theme={theme} toggleTheme={toggleTheme} onCopyLink={handleCopyLink} onPassword={() => setPasswordOpen(true)} />
+        <DashboardHeader theme={theme} toggleTheme={handleThemeToggle} onCopyLink={handleCopyLink} onPassword={() => setPasswordOpen(true)} />
         <main className="pv-locked-state">
           <Lock size={42} />
           <h1>This clipboard is password protected</h1>
@@ -692,11 +1058,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     <div className={`pv-dashboard vault-theme theme-${theme} ${isDark ? "theme-dark" : "theme-light"}`}>
       <DashboardHeader
         theme={theme}
-        toggleTheme={toggleTheme}
+        toggleTheme={handleThemeToggle}
         search={activeSection === "history" ? search : undefined}
         setSearch={activeSection === "history" ? setSearch : undefined}
         searchRef={activeSection === "history" ? searchRef : undefined}
-        onSearchFocus={() => setActiveSection("history")}
+        onSearchFocus={() => handleSectionChange("history")}
         onCopyLink={handleCopyLink}
         onPassword={() => setPasswordOpen(true)}
         onPaste={handlePasteFromClipboard}
@@ -707,7 +1073,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       />
       <DashboardRail
         active={activeSection}
-        onSectionChange={setActiveSection}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={handleSidebarCollapsedChange}
+        onSectionChange={handleSectionChange}
         storageUsage={storageUsage}
         onImport={() => fileRef.current?.click()}
         onExport={() => exportClipboard(clipboardId, payload)}
@@ -721,7 +1089,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           <div className="pv-mobile-actions">
             <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
             <ActionButton icon={Lock} onClick={() => setPasswordOpen(true)}>Password</ActionButton>
-            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+            <ThemeToggle theme={theme} toggleTheme={handleThemeToggle} />
           </div>
           <nav className="pv-mobile-section-tabs" aria-label="Clipboard sections">
             {[
@@ -730,7 +1098,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
               ["details", "Details"],
               ["tools", "Tools"]
             ].map(([key, label]) => (
-              <button className={activeSection === key ? "is-active" : ""} type="button" key={key} onClick={() => setActiveSection(key)}>
+              <button className={activeSection === key ? "is-active" : ""} type="button" key={key} onClick={() => handleSectionChange(key)}>
                 {label}
               </button>
             ))}
@@ -767,6 +1135,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     stats={stats}
                     passwordLabel={protection ? "Password enabled" : "Password optional"}
                     syncStatus={syncStatus}
+                    autosaveEnabled={autosaveEnabled}
+                    conflict={saveConflict}
+                    onAutosaveToggle={handleAutosaveToggle}
+                    onReloadLatest={handleReloadLatest}
+                    onForceSave={handleForceSave}
                     onContentChange={updateDraftContent}
                     onFormatChange={updateDraftFormat}
                     onCopy={() => handleCopy(draftContent)}
@@ -832,6 +1205,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
               onTogglePin={() => handleToggleFlag("pinned")}
               onPassword={() => setPasswordOpen(true)}
               onExport={() => exportClipboard(clipboardId, payload)}
+              activeTab={detailsTab}
+              onTabChange={handleDetailsTabChange}
             />
           </div>
         </div>
@@ -919,8 +1294,7 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
   );
 }
 
-function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExport, onAccount }) {
-  const [collapsed, setCollapsed] = useState(false);
+function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, storageUsage, onImport, onExport, onAccount }) {
   const profile = getStoredProfile();
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
   const storageLabel = `${formatBytes(storageUsage)} / ${formatBytes(storageBudgetBytes)}`;
@@ -939,7 +1313,7 @@ function DashboardRail({ active, onSectionChange, storageUsage, onImport, onExpo
     <Sidebar className="sidebar" collapsed={collapsed} aria-label="Workspace navigation">
       <SidebarHeader>
         <AppLogo compact />
-        <SidebarTrigger onClick={() => setCollapsed((value) => !value)}>
+        <SidebarTrigger onClick={() => onCollapsedChange(!collapsed)}>
           <PanelLeft size={18} />
         </SidebarTrigger>
       </SidebarHeader>
@@ -1014,15 +1388,13 @@ function noop() {
   return undefined;
 }
 
-function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin, onPassword, onExport }) {
-  const [activeTab, setActiveTab] = useState("details");
-
+function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin, onPassword, onExport, activeTab, onTabChange }) {
   return (
     <section className="details-panel pv-clip-details pv-section-panel" aria-label="Selected clip">
       <header className="pv-inspector-tabs">
         <div>
-          <button className={activeTab === "details" ? "is-active" : ""} type="button" onClick={() => setActiveTab("details")}>Details</button>
-          <button className={activeTab === "preview" ? "is-active" : ""} type="button" onClick={() => setActiveTab("preview")}>Preview</button>
+          <button className={activeTab === "details" ? "is-active" : ""} type="button" onClick={() => onTabChange("details")}>Details</button>
+          <button className={activeTab === "preview" ? "is-active" : ""} type="button" onClick={() => onTabChange("preview")}>Preview</button>
         </div>
         <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><Pin size={17} /></button>
       </header>

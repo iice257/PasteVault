@@ -11,6 +11,7 @@
     "visual:check": "node ./tests/visual-check.mjs",
     "functional:check": "node ./tests/functional-check.mjs",
     "interaction:check": "node ./tests/interaction-check.mjs",
+    "sync:check": "node ./tests/sync-check.mjs",
     "api:check": "node ./tests/api-check.mjs",
     "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1"
   },
