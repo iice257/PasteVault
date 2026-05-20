@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 4173",
-    "start": "vite --host 127.0.0.1 --port 4173",
+    "dev": "vite --host 127.0.0.1 --port 4000",
+    "start": "vite --host 127.0.0.1 --port 4000",
     "build": "vite build",
     "lint": "eslint .",
     "visual:check": "node ./tests/visual-check.mjs",

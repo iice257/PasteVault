@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4173";
+const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4000";
 const boardId = `interaction-${Date.now()}`;
 const storageKey = `pastevault:clipboard:${boardId}`;
 

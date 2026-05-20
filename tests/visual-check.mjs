@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { chromium } from "playwright";
 
-const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4173";
+const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4000";
 const outputDir = fileURLToPath(new URL("../verification-shots/", import.meta.url));
 await mkdir(outputDir, { recursive: true });
 

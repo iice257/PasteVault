@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4173";
+const baseUrl = process.env.PASTEHQ_URL ?? "http://127.0.0.1:4000";
 const boardId = `functional-${Date.now()}`;
 const password = "correct horse battery staple";
 const largeMarker = `large-marker-${Date.now()}`;
