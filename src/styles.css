@@ -1045,6 +1045,11 @@ a {
   color: #ab7900;
 }
 
+.pv-chip-csv {
+  background: #e5f5ef;
+  color: #28735f;
+}
+
 .pv-code-editor {
   position: relative;
 }
@@ -3299,6 +3304,20 @@ a {
     gap: 16px;
     min-width: 0;
     min-height: 0;
+  }
+
+  .pv-main-column-history {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .pv-main-column-history .pv-history-page {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+    border-color: var(--pv-border);
+    background: var(--pv-panel);
+    box-shadow: 0 14px 36px rgba(27, 35, 50, 0.05);
   }
 
   .pv-mobile-section {

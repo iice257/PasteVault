@@ -68,8 +68,11 @@ import {
   inferTitle,
   loadRecord,
   maxImportBytes,
+  mergeClipboardClips,
   normalizeClip,
+  normalizeRecord,
   nowIso,
+  parseClipboardExport,
   pushRemoteRecord,
   saveRecord,
   sortOptions,
@@ -89,6 +92,7 @@ function formatForFile(name, text) {
   const lower = name.toLowerCase();
   if (lower.endsWith(".json") || text.trim().startsWith("{") || text.trim().startsWith("[")) return "JSON";
   if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "BASH";
+  if (lower.endsWith(".csv")) return "CSV";
   if (lower.endsWith(".md")) return "Markdown";
   if (lower.endsWith(".html")) return "HTML";
   return "Plain text";
@@ -158,6 +162,35 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     window.__pastevaultToast = window.setTimeout(() => setToast(""), 3200);
   }, []);
 
+  const applyRecordToState = useCallback((record, status = "Clipboard updated") => {
+    if (record.protection) {
+      setProtection(record.protection);
+      setLocked(true);
+      setCryptoKey(null);
+      setPasswordOpen(false);
+      setClips([]);
+      setSelectedId(null);
+      setDraftTitle("");
+      setDraftContent("");
+      setFormat("JSON");
+      setSyncStatus(status);
+      return;
+    }
+
+    const normalizedClips = record.payload.clips.map(normalizeClip).filter(Boolean);
+    const nextSelected = normalizedClips.find((clip) => clip.id === record.payload.selectedId) ?? normalizedClips[0] ?? null;
+    setProtection(null);
+    setLocked(false);
+    setCryptoKey(null);
+    setClips(normalizedClips);
+    setSelectedId(nextSelected?.id ?? null);
+    setDraftTitle(nextSelected?.title ?? "");
+    setDraftContent(nextSelected?.content ?? "");
+    setFormat(nextSelected?.format ?? "JSON");
+    setStorageUsage(storageUsageBytes());
+    setSyncStatus(status);
+  }, []);
+
   const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey) => {
     try {
       if (nextProtection) {
@@ -173,9 +206,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           encryptedPayload: await encryptValue(nextPayload, nextKey)
         };
         saveRecord(clipboardId, protectedRecord);
+        setSyncStatus("Saved locally");
         void pushRemoteRecord(clipboardId, protectedRecord)
           .then(() => setSyncStatus("Cloud saved"))
-          .catch(() => setSyncStatus("All changes saved"));
+          .catch(() => setSyncStatus("Saved locally - cloud unavailable"));
       } else {
         const localRecord = {
           version: appVersion,
@@ -185,10 +219,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           payload: nextPayload
         };
         saveRecord(clipboardId, localRecord);
+        setSyncStatus("Saved locally");
         void buildLinkSyncRecord(clipboardId, nextPayload)
           .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
           .then(() => setSyncStatus("Cloud saved"))
-          .catch(() => setSyncStatus("All changes saved"));
+          .catch(() => setSyncStatus("Saved locally - cloud unavailable"));
       }
       setStorageUsage(storageUsageBytes());
       return true;
@@ -227,51 +262,48 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           const remotePayload = await decryptLinkSyncRecord(remote);
           const normalizedClips = remotePayload.clips.map(normalizeClip).filter(Boolean);
           const nextSelected = normalizedClips.find((clip) => clip.id === remotePayload.selectedId) ?? normalizedClips[0] ?? null;
-          saveRecord(clipboardId, {
+          const localRecord = {
             version: appVersion,
             id: clipboardId,
             updatedAt: remote.updatedAt ?? nowIso(),
             protection: null,
             payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
-          });
+          };
+          saveRecord(clipboardId, localRecord);
           if (!active) return;
-          setProtection(null);
-          setLocked(false);
-          setCryptoKey(null);
-          setClips(normalizedClips);
-          setSelectedId(nextSelected?.id ?? null);
-          setDraftTitle(nextSelected?.title ?? "");
-          setDraftContent(nextSelected?.content ?? "");
-          setFormat(nextSelected?.format ?? "JSON");
-          setSyncStatus("Cloud synced");
+          applyRecordToState(localRecord, "Cloud synced");
         } else if (remote.protection && remote.encryptedPayload) {
           saveRecord(clipboardId, remote);
           if (!active) return;
-          setProtection(remote.protection);
-          setLocked(true);
-          setCryptoKey(null);
-          setPasswordOpen(false);
-          setClips([]);
-          setSelectedId(null);
-          setDraftTitle("");
-          setDraftContent("");
-          setSyncStatus("Cloud locked");
+          applyRecordToState(remote, "Cloud locked");
         }
       } catch {
-        if (active) setSyncStatus("All changes saved");
+        if (active) setSyncStatus("Saved locally - cloud unavailable");
       }
     }
     void syncRemoteClipboard();
     return () => { active = false; };
-  }, [clipboardId]);
+  }, [applyRecordToState, clipboardId]);
 
   useEffect(() => {
     const handleStorage = (event) => {
-      if (event.key === storageKey(clipboardId)) window.location.reload();
+      if (event.key !== storageKey(clipboardId) || !event.newValue) return;
+      if (hasUnsavedChanges) {
+        setSyncStatus("External changes available");
+        showToast("Another tab updated this clipboard. Save or reload to review.", "error");
+        return;
+      }
+      try {
+        const record = normalizeRecord(JSON.parse(event.newValue), clipboardId);
+        applyRecordToState(record, "Synced from another tab");
+        showToast("Clipboard synced from another tab");
+      } catch {
+        setSyncStatus("External sync failed");
+      }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [clipboardId]);
+  }, [applyRecordToState, clipboardId, hasUnsavedChanges, showToast]);
 
   useEffect(() => {
     if (!passwordOpen) return undefined;
@@ -338,9 +370,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     const nextClips = selectedClip
       ? clips.map((clip) => (clip.id === selectedClip.id ? nextClip : clip))
       : [nextClip, ...clips];
-    await replaceClips(nextClips, nextClip.id);
+    const didSave = await replaceClips(nextClips, nextClip.id);
+    if (!didSave) return;
     setError("");
-    setSyncStatus("All changes saved");
     showToast("Clip saved successfully");
   }, [clips, draftContent, draftTitle, format, replaceClips, selectedClip, showToast]);
 
@@ -474,23 +506,58 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [showToast, updateDraftContent]);
 
   const handleImportFile = useCallback(async (event) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (!file) return;
-    if (file.size > maxImportBytes) {
-      setError("Import limit is 5 MB per file.");
-      showToast("Import limit is 5 MB per file", "error");
+    if (!files.length) return;
+
+    let nextClips = [...clips];
+    let selectedImportedId = null;
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    for (const file of files) {
+      if (file.size > maxImportBytes) {
+        skippedCount += 1;
+        continue;
+      }
+
+      try {
+        const text = await file.text();
+        const exportedBoard = parseClipboardExport(text);
+        if (exportedBoard) {
+          nextClips = mergeClipboardClips(nextClips, exportedBoard.clips);
+          selectedImportedId = exportedBoard.selectedId;
+          importedCount += exportedBoard.clips.length;
+          continue;
+        }
+
+        const imported = createClip({
+          title: file.name,
+          content: text,
+          format: formatForFile(file.name, text),
+          tags: ["import"]
+        });
+        nextClips = [imported, ...nextClips];
+        selectedImportedId = imported.id;
+        importedCount += 1;
+      } catch {
+        skippedCount += 1;
+      }
+    }
+
+    if (!importedCount) {
+      const message = skippedCount ? "No files imported. Check file size or format." : "No importable files selected.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
-    const text = await file.text();
-    const imported = createClip({
-      title: file.name,
-      content: text,
-      format: formatForFile(file.name, text),
-      tags: ["import"]
-    });
-    await replaceClips([imported, ...clips], imported.id);
-    showToast(`Imported ${file.name} clip`);
+
+    await replaceClips(nextClips, selectedImportedId ?? nextClips[0]?.id ?? null);
+    if (skippedCount) {
+      showToast(`Imported ${importedCount} clips. Skipped ${skippedCount}.`, "error");
+    } else {
+      showToast(importedCount === 1 ? "Imported 1 clip" : `Imported ${importedCount} clips`);
+    }
   }, [clips, replaceClips, showToast]);
 
   const handleToggleFlag = useCallback(async (flag, clip = selectedClip) => {
@@ -671,49 +738,70 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         </section>
 
         <div className="pv-dashboard-grid">
-          <div className="pv-main-column">
-            <div className={activeSection === "editor" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="editor">
-              <ClipboardEditor
-                clipboardId={clipboardTitle(clipboardId)}
-                title={draftTitle}
-                content={draftContent}
-                format={format}
-                stats={stats}
-                passwordLabel={protection ? "Password enabled" : "Password optional"}
-                syncStatus={syncStatus}
-                onContentChange={updateDraftContent}
-                onFormatChange={updateDraftFormat}
-                onCopy={() => handleCopy(draftContent)}
-                onFormat={handleFormat}
-                onSave={handleSave}
-                onRename={handleRename}
-                onDuplicate={handleDuplicate}
-                onExport={() => exportClipboard(clipboardId, payload)}
-                onDelete={handleDelete}
-                onClear={handleClear}
-                onNewClip={handleNewClip}
-                onCopyLatest={handleCopyLatest}
-              />
-            </div>
+          <div className={initialHistory ? "pv-main-column pv-main-column-history" : "pv-main-column"}>
+            {initialHistory ? (
+              <div className="pv-mobile-section is-active" data-section="history">
+                <HistorySection
+                  clips={filteredClips}
+                  selectedId={selectedId}
+                  search={search}
+                  setSearch={setSearch}
+                  searchRef={searchRef}
+                  sort={sort}
+                  setSort={setSort}
+                  filter={filter}
+                  setFilter={setFilter}
+                  onOpen={selectClip}
+                  onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
+                  onToggleStar={(clip) => handleToggleFlag("starred", clip)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className={activeSection === "editor" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="editor">
+                  <ClipboardEditor
+                    clipboardId={clipboardTitle(clipboardId)}
+                    title={draftTitle}
+                    content={draftContent}
+                    format={format}
+                    stats={stats}
+                    passwordLabel={protection ? "Password enabled" : "Password optional"}
+                    syncStatus={syncStatus}
+                    onContentChange={updateDraftContent}
+                    onFormatChange={updateDraftFormat}
+                    onCopy={() => handleCopy(draftContent)}
+                    onFormat={handleFormat}
+                    onSave={handleSave}
+                    onRename={handleRename}
+                    onDuplicate={handleDuplicate}
+                    onExport={() => exportClipboard(clipboardId, payload)}
+                    onDelete={handleDelete}
+                    onClear={handleClear}
+                    onNewClip={handleNewClip}
+                    onCopyLatest={handleCopyLatest}
+                  />
+                </div>
 
-            <div className={activeSection === "history" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="history">
-              <HistoryTable
-                clips={filteredClips}
-                selectedId={selectedId}
-                search={search}
-                setSearch={setSearch}
-                searchRef={searchRef}
-                sort={sort}
-                setSort={setSort}
-                filter={filter}
-                setFilter={setFilter}
-                onOpen={selectClip}
-                onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
-                onToggleStar={(clip) => handleToggleFlag("starred", clip)}
-              />
-            </div>
+                <div className={activeSection === "history" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="history">
+                  <HistoryTable
+                    clips={filteredClips}
+                    selectedId={selectedId}
+                    search={search}
+                    setSearch={setSearch}
+                    searchRef={searchRef}
+                    sort={sort}
+                    setSort={setSort}
+                    filter={filter}
+                    setFilter={setFilter}
+                    onOpen={selectClip}
+                    onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
+                    onToggleStar={(clip) => handleToggleFlag("starred", clip)}
+                  />
+                </div>
+              </>
+            )}
 
-            {activeSection === "tools" && (
+            {!initialHistory && activeSection === "tools" && (
               <ToolsPanel
                 clipboardId={clipboardTitle(clipboardId)}
                 storageUsage={storageUsage}

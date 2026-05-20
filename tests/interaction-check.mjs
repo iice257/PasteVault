@@ -79,6 +79,44 @@ await page.locator("input[type='file']").setInputFiles({
 });
 await page.getByRole("status").getByText(/Imported .*clip/).waitFor();
 
+const exportedClipTimestamp = new Date().toISOString();
+await page.locator("input[type='file']").setInputFiles([
+  {
+    name: "bulk-notes.md",
+    mimeType: "text/markdown",
+    buffer: Buffer.from("# Bulk note\nImported in the same picker")
+  },
+  {
+    name: "pastevault-export.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      clipboardId: "backup-board",
+      exportedAt: exportedClipTimestamp,
+      selectedId: "clip_restored_export",
+      clips: [{
+        id: "clip_restored_export",
+        title: "Restored export clip",
+        content: "restored from a PasteVault export",
+        format: "Plain text",
+        pinned: false,
+        starred: false,
+        tags: ["backup"],
+        createdAt: exportedClipTimestamp,
+        updatedAt: exportedClipTimestamp
+      }]
+    }))
+  }
+]);
+await page.getByRole("status").getByText("Imported 2 clips").waitFor();
+await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
+await page.locator(".history-toolbar .filter-trigger").click();
+await page.getByRole("menuitem", { name: "All types" }).click();
+await page.getByPlaceholder("Search history").fill("Restored export clip");
+await page.getByLabel("Clipboard history rows").getByText("Restored export clip").waitFor();
+await page.locator(".pv-history-table-card .pv-history-menu button[aria-label^='More actions for']").first().click();
+await page.getByRole("menuitem", { name: "Open clip" }).click();
+await page.getByLabel("Clipboard content").waitFor();
+
 const downloadPromise = page.waitForEvent("download");
 await page.getByRole("button", { name: "Top bar more actions" }).click();
 await page.getByRole("menuitem", { name: "Export board" }).click();
@@ -89,10 +127,9 @@ await page.locator(".vault-card-actions").getByRole("button", { name: "More acti
 await page.getByRole("menuitem", { name: "Copy latest" }).click();
 await page.getByRole("status").getByText("Clip copied").waitFor();
 
-await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
-await page.getByRole("button", { name: /More actions for/i }).first().click();
-await page.getByRole("menuitem", { name: "Open clip" }).click();
-await page.getByLabel("Clipboard content").waitFor();
+await page.goto(`${baseUrl}/history`, { waitUntil: "networkidle" });
+await page.locator(".pv-history-page").getByRole("heading", { name: "Recent history" }).waitFor();
+await page.locator(".pv-history-page .pv-history-card").first().waitFor();
 
 await context.close();
 await browser.close();

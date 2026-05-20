@@ -3,9 +3,9 @@ export const appVersion = 2;
 export const maxImportBytes = 5 * 1024 * 1024;
 export const storageBudgetBytes = 10 * 1024 * 1024;
 export const pbkdf2Iterations = 210000;
-export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH"];
+export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH", "CSV"];
 export const sortOptions = ["Newest", "Oldest", "Largest", "Smallest", "Recently updated"];
-export const filterOptions = ["All types", ...formatOptions, "CSV", "TXT", "JS"];
+export const filterOptions = ["All types", ...formatOptions, "TXT", "JS"];
 export const clipboardIdPattern = /^[a-zA-Z0-9_-]{3,80}$/;
 
 export const sampleJson = `{
@@ -160,6 +160,48 @@ export function normalizeClip(clip) {
     createdAt: typeof clip.createdAt === "string" ? clip.createdAt : nowIso(),
     updatedAt: typeof clip.updatedAt === "string" ? clip.updatedAt : nowIso()
   };
+}
+
+export function parseClipboardExport(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.clips)) {
+    return null;
+  }
+
+  const clips = parsed.clips.map(normalizeClip).filter(Boolean);
+  if (!clips.length) {
+    return null;
+  }
+
+  const selectedId = typeof parsed.selectedId === "string" && clips.some((clip) => clip.id === parsed.selectedId)
+    ? parsed.selectedId
+    : clips[0].id;
+
+  return {
+    clipboardId: typeof parsed.clipboardId === "string" ? parsed.clipboardId : "",
+    clips,
+    selectedId
+  };
+}
+
+export function mergeClipboardClips(existingClips, importedClips) {
+  const merged = new Map(existingClips.map((clip) => [clip.id, clip]));
+  for (const imported of importedClips) {
+    const current = merged.get(imported.id);
+    if (!current || new Date(imported.updatedAt).getTime() >= new Date(current.updatedAt).getTime()) {
+      merged.set(imported.id, imported);
+    }
+  }
+  return Array.from(merged.values()).sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
 }
 
 export function saveRecord(clipboardId, record) {

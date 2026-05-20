@@ -7,6 +7,7 @@ export function FileImportDropzone({ inputRef, onImport, compact = false }) {
         ref={inputRef}
         className="pv-file-input"
         type="file"
+        multiple
         accept=".txt,.json,.md,.env,.bash,.sh,.csv,text/*,application/json"
         onChange={onImport}
       />
@@ -14,7 +15,7 @@ export function FileImportDropzone({ inputRef, onImport, compact = false }) {
         <FileUp size={compact ? 22 : 30} />
         <span>
           <strong>Drop a file to import</strong>
-          <em>.txt, .json, .md, .env, .bash, .sh up to 5MB</em>
+          <em>.txt, .json, .md, .env, .bash, .sh up to 5MB each</em>
         </span>
       </button>
     </>

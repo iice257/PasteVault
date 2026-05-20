@@ -50,27 +50,33 @@ export function CodeBlockEditor({
   return (
     <div className="pv-code-editor">
       <div className="pv-code-toolbar section-title-row">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="pv-language-trigger select-trigger" type="button">
-              {format}
-              <ChevronDown size={15} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="pv-menu" align="start">
-            {formatOptions.map((option) => (
-              <DropdownMenuItem active={option === format} key={option} onSelect={() => onFormatChange(option)}>
-                {option}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {readonly ? (
+          <span className="pv-language-trigger select-trigger">{format}</span>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="pv-language-trigger select-trigger" type="button">
+                {format}
+                <ChevronDown size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="pv-menu" align="start">
+              {formatOptions.map((option) => (
+                <DropdownMenuItem active={option === format} key={option} onSelect={() => onFormatChange(option)}>
+                  {option}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <button type="button" onClick={onCopy} aria-label="Copy editor content">
           <ClipboardCopy size={20} />
         </button>
-        <button type="button" onClick={onFormat} aria-label="Format editor content">
-          <Expand size={20} />
-        </button>
+        {!readonly && (
+          <button type="button" onClick={onFormat} aria-label="Format editor content">
+            <Expand size={20} />
+          </button>
+        )}
       </div>
       <div className="code-box pv-code-surface">
         <div className="line-numbers pv-line-numbers" aria-hidden="true">
