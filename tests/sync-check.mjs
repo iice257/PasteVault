@@ -24,6 +24,17 @@ async function installRemoteRoutes(context) {
 
     if (route.request().method() === "PUT") {
       const record = JSON.parse(route.request().postData() ?? "{}");
+      const baseVersion = Number(route.request().headers()["x-pastevault-base-version"]);
+      const current = remoteClips.get(id);
+      const currentVersion = Number(current?.contentVersion ?? 1);
+      if (current && Number.isFinite(baseVersion) && currentVersion > baseVersion && route.request().headers()["x-pastevault-force"] !== "true") {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Clipboard changed since this edit began.", currentVersion, baseVersion })
+        });
+        return;
+      }
       remoteClips.set(id, { ...record, updatedAt: new Date().toISOString() });
       await route.fulfill({
         status: 200,

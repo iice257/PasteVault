@@ -80,6 +80,23 @@ function storageKey(id) {
   return `pastevault:clip:${id}`;
 }
 
+function recordContentVersion(record) {
+  const version = Number(record?.contentVersion ?? record?.payload?.version ?? 1);
+  return Number.isFinite(version) && version > 0 ? Math.floor(version) : 1;
+}
+
+function getBaseVersion(req, body) {
+  const headerVersion = Number(req.headers["x-pastevault-base-version"]);
+  if (Number.isFinite(headerVersion) && headerVersion >= 0) return Math.floor(headerVersion);
+  const bodyVersion = Number(body?.baseVersion);
+  if (Number.isFinite(bodyVersion) && bodyVersion >= 0) return Math.floor(bodyVersion);
+  return null;
+}
+
+function isForcedSave(req, body) {
+  return req.headers["x-pastevault-force"] === "true" || body?.force === true;
+}
+
 async function kvCommand(command) {
   const config = kvConfig();
   if (!config) return null;
@@ -177,6 +194,24 @@ export default async function handler(req, res) {
       const record = JSON.parse(body);
       if (!isValidRecord(record, id)) {
         return json(res, 400, { error: "Invalid encrypted clipboard payload." });
+      }
+      const current = await getClip(id);
+      const baseVersion = getBaseVersion(req, record);
+      if (current && !isForcedSave(req, record)) {
+        if (baseVersion === null) {
+          return json(res, 409, {
+            error: "Content version required.",
+            currentVersion: recordContentVersion(current)
+          });
+        }
+        const currentVersion = recordContentVersion(current);
+        if (currentVersion > baseVersion) {
+          return json(res, 409, {
+            error: "Clipboard changed since this edit began.",
+            currentVersion,
+            baseVersion
+          });
+        }
       }
       await setClip(id, { ...record, updatedAt: new Date().toISOString() });
       return json(res, 200, { ok: true });

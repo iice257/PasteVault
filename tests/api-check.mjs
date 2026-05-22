@@ -2,12 +2,13 @@ import { Readable } from "node:stream";
 import handler from "../api/clip/[id].js";
 import sessionHandler from "../api/session/[id].js";
 
-function createReq({ method, id, body = "", ip = "127.0.0.1" }) {
+function createReq({ method, id, body = "", ip = "127.0.0.1", headers = {} }) {
   const req = Readable.from(body ? [body] : []);
   req.method = method;
   req.query = { id };
   req.headers = {
-    "x-forwarded-for": ip
+    "x-forwarded-for": ip,
+    ...headers
   };
   req.socket = { remoteAddress: ip };
   return req;
@@ -83,6 +84,35 @@ if (saved.status !== 200 || saved.body.ok !== true) {
 const fetched = await invoke({ method: "GET", id });
 if (fetched.status !== 200 || fetched.body.id !== id || !fetched.body.encryptedPayload) {
   throw new Error(`Expected encrypted payload fetch, received ${fetched.status}.`);
+}
+
+const nextEncryptedRecord = {
+  ...encryptedRecord,
+  contentVersion: 2,
+  updatedAt: new Date().toISOString(),
+  encryptedPayload: {
+    iv: "BBBBBBBBBBBBBBBB",
+    data: "bmV4dC1jaXBoZXJ0ZXh0"
+  }
+};
+const versionedSave = await invoke({
+  method: "PUT",
+  id,
+  headers: { "x-pastevault-base-version": "1" },
+  body: JSON.stringify(nextEncryptedRecord)
+});
+if (versionedSave.status !== 200 || versionedSave.body.ok !== true) {
+  throw new Error(`Expected versioned encrypted payload save, received ${versionedSave.status}.`);
+}
+
+const staleSave = await invoke({
+  method: "PUT",
+  id,
+  headers: { "x-pastevault-base-version": "1" },
+  body: JSON.stringify({ ...nextEncryptedRecord, contentVersion: 3 })
+});
+if (staleSave.status !== 409 || staleSave.body.currentVersion !== 2) {
+  throw new Error(`Expected stale save conflict, received ${staleSave.status}.`);
 }
 
 const badId = await invoke({ method: "GET", id: "../etc/passwd" });

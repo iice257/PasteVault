@@ -6,6 +6,7 @@ import {
   appVersion,
   clipboardIdPattern,
   createClip,
+  createVaultId,
   defaultClipboardId,
   inferTitle,
   nowIso,
@@ -37,7 +38,7 @@ function parseClipboardTarget(value) {
   const pathMatch = value.match(/^\/?clip\/([a-zA-Z0-9_-]{3,80})$/);
   if (pathMatch) return pathMatch[1];
 
-  if (/^(clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
+  if (/^(pv_[a-zA-Z0-9_-]{16,75}|clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
     return value;
   }
 
@@ -48,7 +49,7 @@ export default function LandingPage() {
   const [entry, setEntry] = useState("");
 
   const createClipboardFromText = useCallback((value, sourceName = "") => {
-    const clipboardId = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+    const clipboardId = createVaultId();
     const format = detectFormat(value, sourceName);
     const clip = createClip({
       id: sourceName ? `clip_${sourceName.replace(/[^a-z0-9]/gi, "_").slice(0, 24).toLowerCase()}` : undefined,

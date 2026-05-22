@@ -8,6 +8,11 @@ export const sortOptions = ["Newest", "Oldest", "Largest", "Smallest", "Recently
 export const filterOptions = ["All types", ...formatOptions, "TXT", "JS"];
 export const clipboardIdPattern = /^[a-zA-Z0-9_-]{3,80}$/;
 
+export function createVaultId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return `pv_${arrayToBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")}`;
+}
+
 export const sampleJson = `{
   "status": "success",
   "code": 200,
@@ -483,13 +488,31 @@ export async function fetchRemoteRecord(clipboardId) {
   return response.json();
 }
 
-export async function pushRemoteRecord(clipboardId, record) {
+export async function pushRemoteRecord(clipboardId, record, options = {}) {
+  const baseVersion = Number(options.baseVersion ?? recordContentVersion(record) - 1);
+  const headers = { "Content-Type": "application/json" };
+  if (Number.isFinite(baseVersion) && baseVersion >= 0) {
+    headers["X-PasteVault-Base-Version"] = String(Math.floor(baseVersion));
+  }
+  if (options.force) {
+    headers["X-PasteVault-Force"] = "true";
+  }
+
   const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(record)
   });
-  if (!response.ok) throw new Error(`Remote save failed with ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(`Remote save failed with ${response.status}`);
+    error.status = response.status;
+    try {
+      error.body = await response.json();
+    } catch {
+      error.body = null;
+    }
+    throw error;
+  }
 }
 
 export function storageUsageBytes() {

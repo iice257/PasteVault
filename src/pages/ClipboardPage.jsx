@@ -94,6 +94,7 @@ import {
   getDeviceId,
   normalizeSessionState,
   postVaultMessage,
+  preserveDraftState,
   pushRemoteSessionState,
   readSessionState,
   remoteContentPollMs,
@@ -134,6 +135,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const latestDraftRef = useRef(null);
   const hasUnsavedRef = useRef(false);
   const lastRemoteSessionAtRef = useRef(0);
+  const remoteSessionFailuresRef = useRef(0);
+  const remoteContentFailuresRef = useRef(0);
   const [initialState] = useState(() => hydrateClipboard(clipboardId));
   const [clips, setClips] = useState(initialState.clips);
   const [selectedId, setSelectedId] = useState(initialState.selectedId);
@@ -313,6 +316,25 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     clearDraftState(clipboardId, sessionIdRef.current);
   }, [clipboardId]);
 
+  const handleRemoteSaveError = useCallback((remoteError, baseVersion) => {
+    if (remoteError?.status === 409) {
+      const currentVersion = Number(remoteError.body?.currentVersion) || baseVersion + 1;
+      setSaveConflict({
+        baseVersion,
+        currentVersion,
+        detectedAt: nowIso()
+      });
+      setSyncStatus("Conflict: remote version changed");
+      setError("This vault changed on another device before cloud sync finished. Your local draft is preserved.");
+      if (latestDraftRef.current) {
+        preserveDraftState(clipboardId, latestDraftRef.current);
+      }
+      showToast("Remote conflict detected. Review before overwriting.", "error");
+      return;
+    }
+    setSyncStatus("Offline, saved locally");
+  }, [clipboardId, showToast]);
+
   const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey, options = {}) => {
     try {
       const currentRecord = loadRecord(clipboardId);
@@ -409,14 +431,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       });
 
       if (nextProtection) {
-        void pushRemoteRecord(clipboardId, savedRecord)
+        void pushRemoteRecord(clipboardId, savedRecord, { baseVersion, force: options.force })
           .then(() => setSyncStatus("Saved"))
-          .catch(() => setSyncStatus("Offline, saved locally"));
+          .catch((remoteError) => handleRemoteSaveError(remoteError, baseVersion));
       } else {
         void buildLinkSyncRecord(clipboardId, nextPayload, metadata)
-          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
+          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion, force: options.force }))
           .then(() => setSyncStatus("Saved"))
-          .catch(() => setSyncStatus("Offline, saved locally"));
+          .catch((remoteError) => handleRemoteSaveError(remoteError, baseVersion));
       }
       setStorageUsage(storageUsageBytes());
       return true;
@@ -426,7 +448,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       setSyncStatus("Error");
       return false;
     }
-  }, [autosaveEnabled, clipboardId, cryptoKey, draftBaseVersion, protection, showToast]);
+  }, [autosaveEnabled, clipboardId, cryptoKey, draftBaseVersion, handleRemoteSaveError, protection, showToast]);
 
   const replaceClips = useCallback(async (nextClips, nextSelectedId, options = {}) => {
     const safeSelectedId = nextClips.some((clip) => clip.id === nextSelectedId) ? nextSelectedId : nextClips[0]?.id ?? null;
@@ -587,18 +609,27 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         if (active && state) {
           applyRemoteSessionState(state);
         }
+        remoteSessionFailuresRef.current = 0;
       } catch {
+        remoteSessionFailuresRef.current = Math.min(remoteSessionFailuresRef.current + 1, 5);
         // Realtime UI state is best-effort without cloud storage.
       }
     }
 
-    const timer = window.setInterval(() => {
-      void pollRemoteSession();
-    }, remoteSessionPollMs);
-    void pollRemoteSession();
+    let timer = 0;
+    const schedule = () => {
+      const delay = remoteSessionPollMs * (remoteSessionFailuresRef.current + 1);
+      timer = window.setTimeout(async () => {
+        await pollRemoteSession();
+        if (active) schedule();
+      }, delay);
+    };
+    void pollRemoteSession().finally(() => {
+      if (active) schedule();
+    });
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [applyRemoteSessionState, clipboardId]);
 
@@ -608,22 +639,33 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       if (!active || document.hidden) return;
       try {
         const remote = await fetchRemoteRecord(clipboardId);
+        remoteContentFailuresRef.current = 0;
         if (!active || !remote) return;
         if (recordContentVersion(remote) <= contentVersion) return;
         const localRecord = await remoteRecordToLocalRecord(remote);
         if (!active) return;
         handleExternalSavedRecord(localRecord, "Synced from cloud");
       } catch {
+        remoteContentFailuresRef.current = Math.min(remoteContentFailuresRef.current + 1, 5);
+        if (active && !hasUnsavedRef.current) {
+          setSyncStatus("Saved locally - cloud unavailable");
+        }
         // Content still remains local-first when hosted sync is unavailable.
       }
     }
 
-    const timer = window.setInterval(() => {
-      void pollRemoteContent();
-    }, remoteContentPollMs);
+    let timer = 0;
+    const schedule = () => {
+      const delay = remoteContentPollMs * (remoteContentFailuresRef.current + 1);
+      timer = window.setTimeout(async () => {
+        await pollRemoteContent();
+        if (active) schedule();
+      }, delay);
+    };
+    schedule();
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [clipboardId, contentVersion, handleExternalSavedRecord, remoteRecordToLocalRecord]);
 
@@ -752,11 +794,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         settings: normalizeVaultSettings({ ...record.settings, autosaveEnabled: nextAutosave })
       };
       saveRecord(clipboardId, settingsRecord);
+      const settingsBaseVersion = recordContentVersion(settingsRecord);
       if (settingsRecord.protection || settingsRecord.sync) {
-        void pushRemoteRecord(clipboardId, settingsRecord).catch(() => {});
+        void pushRemoteRecord(clipboardId, settingsRecord, { baseVersion: settingsBaseVersion }).catch(() => {});
       } else if (settingsRecord.payload) {
         void buildLinkSyncRecord(clipboardId, settingsRecord.payload, settingsRecord)
-          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord))
+          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion: settingsBaseVersion }))
           .catch(() => {});
       }
     } catch {
@@ -767,6 +810,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const handleReloadLatest = useCallback(() => {
     if (hasUnsavedChanges && !window.confirm("Discard local unsaved changes and reload the latest saved vault content?")) {
       return;
+    }
+    if (hasUnsavedChanges && latestDraftRef.current) {
+      preserveDraftState(clipboardId, latestDraftRef.current);
     }
     try {
       const record = loadRecord(clipboardId);
@@ -779,8 +825,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [applyRecordToState, clipboardId, hasUnsavedChanges, showToast]);
 
   const handleForceSave = useCallback(() => {
+    if (latestDraftRef.current) {
+      preserveDraftState(clipboardId, latestDraftRef.current);
+    }
     void handleSave({ force: true });
-  }, [handleSave]);
+  }, [clipboardId, handleSave]);
 
   useEffect(() => {
     if (!autosaveEnabled || locked || !hasUnsavedChanges || saveConflict) return undefined;
@@ -1041,7 +1090,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         settings: { autosaveEnabled }
       });
       saveRecord(clipboardId, protectedRecord.record);
-      void pushRemoteRecord(clipboardId, protectedRecord.record).catch(() => {});
+      void pushRemoteRecord(clipboardId, protectedRecord.record, { baseVersion: draftBaseVersion }).catch((remoteError) => {
+        handleRemoteSaveError(remoteError, draftBaseVersion);
+      });
       setCryptoKey(protectedRecord.key);
       setProtection(protectedRecord.record.protection);
       setContentVersion(nextVersion);
@@ -1063,7 +1114,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       setError("PasteVault could not enable password protection for this clipboard.");
       showToast("Could not enable password", "error");
     }
-  }, [autosaveEnabled, clipboardId, draftBaseVersion, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
+  }, [autosaveEnabled, clipboardId, draftBaseVersion, handleRemoteSaveError, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
 
   const handleRemovePassword = useCallback(async () => {
     if (!protection || locked) return;
@@ -1094,9 +1145,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       record,
       sessionId: sessionIdRef.current
     });
-    await buildLinkSyncRecord(clipboardId, payload, record).then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord)).catch(() => {});
+    await buildLinkSyncRecord(clipboardId, payload, record)
+      .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion: draftBaseVersion }))
+      .catch((remoteError) => handleRemoteSaveError(remoteError, draftBaseVersion));
     showToast("Password removed");
-  }, [autosaveEnabled, clipboardId, draftBaseVersion, locked, payload, protection, showToast]);
+  }, [autosaveEnabled, clipboardId, draftBaseVersion, handleRemoteSaveError, locked, payload, protection, showToast]);
 
   const filteredClips = useMemo(() => {
     const query = search.trim().toLowerCase();

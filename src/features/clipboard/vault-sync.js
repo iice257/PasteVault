@@ -16,6 +16,10 @@ export function draftStateKey(vaultId, sessionId) {
   return `pastevault:draft:${vaultId}:${sessionId}`;
 }
 
+export function preservedDraftStateKey(vaultId) {
+  return `pastevault:draft-preserved:${vaultId}`;
+}
+
 export function createSessionId() {
   return `session_${crypto.randomUUID().replaceAll("-", "").slice(0, 18)}`;
 }
@@ -67,6 +71,13 @@ export function writeDraftState(vaultId, sessionId, draft) {
 
 export function clearDraftState(vaultId, sessionId) {
   window.localStorage.removeItem(draftStateKey(vaultId, sessionId));
+}
+
+export function preserveDraftState(vaultId, draft) {
+  window.localStorage.setItem(preservedDraftStateKey(vaultId), JSON.stringify({
+    ...draft,
+    preservedAt: new Date().toISOString()
+  }));
 }
 
 export function createVaultChannel(vaultId) {
