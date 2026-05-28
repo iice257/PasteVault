@@ -17,7 +17,7 @@ function detectFormat(value, name = "") {
   const trimmed = value.trim();
   const lower = name.toLowerCase();
   if (lower.endsWith(".json") || trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
-  if (lower.endsWith(".sh") || lower.endsWith(".bash") || trimmed.startsWith("npm ")) return "BASH";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".env") || trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
   if (lower.endsWith(".md")) return "Markdown";
   if (lower.endsWith(".html")) return "HTML";
   return "Plain text";
@@ -102,6 +102,8 @@ export default function LandingPage() {
           <Clipboard size={25} />
           <input
             value={entry}
+            aria-label="Paste text or enter a clipboard link"
+            autoComplete="off"
             placeholder="Paste something or enter a clipboard link"
             onChange={(event) => setEntry(event.target.value)}
             onPaste={(event) => {

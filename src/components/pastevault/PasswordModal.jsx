@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Lock, X } from "lucide-react";
 import { ActionButton } from "./ActionButton";
 
@@ -16,20 +17,29 @@ export function PasswordModal({
   onRemove,
   onClose
 }) {
+  const passwordRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      passwordRef.current?.focus();
+    }
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div className="pv-modal-layer" role="presentation">
-      <section className="pv-password-modal" role="dialog" aria-modal="true" aria-labelledby="password-title">
+      <section className="pv-password-modal" role="dialog" aria-modal="true" aria-labelledby="password-title" aria-describedby="password-description">
         <button className="pv-icon-button pv-modal-close" type="button" onClick={onClose} aria-label="Close password modal">
           <X size={19} />
         </button>
         <span className="pv-modal-icon"><Lock size={27} /></span>
         <h2 id="password-title">Password optional</h2>
-        <p>Password protect this clipboard link. PasteVault cannot recover it if it is lost.</p>
+        <p id="password-description">Password protect this clipboard link. PasteVault cannot recover it if it is lost.</p>
         <label>
           Password
           <input
+            ref={passwordRef}
             type="password"
             value={passwordInput}
             placeholder={locked ? "Clipboard password" : "8+ characters"}

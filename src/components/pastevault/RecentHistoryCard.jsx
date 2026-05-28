@@ -16,8 +16,22 @@ function labelFor(format) {
 }
 
 export function RecentHistoryCard({ clip, selected, onOpen, onTogglePin, onToggleStar }) {
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen();
+    }
+  };
+
   return (
-    <article className={cn("pv-history-card", selected && "is-selected")} onClick={onOpen}>
+    <article
+      className={cn("pv-history-card", selected && "is-selected")}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${clip.title}`}
+      onClick={onOpen}
+      onKeyDown={handleKeyDown}
+    >
       <div className="pv-history-icon">
         {renderHistoryIcon(clip.format, clip.title)}
       </div>

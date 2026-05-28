@@ -8,6 +8,7 @@ function createReq({ method, id, body = "", ip = "127.0.0.1", headers = {} }) {
   req.query = { id };
   req.headers = {
     "x-forwarded-for": ip,
+    ...(body ? { "content-type": "application/json" } : {}),
     ...headers
   };
   req.socket = { remoteAddress: ip };
@@ -52,6 +53,16 @@ async function invokeSession(options) {
 }
 
 const id = `api-check-${Date.now()}`;
+const unsupportedType = await invoke({
+  method: "PUT",
+  id,
+  headers: { "content-type": "text/plain" },
+  body: "{}"
+});
+if (unsupportedType.status !== 415) {
+  throw new Error(`Expected unsupported content type rejection, received ${unsupportedType.status}.`);
+}
+
 const invalid = await invoke({
   method: "PUT",
   id,

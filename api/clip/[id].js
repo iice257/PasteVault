@@ -1,4 +1,5 @@
 const maxBodyBytes = 1024 * 1024;
+const storageTimeoutMs = 4500;
 const idPattern = /^[a-zA-Z0-9_-]{3,80}$/;
 const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
 const memoryStore = new Map();
@@ -28,7 +29,7 @@ function getClientKey(req) {
 }
 
 function rateLimit(req) {
-  const key = `${getClientKey(req)}:${getId(req)}`;
+  const key = `${getClientKey(req)}:${getId(req)}:${req.method}`;
   const now = Date.now();
   const windowMs = 60_000;
   const limit = req.method === "GET" ? 120 : 40;
@@ -76,6 +77,17 @@ function kvConfig() {
   return url && token ? { url: url.replace(/\/$/, ""), token } : null;
 }
 
+function isJsonRequest(req) {
+  return String(req.headers["content-type"] ?? "").toLowerCase().includes("application/json");
+}
+
+function storageError(message = "Storage temporarily unavailable.") {
+  return Object.assign(new Error(message), {
+    statusCode: 503,
+    publicMessage: "Storage temporarily unavailable."
+  });
+}
+
 function storageKey(id) {
   return `pastevault:clip:${id}`;
 }
@@ -100,18 +112,28 @@ function isForcedSave(req, body) {
 async function kvCommand(command) {
   const config = kvConfig();
   if (!config) return null;
-  const response = await fetch(config.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(command)
-  });
-  if (!response.ok) {
-    throw new Error(`KV command failed with ${response.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), storageTimeoutMs);
+  try {
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(command),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw storageError();
+    }
+    return response.json();
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw storageError(error.name === "AbortError" ? "Storage request timed out." : undefined);
+  } finally {
+    clearTimeout(timeout);
   }
-  return response.json();
 }
 
 async function getClip(id) {
@@ -181,12 +203,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "GET") {
-    const record = await getClip(id);
-    return record ? json(res, 200, record) : json(res, 404, { error: "Clipboard not found." });
+    try {
+      const record = await getClip(id);
+      return record ? json(res, 200, record) : json(res, 404, { error: "Clipboard not found." });
+    } catch (error) {
+      return json(res, error.statusCode || 503, { error: error.publicMessage || "Storage temporarily unavailable." });
+    }
   }
 
   if (req.method === "PUT") {
     try {
+      if (!isJsonRequest(req)) {
+        return json(res, 415, { error: "Content-Type must be application/json." });
+      }
       const body = await readBody(req);
       if (!body.trim()) {
         return json(res, 400, { error: "Request body is required." });
@@ -216,7 +245,12 @@ export default async function handler(req, res) {
       await setClip(id, { ...record, updatedAt: new Date().toISOString() });
       return json(res, 200, { ok: true });
     } catch (error) {
-      return json(res, error.statusCode || 400, { error: error.statusCode === 413 ? "Payload too large." : "Invalid request body." });
+      const message = error.statusCode === 413
+        ? "Payload too large."
+        : error.statusCode === 503
+          ? "Storage temporarily unavailable."
+          : "Invalid request body.";
+      return json(res, error.statusCode || 400, { error: message });
     }
   }
 

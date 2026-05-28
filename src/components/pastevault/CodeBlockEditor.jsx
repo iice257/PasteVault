@@ -3,9 +3,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatOptions } from "../../features/clipboard/clipboard-store";
 import { EditorStatusBar } from "./MetadataRow";
 
-function classify(token, language) {
+const maxHighlightedBytes = 160 * 1024;
+const maxLineNumbers = 1200;
+
+function classify(token, language, nextToken = "") {
   if (language === "JSON") {
-    if (/^"[^"]+"$/.test(token) && /:$/.test(token.next ?? "")) return "key";
+    if (/^"[^"]+"$/.test(token) && nextToken === ":") return "key";
     if (/^"[^"]*"$/.test(token)) return "string";
     if (/^(true|false)$/.test(token)) return "bool";
     if (/^null$/.test(token)) return "null";
@@ -23,8 +26,9 @@ function highlight(value, language) {
   while ((match = matcher.exec(value)) !== null) {
     if (match.index > cursor) parts.push(value.slice(cursor, match.index));
     const token = match[0];
+    const nextToken = /^\s*:/.test(value.slice(matcher.lastIndex)) ? ":" : "";
     parts.push(
-      <span className={`pv-code-${classify(token, language)}`} key={`${token}-${match.index}`}>
+      <span className={`pv-code-${classify(token, language, nextToken)}`} key={`${token}-${match.index}`}>
         {token}
       </span>
     );
@@ -44,8 +48,9 @@ export function CodeBlockEditor({
   readonly = false
 }) {
   const lines = Math.max(1, value.split(/\r?\n/).length);
-  const lineNumbers = Array.from({ length: lines }, (_, index) => index + 1);
   const bytes = new Blob([value]).size;
+  const shouldHighlight = bytes <= maxHighlightedBytes;
+  const lineNumbers = Array.from({ length: Math.min(lines, maxLineNumbers) }, (_, index) => index + 1);
 
   return (
     <div className="pv-code-editor">
@@ -78,15 +83,16 @@ export function CodeBlockEditor({
           </button>
         )}
       </div>
-      <div className="code-box pv-code-surface">
+      <div className={shouldHighlight ? "code-box pv-code-surface" : "code-box pv-code-surface is-plaintext"}>
         <div className="line-numbers pv-line-numbers" aria-hidden="true">
           {lineNumbers.map((line) => <span key={line}>{line}</span>)}
+          {lines > maxLineNumbers && <span>...</span>}
         </div>
-        <pre className="pv-code-highlight" aria-hidden="true"><code>{highlight(value || " ", format)}</code></pre>
+        <pre className="pv-code-highlight" aria-hidden="true"><code>{shouldHighlight ? highlight(value || " ", format) : ""}</code></pre>
         <textarea
           value={value}
           readOnly={readonly}
-          spellCheck="false"
+          spellCheck={false}
           aria-label="Clipboard content"
           onChange={(event) => onChange(event.target.value)}
         />

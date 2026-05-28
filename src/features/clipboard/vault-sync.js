@@ -20,15 +20,40 @@ export function preservedDraftStateKey(vaultId) {
   return `pastevault:draft-preserved:${vaultId}`;
 }
 
+function readStorage(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeStorage(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Local storage can be unavailable in restricted browser modes.
+  }
+}
+
 export function createSessionId() {
   return `session_${crypto.randomUUID().replaceAll("-", "").slice(0, 18)}`;
 }
 
 export function getDeviceId() {
-  const existing = window.localStorage.getItem(deviceIdKey);
+  const existing = readStorage(deviceIdKey);
   if (existing) return existing;
   const next = `device_${crypto.randomUUID().replaceAll("-", "").slice(0, 18)}`;
-  window.localStorage.setItem(deviceIdKey, next);
+  writeStorage(deviceIdKey, next);
   return next;
 }
 
@@ -49,7 +74,7 @@ export function normalizeSessionState(value, vaultId) {
 }
 
 export function readSessionState(vaultId) {
-  const raw = window.localStorage.getItem(sessionStateKey(vaultId));
+  const raw = readStorage(sessionStateKey(vaultId));
   if (!raw) return null;
   try {
     return normalizeSessionState(JSON.parse(raw), vaultId);
@@ -61,23 +86,38 @@ export function readSessionState(vaultId) {
 export function writeSessionState(vaultId, state) {
   const normalized = normalizeSessionState(state, vaultId);
   if (!normalized) return null;
-  window.localStorage.setItem(sessionStateKey(vaultId), JSON.stringify(normalized));
-  return normalized;
+  return writeStorage(sessionStateKey(vaultId), JSON.stringify(normalized)) ? normalized : null;
 }
 
 export function writeDraftState(vaultId, sessionId, draft) {
-  window.localStorage.setItem(draftStateKey(vaultId, sessionId), JSON.stringify(draft));
+  writeStorage(draftStateKey(vaultId, sessionId), JSON.stringify(draft));
 }
 
 export function clearDraftState(vaultId, sessionId) {
-  window.localStorage.removeItem(draftStateKey(vaultId, sessionId));
+  removeStorage(draftStateKey(vaultId, sessionId));
 }
 
 export function preserveDraftState(vaultId, draft) {
-  window.localStorage.setItem(preservedDraftStateKey(vaultId), JSON.stringify({
+  writeStorage(preservedDraftStateKey(vaultId), JSON.stringify({
     ...draft,
     preservedAt: new Date().toISOString()
   }));
+}
+
+export function readPreservedDraftState(vaultId) {
+  const raw = readStorage(preservedDraftStateKey(vaultId));
+  if (!raw) return null;
+  try {
+    const draft = JSON.parse(raw);
+    if (!draft || draft.vaultId !== vaultId || typeof draft.localContent !== "object") return null;
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPreservedDraftState(vaultId) {
+  removeStorage(preservedDraftStateKey(vaultId));
 }
 
 export function createVaultChannel(vaultId) {
