@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">PasteVault</title>
+  <desc id="desc">Clipboard vault social preview.</desc>
+  <rect width="1200" height="630" fill="#090b0c"/>
+  <rect x="96" y="78" width="1008" height="474" rx="30" fill="#111517" stroke="#273035" stroke-width="2"/>
+  <rect x="154" y="136" width="152" height="152" rx="32" fill="#eab308"/>
+  <path d="M200 184h60v72h-60zM214 166h32a16 16 0 0 1 16 16v2h-64v-2a16 16 0 0 1 16-16z" fill="#090b0c"/>
+  <text x="352" y="198" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="800">PasteVault</text>
+  <text x="356" y="252" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="28">A private home for copied ideas.</text>
+  <g font-family="Inter, Arial, sans-serif" font-size="24" fill="#94a3b8">
+    <rect x="154" y="350" width="300" height="58" rx="14" fill="#1f272b"/>
+    <text x="184" y="387">API keys</text>
+    <rect x="492" y="350" width="300" height="58" rx="14" fill="#1f272b"/>
+    <text x="522" y="387">Snippets</text>
+    <rect x="830" y="350" width="222" height="58" rx="14" fill="#1f272b"/>
+    <text x="860" y="387">Notes</text>
+  </g>
+  <path d="M164 468h870" stroke="#eab308" stroke-width="10" stroke-linecap="round"/>
+</svg>
