@@ -98,6 +98,15 @@ a {
   box-shadow: 0 16px 38px rgba(28, 38, 58, 0.12);
 }
 
+.pv-action:disabled,
+.pv-icon-button:disabled,
+.pv-inspector-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+  box-shadow: none;
+}
+
 .pv-action > span {
   display: inline-flex;
   align-items: center;
@@ -1969,6 +1978,12 @@ a {
   background: var(--card);
   color: var(--ink);
   padding: 0 16px;
+}
+
+.pv-locked-form {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
 }
 
 .pv-modal-layer {

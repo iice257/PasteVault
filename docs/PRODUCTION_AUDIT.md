@@ -1,70 +1,66 @@
 # PasteVault Production Audit
 
-Date: 2026-05-12
+Date: 2026-05-28
 
 ## Executive Summary
 
-Readiness score: 8.5/10.
+Readiness score: 8.8/10.
 
-Release recommendation: ship after hosted storage is provisioned for durable cross-device sync. The frontend, local persistence, encrypted sync contract, password protection, and responsive UI pass the current automated suite.
+PasteVault remains aligned with its existing direction: a no-account, local-first clipboard vault with link handoff, optional password protection, history, import/export, and Vercel-backed encrypted sync when durable storage is configured. This pass focused on hardening the existing product rather than changing the visual system or feature scope.
 
-## Highest-Impact Issues Treated
+## What Already Exists
 
-- Landing now uses the supplied single background image with only the paste/open content layer.
-- Dashboard now has the expected app shell: left rail, top search/commands, central editor, wide details panel, history controls, and mobile composer.
-- Theme switching now has test coverage for real light and dark page loads.
-- Desktop tag editing is visible and usable at the 1440px interaction viewport.
-- Clipboard id parsing is stricter, avoiding accidental navigation for ordinary pasted words.
-- Protected record normalization preserves `updatedAt`.
-- Clipboard copy/export now have safer browser fallbacks.
-- `/history` and `/settings` are covered by Vercel rewrites.
+- Landing flow for pasting text or opening a clipboard link.
+- Dashboard shell with editor, history, details, tools, sidebar navigation, top actions, mobile tabs, and bottom composer.
+- Local persistence keyed by clipboard id with seed clips and import/export.
+- Password-protected vault records using PBKDF2 and AES-GCM.
+- Link-derived encrypted remote sync records for unprotected boards.
+- Conflict preservation, autosave toggling, cross-tab/session state, and remote polling.
+- Vercel API routes for encrypted clipboard records and session state.
+- CI, smoke/API tests, Playwright functional, interaction, sync, and visual checks.
 
-## Security Findings
+## Improvements Completed
 
-- Clipboard data is accountless by design. Anyone with a clipboard id can attempt to fetch its encrypted record. Mitigation: unprotected sync encrypts payloads with a link-derived key; password-protected boards use password-derived AES-GCM keys.
-- Hosted durability requires Upstash Redis REST or Vercel KV-compatible env vars. Without them, the API falls back to per-function memory and is not durable.
-- The API rejects plaintext payload records and only accepts versioned encrypted payloads with matching ids.
-- API ids are constrained to URL-safe ids between 3 and 80 characters.
-- API responses are `no-store` and include `nosniff`.
-- Rate limiting exists per client/id/method bucket in the serverless function memory. This is useful but not globally durable across function instances.
-- No `dangerouslySetInnerHTML` clipboard rendering path is used in the current UI.
-
-## Functionality Findings
-
-- Covered flows: create/open from landing, save, copy link, copy latest, copy selected, password enable/unlock, import, export, search, sort, filter, tags, theme persistence, large clips, malformed JSON validation, and clipboard id isolation.
-- Mobile and desktop visual checks assert no horizontal overflow.
-- Remaining verification need: real deployed cross-device sync once hosted storage env vars are configured in Vercel.
-
-## Visual/UX Findings
-
-- Landing matches the supplied image-driven direction: background asset plus logo, headline, subtitle, and large paste/open CTA.
-- Dashboard is now a cleaner product workspace rather than a floating-card composition.
-- Primary actions are visible: Save, Copy link, Password, Theme, Paste/import via top menu and file controls.
-- Secondary actions are in menus: new clip, copy latest, import, export, duplicate, rename, clear, delete.
-- Details/tags remain directly editable on desktop and collapse away below desktop widths.
-- Dark mode is a true dark shell with explicit contrast fixes for metadata and tags.
-
-## Code Quality Findings
-
-- Clipboard persistence, crypto, validation, sync, import/export, and formatting are centralized in `src/features/clipboard/clipboard-store.js`.
-- Route-level rendering is split between `src/pages/LandingPage.jsx` and `src/pages/ClipboardPage.jsx`.
-- Reusable PasteVault UI components live under `src/components/pastevault`.
-- The current UI still uses plain JSX components around shadcn/Radix primitives; deeper HeroUI adoption is optional because the current tested UX does not need a heavier table/list abstraction yet.
+- Consolidated duplicate API helpers into `api/_shared.js`.
+- Tightened encrypted record validation so records cannot be both link-sync and password-protected.
+- Added strict server validation for settings, timestamps, content versions, and session editor settings.
+- Hardened clipboard store normalization for formats, clip ids, dates, tags, selected ids, and settings.
+- Added safe payload normalization for imported exports, decrypted link-sync records, recovered drafts, and unlocked protected payloads.
+- Made storage usage and invalid date formatting resilient to restricted browser storage or malformed data.
+- Improved password modal accessibility with form submit, focus trapping, overlay close, autocomplete hints, explicit labels, and preserved custom validation.
+- Added locked-state submit behavior so Enter unlocks protected boards.
+- Disabled the details-panel pin button when no selected clip exists.
+- Memoized editor highlighting/line-number work and fixed command token classification.
+- Added focused store validation tests.
+- Expanded API tests for ambiguous encrypted records, invalid settings, and invalid session editor settings.
+- Updated smoke checks to understand shared API modules.
+- Added `npm run verify` for one-command release checks.
+- Added store checks to CI.
+- Hardened Vercel headers with explicit font, manifest, worker, and COOP directives.
+- Consolidated PasteVault hourly audit automation and paused the duplicate PasteVault automation.
 
 ## Verification
 
 Passed:
 
 ```powershell
-npm run lint
-npm run build
-npm test
-npm run api:check
-npm run functional:check
-npm run interaction:check
-npm run visual:check
-npm audit --audit-level=moderate
+eslint .
+node ./tests/store-check.mjs
+node ./tests/api-check.mjs
+powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1
+node ./tests/functional-check.mjs
+node ./tests/interaction-check.mjs
+node ./tests/sync-check.mjs
+node ./tests/visual-check.mjs
+vite build
 ```
+
+Browser verification:
+
+- `/clip/audit-pass` loaded with one dashboard and one editor.
+- Password modal opened, focused the password input, and closed cleanly.
+- Default viewport had no horizontal overflow.
+- Captured browser console errors: none.
 
 ## Remaining Production Work
 
@@ -73,5 +69,5 @@ npm audit --audit-level=moderate
   - `UPSTASH_REDIS_REST_TOKEN`
   - or `KV_REST_API_URL`
   - and `KV_REST_API_TOKEN`
-- Add deployment-level abuse protection if public traffic increases, such as Vercel Firewall/rate limiting.
-- Consider QR handoff, explicit share-link expiry controls, and conflict-resolution UI for multi-device edits.
+- Add deployment-level abuse protection if public traffic increases, such as Vercel Firewall or provider-level rate limiting.
+- Consider share-link expiry controls and a clearer conflict-resolution UI if multi-device collaboration becomes a core workflow.

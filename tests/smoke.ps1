@@ -87,7 +87,10 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
   }
 }
 
-$api = Get-Content -Raw -LiteralPath (Join-Path $root "api/clip/[id].js")
+$api = @(
+  Get-Content -Raw -LiteralPath (Join-Path $root "api/clip/[id].js")
+  Get-Content -Raw -LiteralPath (Join-Path $root "api/_shared.js")
+) -join "`n"
 @(
   "UPSTASH_REDIS_REST_URL",
   "KV_REST_API_URL",

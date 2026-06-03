@@ -28,6 +28,7 @@ export function FileImportDropzone({ inputRef, onImport, compact = false }) {
       <button
         className={cn("pv-dropzone", compact && "pv-dropzone-compact", dragActive && "is-dragging")}
         type="button"
+        aria-label="Import clipboard files"
         onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => {
           event.preventDefault();

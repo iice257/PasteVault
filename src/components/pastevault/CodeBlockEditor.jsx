@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ClipboardCopy, Expand, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { formatOptions } from "../../features/clipboard/clipboard-store";
@@ -14,7 +15,7 @@ function classify(token, language, nextToken = "") {
     if (/^null$/.test(token)) return "null";
     if (/^-?\d+(\.\d+)?$/.test(token)) return "number";
   }
-  if (/^curl|npm|vite|export|const|\$|>/.test(token)) return "command";
+  if (/^(curl|npm|vite|export|const|\$|>)/.test(token)) return "command";
   return "";
 }
 
@@ -48,9 +49,14 @@ export function CodeBlockEditor({
   readonly = false
 }) {
   const lines = Math.max(1, value.split(/\r?\n/).length);
-  const bytes = new Blob([value]).size;
+  const bytes = useMemo(() => new Blob([value]).size, [value]);
   const shouldHighlight = bytes <= maxHighlightedBytes;
-  const lineNumbers = Array.from({ length: Math.min(lines, maxLineNumbers) }, (_, index) => index + 1);
+  const lineNumbers = useMemo(() => (
+    Array.from({ length: Math.min(lines, maxLineNumbers) }, (_, index) => index + 1)
+  ), [lines]);
+  const highlightedValue = useMemo(() => (
+    shouldHighlight ? highlight(value || " ", format) : ""
+  ), [format, shouldHighlight, value]);
 
   return (
     <div className="pv-code-editor">
@@ -60,7 +66,7 @@ export function CodeBlockEditor({
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="pv-language-trigger select-trigger" type="button">
+              <button className="pv-language-trigger select-trigger" type="button" aria-label="Select clipboard format">
                 {format}
                 <ChevronDown size={15} />
               </button>
@@ -88,10 +94,11 @@ export function CodeBlockEditor({
           {lineNumbers.map((line) => <span key={line}>{line}</span>)}
           {lines > maxLineNumbers && <span>...</span>}
         </div>
-        <pre className="pv-code-highlight" aria-hidden="true"><code>{shouldHighlight ? highlight(value || " ", format) : ""}</code></pre>
+        <pre className="pv-code-highlight" aria-hidden="true"><code>{highlightedValue}</code></pre>
         <textarea
           value={value}
           readOnly={readonly}
+          aria-readonly={readonly}
           spellCheck={false}
           aria-label="Clipboard content"
           onChange={(event) => onChange(event.target.value)}

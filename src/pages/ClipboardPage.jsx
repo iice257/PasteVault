@@ -70,6 +70,7 @@ import {
   maxImportBytes,
   mergeClipboardClips,
   nextContentVersion,
+  normalizeClipboardPayload,
   normalizeClip,
   normalizeRecord,
   normalizeVaultSettings,
@@ -489,9 +490,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const remoteRecordToLocalRecord = useCallback(async (remote) => {
     const remoteVersion = recordContentVersion(remote);
     if (remote.sync?.mode === "link") {
-      const remotePayload = await decryptLinkSyncRecord(remote);
-      const normalizedClips = remotePayload.clips.map(normalizeClip).filter(Boolean);
-      const nextSelected = normalizedClips.find((clip) => clip.id === remotePayload.selectedId) ?? normalizedClips[0] ?? null;
+      const remotePayload = normalizeClipboardPayload(await decryptLinkSyncRecord(remote));
       return {
         version: appVersion,
         id: clipboardId,
@@ -500,7 +499,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         lastSavedAt: remote.lastSavedAt ?? remote.updatedAt ?? nowIso(),
         settings: normalizeVaultSettings(remote.settings),
         protection: null,
-        payload: { clips: normalizedClips, selectedId: nextSelected?.id ?? null }
+        payload: remotePayload
       };
     }
     return normalizeRecord(remote, clipboardId);
@@ -842,11 +841,16 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const handleRestorePreservedDraft = useCallback(() => {
     if (!preservedDraft?.localContent) return;
     const draftPayload = preservedDraft.localContent.payload;
-    const normalizedClips = Array.isArray(draftPayload?.clips)
-      ? draftPayload.clips.map(normalizeClip).filter(Boolean)
-      : clips;
-    const draftSelectedId = preservedDraft.localContent.selectedId ?? draftPayload?.selectedId ?? null;
-    const safeSelectedId = normalizedClips.some((clip) => clip.id === draftSelectedId) ? draftSelectedId : null;
+    const normalizedDraftPayload = Array.isArray(draftPayload?.clips)
+      ? normalizeClipboardPayload(draftPayload)
+      : { clips, selectedId: null };
+    const normalizedClips = normalizedDraftPayload.clips;
+    const draftSelectedId = typeof preservedDraft.localContent.selectedId === "string"
+      ? preservedDraft.localContent.selectedId
+      : normalizedDraftPayload.selectedId;
+    const safeSelectedId = normalizedClips.some((clip) => clip.id === draftSelectedId)
+      ? draftSelectedId
+      : normalizedDraftPayload.selectedId;
     const nextSelected = safeSelectedId ? normalizedClips.find((clip) => clip.id === safeSelectedId) ?? null : null;
     const nextTitle = typeof preservedDraft.localContent.title === "string"
       ? preservedDraft.localContent.title
@@ -1090,8 +1094,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       const key = await derivePasswordKey(passwordInput, protection.salt);
       await decryptValue(protection.verifier, key);
       const record = loadRecord(clipboardId);
-      const decrypted = await decryptValue(record.encryptedPayload, key);
-      const normalizedClips = decrypted.clips.map(normalizeClip).filter(Boolean);
+      const decrypted = normalizeClipboardPayload(await decryptValue(record.encryptedPayload, key));
+      const normalizedClips = decrypted.clips;
       const nextSelected = normalizedClips.find((clip) => clip.id === decrypted.selectedId) ?? normalizedClips[0] ?? null;
       const recordVersion = recordContentVersion(record);
       setCryptoKey(key);
@@ -1224,8 +1228,23 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           <Lock size={42} />
           <h1>This clipboard is password protected</h1>
           <p>Enter the optional password for this clipboard id to decrypt the saved clips on this device.</p>
-          <input type="password" placeholder="Clipboard password" value={passwordInput} onChange={(event) => setPasswordInput(event.target.value)} />
-          <ActionButton variant="primary" onClick={handleUnlock}>Unlock clipboard</ActionButton>
+          <form
+            className="pv-locked-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleUnlock();
+            }}
+          >
+            <input
+              type="password"
+              placeholder="Clipboard password"
+              aria-label="Clipboard password"
+              autoComplete="current-password"
+              value={passwordInput}
+              onChange={(event) => setPasswordInput(event.target.value)}
+            />
+            <ActionButton variant="primary" type="submit">Unlock clipboard</ActionButton>
+          </form>
           {error && <span className="pv-inline-error">{error}</span>}
         </main>
         <PasswordModal
@@ -1619,7 +1638,7 @@ function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, p
           <button className={activeTab === "details" ? "is-active" : ""} type="button" onClick={() => onTabChange("details")}>Details</button>
           <button className={activeTab === "preview" ? "is-active" : ""} type="button" onClick={() => onTabChange("preview")}>Preview</button>
         </div>
-        <button type="button" onClick={onTogglePin} aria-label="Toggle pinned"><Pin size={17} /></button>
+        <button type="button" onClick={onTogglePin} aria-label="Toggle pinned" aria-pressed={Boolean(selectedClip?.pinned)} disabled={!selectedClip}><Pin size={17} /></button>
       </header>
       <div className="pv-inspector-title">
         <strong>{selectedClip?.title ?? draftTitle}</strong>

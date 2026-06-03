@@ -7,6 +7,24 @@ export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL",
 export const sortOptions = ["Newest", "Oldest", "Largest", "Smallest", "Recently updated"];
 export const filterOptions = ["All types", ...formatOptions, "TXT", "JS"];
 export const clipboardIdPattern = /^[a-zA-Z0-9_-]{3,80}$/;
+export const clipIdPattern = /^[a-zA-Z0-9_-]{3,96}$/;
+
+function createClipId() {
+  return `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+}
+
+function normalizeDate(value, fallback = nowIso()) {
+  if (typeof value !== "string") return fallback;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : fallback;
+}
+
+export function normalizeFormat(format) {
+  const value = typeof format === "string" ? format.trim() : "";
+  if (value === "TXT") return "Plain text";
+  if (value === "JS") return "JavaScript";
+  return formatOptions.includes(value) ? value : "Plain text";
+}
 
 export function createVaultId() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -63,8 +81,9 @@ export function defaultVaultSettings() {
 
 export function normalizeVaultSettings(settings) {
   return {
-    ...defaultVaultSettings(),
-    ...(settings && typeof settings === "object" ? settings : {})
+    autosaveEnabled: typeof settings?.autosaveEnabled === "boolean"
+      ? settings.autosaveEnabled
+      : defaultVaultSettings().autosaveEnabled
   };
 }
 
@@ -84,10 +103,11 @@ export function nowIso() {
 export function createClip({ id, title, content, format, pinned = false, starred = false, tags = [] }) {
   const timestamp = nowIso();
   const safeContent = typeof content === "string" ? content : "";
-  const safeFormat = typeof format === "string" ? format : "Plain text";
+  const safeFormat = normalizeFormat(format);
   const safeTitle = typeof title === "string" ? title : "";
+  const safeId = typeof id === "string" && clipIdPattern.test(id) ? id : createClipId();
   return {
-    id: id || `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
+    id: safeId,
     title: safeTitle.trim() || inferTitle(safeContent, safeFormat),
     content: safeContent,
     format: safeFormat,
@@ -158,6 +178,7 @@ export function normalizeRecord(parsed, clipboardId) {
 
   if (Array.isArray(parsed.payload?.clips)) {
     const updatedAt = typeof parsed.updatedAt === "string" ? parsed.updatedAt : payloadUpdatedAt(parsed.payload);
+    const payload = normalizeClipboardPayload(parsed.payload);
     return {
       version: appVersion,
       id: clipboardId,
@@ -166,10 +187,7 @@ export function normalizeRecord(parsed, clipboardId) {
       lastSavedAt: typeof parsed.lastSavedAt === "string" ? parsed.lastSavedAt : updatedAt,
       settings: normalizeVaultSettings(parsed.settings),
       protection: null,
-      payload: {
-        clips: parsed.payload.clips.map(normalizeClip).filter(Boolean),
-        selectedId: parsed.payload.selectedId ?? parsed.payload.clips[0]?.id ?? null
-      }
+      payload
     };
   }
 
@@ -182,10 +200,13 @@ export function normalizeClip(clip) {
   }
 
   const content = clip.content;
-  const format = typeof clip.format === "string" && clip.format.trim() ? clip.format : "Plain text";
+  const format = normalizeFormat(clip.format);
+  const id = typeof clip.id === "string" && clipIdPattern.test(clip.id) ? clip.id : createClipId();
+  const createdAt = normalizeDate(clip.createdAt);
+  const updatedAt = normalizeDate(clip.updatedAt, createdAt);
 
   return {
-    id: typeof clip.id === "string" ? clip.id : `clip_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
+    id,
     title: typeof clip.title === "string" && clip.title.trim() ? clip.title.trim().slice(0, 140) : inferTitle(content, format),
     content,
     format,
@@ -196,9 +217,17 @@ export function normalizeClip(clip) {
       .map((tag) => tag.trim().slice(0, 32))
       .filter(Boolean)
       .slice(0, 8) : [],
-    createdAt: typeof clip.createdAt === "string" ? clip.createdAt : nowIso(),
-    updatedAt: typeof clip.updatedAt === "string" ? clip.updatedAt : nowIso()
+    createdAt,
+    updatedAt
   };
+}
+
+export function normalizeClipboardPayload(payload) {
+  const clips = Array.isArray(payload?.clips) ? payload.clips.map(normalizeClip).filter(Boolean) : [];
+  const selectedId = typeof payload?.selectedId === "string" && clips.some((clip) => clip.id === payload.selectedId)
+    ? payload.selectedId
+    : clips[0]?.id ?? null;
+  return { clips, selectedId };
 }
 
 export function parseClipboardExport(text) {
@@ -213,17 +242,16 @@ export function parseClipboardExport(text) {
     return null;
   }
 
-  const clips = parsed.clips.map(normalizeClip).filter(Boolean);
+  const { clips, selectedId } = normalizeClipboardPayload({
+    clips: parsed.clips,
+    selectedId: parsed.selectedId
+  });
   if (!clips.length) {
     return null;
   }
 
-  const selectedId = typeof parsed.selectedId === "string" && clips.some((clip) => clip.id === parsed.selectedId)
-    ? parsed.selectedId
-    : clips[0].id;
-
   return {
-    clipboardId: typeof parsed.clipboardId === "string" ? parsed.clipboardId : "",
+    clipboardId: typeof parsed.clipboardId === "string" && clipboardIdPattern.test(parsed.clipboardId) ? parsed.clipboardId : "",
     clips,
     selectedId
   };
@@ -345,10 +373,12 @@ export function formatAge(iso) {
 }
 
 export function formatDate(iso) {
+  const timestamp = new Date(iso).getTime();
+  if (!Number.isFinite(timestamp)) return "Unknown date";
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(new Date(iso));
+  }).format(new Date(timestamp));
 }
 
 export function validateContent(content, format) {
@@ -516,15 +546,19 @@ export async function pushRemoteRecord(clipboardId, record, options = {}) {
 }
 
 export function storageUsageBytes() {
-  let total = 0;
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index) ?? "";
-    const value = localStorage.getItem(key) ?? "";
-    if (key.startsWith("pastevault:")) {
-      total += textBytes(key) + textBytes(value);
+  try {
+    let total = 0;
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index) ?? "";
+      const value = localStorage.getItem(key) ?? "";
+      if (key.startsWith("pastevault:")) {
+        total += textBytes(key) + textBytes(value);
+      }
     }
+    return total;
+  } catch {
+    return 0;
   }
-  return total;
 }
 
 export function exportClipboard(clipboardId, payload) {

@@ -32,5 +32,8 @@ jobs:
         shell: pwsh
         run: npm test
 
+      - name: Store checks
+        run: npm run store:check
+
       - name: API checks
         run: npm run api:check

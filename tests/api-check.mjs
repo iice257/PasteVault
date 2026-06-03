@@ -148,6 +148,36 @@ if (malformedEncryptedRecord.status !== 400) {
   throw new Error(`Expected encrypted payload without sync/protection rejection, received ${malformedEncryptedRecord.status}.`);
 }
 
+const ambiguousEncryptedRecord = await invoke({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...encryptedRecord,
+    protection: {
+      salt: "AAAAAAAAAAAAAAAAAAAAAA==",
+      verifier: {
+        iv: "AAAAAAAAAAAAAAAA",
+        data: "Y2lwaGVydGV4dA=="
+      }
+    }
+  })
+});
+if (ambiguousEncryptedRecord.status !== 400) {
+  throw new Error(`Expected ambiguous sync/protection rejection, received ${ambiguousEncryptedRecord.status}.`);
+}
+
+const invalidSettingsRecord = await invoke({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...encryptedRecord,
+    settings: { autosaveEnabled: "yes" }
+  })
+});
+if (invalidSettingsRecord.status !== 400) {
+  throw new Error(`Expected invalid settings rejection, received ${invalidSettingsRecord.status}.`);
+}
+
 const sessionState = {
   vaultId: id,
   sessionId: "session_api_check",
@@ -183,6 +213,21 @@ const badSession = await invokeSession({
 });
 if (badSession.status !== 400) {
   throw new Error(`Expected invalid session state rejection, received ${badSession.status}.`);
+}
+
+const badSessionSettings = await invokeSession({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...sessionState,
+    editorSettings: {
+      autosaveEnabled: false,
+      nested: { unsafe: true }
+    }
+  })
+});
+if (badSessionSettings.status !== 400) {
+  throw new Error(`Expected invalid editor settings rejection, received ${badSessionSettings.status}.`);
 }
 
 console.log("API checks passed.");
