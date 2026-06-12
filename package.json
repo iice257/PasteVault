@@ -13,6 +13,7 @@
     "functional:check": "node ./tests/functional-check.mjs",
     "interaction:check": "node ./tests/interaction-check.mjs",
     "sync:check": "node ./tests/sync-check.mjs",
+    "mobile:check": "node ./tests/mobile-check.mjs",
     "api:check": "node ./tests/api-check.mjs",
     "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1",
     "verify": "npm run lint && npm run build && npm test && npm run store:check && npm run api:check"
