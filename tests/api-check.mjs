@@ -2,12 +2,14 @@ import { Readable } from "node:stream";
 import handler from "../api/clip/[id].js";
 import sessionHandler from "../api/session/[id].js";
 
-function createReq({ method, id, body = "", ip = "127.0.0.1" }) {
+function createReq({ method, id, body = "", ip = "127.0.0.1", headers = {} }) {
   const req = Readable.from(body ? [body] : []);
   req.method = method;
   req.query = { id };
   req.headers = {
-    "x-forwarded-for": ip
+    "x-forwarded-for": ip,
+    ...(body ? { "content-type": "application/json" } : {}),
+    ...headers
   };
   req.socket = { remoteAddress: ip };
   return req;
@@ -51,6 +53,16 @@ async function invokeSession(options) {
 }
 
 const id = `api-check-${Date.now()}`;
+const unsupportedType = await invoke({
+  method: "PUT",
+  id,
+  headers: { "content-type": "text/plain" },
+  body: "{}"
+});
+if (unsupportedType.status !== 415) {
+  throw new Error(`Expected unsupported content type rejection, received ${unsupportedType.status}.`);
+}
+
 const invalid = await invoke({
   method: "PUT",
   id,
@@ -85,6 +97,35 @@ if (fetched.status !== 200 || fetched.body.id !== id || !fetched.body.encryptedP
   throw new Error(`Expected encrypted payload fetch, received ${fetched.status}.`);
 }
 
+const nextEncryptedRecord = {
+  ...encryptedRecord,
+  contentVersion: 2,
+  updatedAt: new Date().toISOString(),
+  encryptedPayload: {
+    iv: "BBBBBBBBBBBBBBBB",
+    data: "bmV4dC1jaXBoZXJ0ZXh0"
+  }
+};
+const versionedSave = await invoke({
+  method: "PUT",
+  id,
+  headers: { "x-pastevault-base-version": "1" },
+  body: JSON.stringify(nextEncryptedRecord)
+});
+if (versionedSave.status !== 200 || versionedSave.body.ok !== true) {
+  throw new Error(`Expected versioned encrypted payload save, received ${versionedSave.status}.`);
+}
+
+const staleSave = await invoke({
+  method: "PUT",
+  id,
+  headers: { "x-pastevault-base-version": "1" },
+  body: JSON.stringify({ ...nextEncryptedRecord, contentVersion: 3 })
+});
+if (staleSave.status !== 409 || staleSave.body.currentVersion !== 2) {
+  throw new Error(`Expected stale save conflict, received ${staleSave.status}.`);
+}
+
 const badId = await invoke({ method: "GET", id: "../etc/passwd" });
 if (badId.status !== 400) {
   throw new Error(`Expected invalid id rejection, received ${badId.status}.`);
@@ -105,6 +146,36 @@ const malformedEncryptedRecord = await invoke({
 });
 if (malformedEncryptedRecord.status !== 400) {
   throw new Error(`Expected encrypted payload without sync/protection rejection, received ${malformedEncryptedRecord.status}.`);
+}
+
+const ambiguousEncryptedRecord = await invoke({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...encryptedRecord,
+    protection: {
+      salt: "AAAAAAAAAAAAAAAAAAAAAA==",
+      verifier: {
+        iv: "AAAAAAAAAAAAAAAA",
+        data: "Y2lwaGVydGV4dA=="
+      }
+    }
+  })
+});
+if (ambiguousEncryptedRecord.status !== 400) {
+  throw new Error(`Expected ambiguous sync/protection rejection, received ${ambiguousEncryptedRecord.status}.`);
+}
+
+const invalidSettingsRecord = await invoke({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...encryptedRecord,
+    settings: { autosaveEnabled: "yes" }
+  })
+});
+if (invalidSettingsRecord.status !== 400) {
+  throw new Error(`Expected invalid settings rejection, received ${invalidSettingsRecord.status}.`);
 }
 
 const sessionState = {
@@ -142,6 +213,21 @@ const badSession = await invokeSession({
 });
 if (badSession.status !== 400) {
   throw new Error(`Expected invalid session state rejection, received ${badSession.status}.`);
+}
+
+const badSessionSettings = await invokeSession({
+  method: "PUT",
+  id,
+  body: JSON.stringify({
+    ...sessionState,
+    editorSettings: {
+      autosaveEnabled: false,
+      nested: { unsafe: true }
+    }
+  })
+});
+if (badSessionSettings.status !== 400) {
+  throw new Error(`Expected invalid editor settings rejection, received ${badSessionSettings.status}.`);
 }
 
 console.log("API checks passed.");

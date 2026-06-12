@@ -8,12 +8,15 @@
     "start": "vite --host 127.0.0.1 --port 4000",
     "build": "vite build",
     "lint": "eslint .",
+    "store:check": "node ./tests/store-check.mjs",
     "visual:check": "node ./tests/visual-check.mjs",
     "functional:check": "node ./tests/functional-check.mjs",
     "interaction:check": "node ./tests/interaction-check.mjs",
     "sync:check": "node ./tests/sync-check.mjs",
+    "mobile:check": "node ./tests/mobile-check.mjs",
     "api:check": "node ./tests/api-check.mjs",
-    "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1"
+    "test": "powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1",
+    "verify": "npm run lint && npm run build && npm test && npm run store:check && npm run api:check"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

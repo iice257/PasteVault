@@ -141,10 +141,38 @@ for (const theme of ["light", "dark"]) {
   if (mobileSectionTabs !== 4) {
     throw new Error(`Expected four mobile section tabs in ${theme} mode, found ${mobileSectionTabs}.`);
   }
+  const mobileTitleColor = await page.locator(".pv-mobile-hero h1").evaluate((element) => getComputedStyle(element).color);
+  if (theme === "dark" && mobileTitleColor === "rgb(5, 6, 8)") {
+    throw new Error("Expected dark mobile clipboard title to use the dark theme foreground color.");
+  }
   if (await page.locator(".pv-sidebar").isVisible()) {
     throw new Error(`Expected desktop sidebar to collapse away in ${theme} mobile mode.`);
   }
   await assertNoOverflow(page, `${theme} mobile`);
+
+  await page.getByRole("button", { name: "History" }).click();
+  if (!(await page.locator(".pv-history-table-card").isVisible())) {
+    throw new Error(`Expected ${theme} mobile History tab to show clipboard history.`);
+  }
+  await assertNoOverflow(page, `${theme} mobile history`);
+
+  await page.getByRole("button", { name: "Details" }).click();
+  if (!(await page.locator(".pv-clip-details").isVisible())) {
+    throw new Error(`Expected ${theme} mobile Details tab to show clip details.`);
+  }
+  await assertNoOverflow(page, `${theme} mobile details`);
+
+  await page.getByRole("button", { name: "Tools" }).click();
+  if (!(await page.locator(".pv-tools-panel").isVisible())) {
+    throw new Error(`Expected ${theme} mobile Tools tab to show clipboard tools.`);
+  }
+  await page.screenshot({ path: join(outputDir, `${theme}-mobile-tools.png`), fullPage: false });
+  await assertNoOverflow(page, `${theme} mobile tools`);
+
+  await page.getByRole("button", { name: "Editor" }).click();
+  if (!(await page.locator(".pv-code-surface").isVisible())) {
+    throw new Error(`Expected ${theme} mobile Editor tab to return to the editor.`);
+  }
   await page.close();
 }
 

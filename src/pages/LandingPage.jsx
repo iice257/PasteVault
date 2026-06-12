@@ -6,6 +6,7 @@ import {
   appVersion,
   clipboardIdPattern,
   createClip,
+  createVaultId,
   defaultClipboardId,
   inferTitle,
   nowIso,
@@ -16,7 +17,7 @@ function detectFormat(value, name = "") {
   const trimmed = value.trim();
   const lower = name.toLowerCase();
   if (lower.endsWith(".json") || trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
-  if (lower.endsWith(".sh") || lower.endsWith(".bash") || trimmed.startsWith("npm ")) return "BASH";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".env") || trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
   if (lower.endsWith(".md")) return "Markdown";
   if (lower.endsWith(".html")) return "HTML";
   return "Plain text";
@@ -37,7 +38,7 @@ function parseClipboardTarget(value) {
   const pathMatch = value.match(/^\/?clip\/([a-zA-Z0-9_-]{3,80})$/);
   if (pathMatch) return pathMatch[1];
 
-  if (/^(clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
+  if (/^(pv_[a-zA-Z0-9_-]{16,75}|clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
     return value;
   }
 
@@ -48,7 +49,7 @@ export default function LandingPage() {
   const [entry, setEntry] = useState("");
 
   const createClipboardFromText = useCallback((value, sourceName = "") => {
-    const clipboardId = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+    const clipboardId = createVaultId();
     const format = detectFormat(value, sourceName);
     const clip = createClip({
       id: sourceName ? `clip_${sourceName.replace(/[^a-z0-9]/gi, "_").slice(0, 24).toLowerCase()}` : undefined,
@@ -101,6 +102,8 @@ export default function LandingPage() {
           <Clipboard size={25} />
           <input
             value={entry}
+            aria-label="Paste text or enter a clipboard link"
+            autoComplete="off"
             placeholder="Paste something or enter a clipboard link"
             onChange={(event) => setEntry(event.target.value)}
             onPaste={(event) => {
