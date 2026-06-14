@@ -23,7 +23,7 @@ async function assertNoOverflow(page, label) {
 }
 
 const landingPage = await createPage("light", { width: 1920, height: 1080 });
-await landingPage.goto(`${baseUrl}/?visual=${Date.now()}`, { waitUntil: "networkidle" });
+await landingPage.goto(`${baseUrl}/new?visual=${Date.now()}`, { waitUntil: "networkidle" });
 await landingPage.screenshot({ path: join(outputDir, "root.png"), fullPage: false });
 
 const landingRegions = await landingPage.locator(".vault-landing.pv-landing, .landing-input-shell.pv-open-shell").count();
@@ -41,9 +41,9 @@ if (retiredArtifacts !== 0) {
   throw new Error(`Expected retired artifact layers to be removed from the DOM, found ${retiredArtifacts}.`);
 }
 
-const openButtonVisible = await landingPage.getByRole("button", { name: "Open clipboard" }).first().isVisible();
+const openButtonVisible = await landingPage.getByRole("button", { name: "Create clipboard" }).first().isVisible();
 if (!openButtonVisible) {
-  throw new Error("Expected visible landing Open clipboard action.");
+  throw new Error("Expected visible landing Create clipboard action.");
 }
 const footerVisibleAfterScroll = await landingPage.locator(".pv-landing-footer").count();
 if (footerVisibleAfterScroll !== 1) {

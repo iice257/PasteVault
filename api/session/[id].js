@@ -16,6 +16,10 @@ const sessionTtlMs = 12 * 60 * 60 * 1000;
 const memoryStore = new Map();
 const rateLimit = createRateLimiter((req) => (req.method === "GET" ? 120 : 80));
 
+function canUseMemoryStore() {
+  return process.env.VERCEL !== "1";
+}
+
 function storageKey(id) {
   return `pastevault:session:${id}`;
 }
@@ -32,6 +36,9 @@ async function getSession(id) {
       return null;
     }
   }
+  if (!canUseMemoryStore()) {
+    throw Object.assign(new Error("Durable session storage is not configured."), { statusCode: 503 });
+  }
   const entry = memoryStore.get(key);
   if (!entry) return null;
   if (entry.expiresAt <= Date.now()) {
@@ -46,6 +53,9 @@ async function setSession(id, value) {
   const serialized = JSON.stringify(value);
   const result = await kvCommand(["SET", key, serialized, "EX", 60 * 60 * 12]);
   if (!result) {
+    if (!canUseMemoryStore()) {
+      throw Object.assign(new Error("Durable session storage is not configured."), { statusCode: 503 });
+    }
     memoryStore.set(key, { value, expiresAt: Date.now() + sessionTtlMs });
   }
 }

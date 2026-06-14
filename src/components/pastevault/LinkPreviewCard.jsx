@@ -8,8 +8,8 @@ export function LinkPreviewCard({ href, onCopy }) {
       </span>
       <span>
         <strong>Link preview</strong>
-        <em>pvault.link/9f3a7b6c</em>
-        <small>1.2 KB · Text</small>
+        <em>{href || "PasteVault link"}</em>
+        <small>PasteVault clipboard</small>
       </span>
       <button
         type="button"

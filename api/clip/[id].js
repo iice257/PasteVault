@@ -14,6 +14,10 @@ const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
 const memoryStore = new Map();
 const rateLimit = createRateLimiter((req) => (req.method === "GET" ? 120 : 40));
 
+function canUseMemoryStore() {
+  return process.env.VERCEL !== "1";
+}
+
 function storageKey(id) {
   return `pastevault:clip:${id}`;
 }
@@ -47,6 +51,9 @@ async function getClip(id) {
       return null;
     }
   }
+  if (!canUseMemoryStore()) {
+    throw Object.assign(new Error("Durable clipboard storage is not configured."), { statusCode: 503 });
+  }
   return memoryStore.get(key) ?? null;
 }
 
@@ -55,6 +62,9 @@ async function setClip(id, value) {
   const serialized = JSON.stringify(value);
   const result = await kvCommand(["SET", key, serialized]);
   if (!result) {
+    if (!canUseMemoryStore()) {
+      throw Object.assign(new Error("Durable clipboard storage is not configured."), { statusCode: 503 });
+    }
     memoryStore.set(key, value);
   }
 }

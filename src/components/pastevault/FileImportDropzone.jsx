@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { FileUp } from "lucide-react";
+import { FileUp, LoaderCircle } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-export function FileImportDropzone({ inputRef, onImport, compact = false }) {
-  const [dragActive, setDragActive] = useState(false);
+export function FileImportDropzone({ inputRef, onFiles, compact = false, disabled = false }) {
+  const [dragging, setDragging] = useState(false);
+  const Icon = disabled ? LoaderCircle : FileUp;
 
-  const handleDrop = (event) => {
-    event.preventDefault();
-    setDragActive(false);
-    const files = Array.from(event.dataTransfer?.files ?? []);
-    if (files.length) {
-      onImport(files);
+  const submitFiles = (files) => {
+    const selected = Array.from(files ?? []);
+    if (!disabled && selected.length) {
+      onFiles(selected);
     }
   };
 
@@ -22,26 +21,45 @@ export function FileImportDropzone({ inputRef, onImport, compact = false }) {
         type="file"
         multiple
         aria-label="Import clipboard files"
-        accept=".txt,.json,.md,.env,.bash,.sh,.csv,text/*,application/json"
-        onChange={onImport}
+        accept=".txt,.text,.json,.md,.env,.bash,.sh,.csv,.js,.jsx,.ts,.tsx,.py,.sql,.html,.css,.xml,.yaml,.yml,.log,text/*,application/json"
+        disabled={disabled}
+        onChange={(event) => {
+          submitFiles(event.target.files);
+          event.target.value = "";
+        }}
       />
       <button
-        className={cn("pv-dropzone", compact && "pv-dropzone-compact", dragActive && "is-dragging")}
+        className={cn(
+          "pv-dropzone",
+          compact && "pv-dropzone-compact",
+          dragging && "is-dragging",
+          disabled && "is-disabled"
+        )}
         type="button"
         aria-label="Import clipboard files"
+        disabled={disabled}
         onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => {
           event.preventDefault();
-          setDragActive(true);
+          if (!disabled) setDragging(true);
         }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={() => setDragActive(false)}
-        onDrop={handleDrop}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          submitFiles(event.dataTransfer.files);
+        }}
       >
-        <FileUp size={compact ? 22 : 30} />
+        <Icon className={disabled ? "pv-spin" : ""} size={compact ? 22 : 30} />
         <span>
-          <strong>Drop a file to import</strong>
-          <em>.txt, .json, .md, .env, .bash, .sh up to 5MB each</em>
+          <strong>{disabled ? "Importing files..." : dragging ? "Release to import" : "Drop files or browse"}</strong>
+          <em>Text, code, JSON, Markdown, CSV and PasteVault exports; up to 5MB each</em>
         </span>
       </button>
     </>

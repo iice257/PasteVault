@@ -123,7 +123,7 @@
     <rect width="280" height="108" rx="22" fill="url(#glass)" stroke="#E2E8F0"/>
     <path d="M34 55l29-29a18 18 0 0 1 25 25l-7 7M58 80l-5 5a18 18 0 0 1-25-25l29-29" stroke="#0EA5A7" stroke-width="4" fill="none" stroke-linecap="round"/>
     <text x="92" y="42" font-family="SF Pro Display, Inter, Arial" font-size="16" fill="#111827">One-time link</text>
-    <text x="92" y="68" font-family="SF Mono, Consolas, monospace" font-size="14" font-weight="700" fill="#069B9A">pvlt.link/9f3a7b6c</text>
+    <text x="92" y="68" font-family="SF Mono, Consolas, monospace" font-size="14" font-weight="700" fill="#069B9A">pastevault.app/new</text>
     <text x="92" y="91" font-family="SF Pro Text, Inter, Arial" font-size="12" fill="#64748B">Expires in 7 days</text>
   </g>
 

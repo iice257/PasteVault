@@ -19,8 +19,25 @@ await page.addInitScript(() => {
 });
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.waitForURL(/\/new$/);
+await page.getByRole("button", { name: /Create clipboard/i }).click();
+await page.getByRole("alert").getByText(/Paste some text/i).waitFor();
+if (!page.url().endsWith("/new")) {
+  throw new Error("Blank new workspace created a clipboard id.");
+}
+
+await page.locator("input[type='file']").setInputFiles({
+  name: "broken.json",
+  mimeType: "application/json",
+  buffer: Buffer.from("{not valid json")
+});
+await page.getByRole("alert").getByText(/invalid JSON/i).waitFor();
+if (!page.url().endsWith("/new")) {
+  throw new Error("Invalid file import created a clipboard id.");
+}
+
 await page.getByPlaceholder("Paste something or enter a clipboard link").fill("Landing paste opens a clipboard");
-await page.getByRole("button", { name: /Open clipboard/i }).click();
+await page.getByRole("button", { name: /Create clipboard/i }).click();
 await page.waitForURL(/\/clip\/[a-zA-Z0-9_-]+$/);
 await page.getByLabel("Clipboard content").waitFor();
 const openedText = await page.getByLabel("Clipboard content").inputValue();
@@ -30,6 +47,9 @@ if (!openedText.includes("Landing paste opens a clipboard")) {
 
 await page.evaluate((key) => window.localStorage.removeItem(key), storageKey);
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
+if (await page.locator(".pv-history-row").count()) {
+  throw new Error("A new clipboard contained demo history.");
+}
 await page.getByLabel("Clipboard content").fill(largeText);
 await page.keyboard.press("Control+S");
 await page.getByRole("status").getByText("Clip saved successfully").waitFor();

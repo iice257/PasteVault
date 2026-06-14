@@ -1,6 +1,7 @@
-export const defaultClipboardId = "9f3a7b6c";
 export const appVersion = 2;
 export const maxImportBytes = 5 * 1024 * 1024;
+export const maxImportFiles = 20;
+export const maxImportTotalBytes = 20 * 1024 * 1024;
 export const storageBudgetBytes = 10 * 1024 * 1024;
 export const pbkdf2Iterations = 210000;
 export const formatOptions = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH", "CSV"];
@@ -31,41 +32,22 @@ export function createVaultId() {
   return `pv_${arrayToBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")}`;
 }
 
-export const sampleJson = `{
-  "status": "success",
-  "code": 200,
-  "data": {
-    "id": "usr_9f3a7b6c",
-    "name": "Alice Johnson",
-    "email": "alice.johnson@example.com",
-    "role": "admin",
-    "isActive": true,
-    "settings": {
-      "notifications": true,
-      "theme": "light",
-      "language": "en-US"
-    },
-    "createdAt": "2024-05-16T14:22:31.123Z",
-    "updatedAt": "2024-05-17T09:48:12.456Z"
-  }
-}`;
-
 export function getClipboardId() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   const match = path.match(/^\/clip\/([^/]+)$/);
 
   if (!match) {
-    return defaultClipboardId;
+    return "";
   }
 
   try {
     const decoded = decodeURIComponent(match[1]).trim();
     if (!clipboardIdPattern.test(decoded)) {
-      return defaultClipboardId;
+      return "";
     }
     return decoded;
   } catch {
-    return defaultClipboardId;
+    return "";
   }
 }
 
@@ -119,31 +101,7 @@ export function createClip({ id, title, content, format, pinned = false, starred
   };
 }
 
-export function createSeedClips() {
-  const seed = createClip({
-    id: "clip_api_response",
-    title: "API Response",
-    content: sampleJson,
-    format: "JSON",
-    pinned: true,
-    starred: true,
-    tags: ["api", "users"]
-  });
-
-  const snippets = [
-    ["clip_meeting_notes", "Meeting notes", "Q2 roadmap discussion\n- Offline support\n- Encrypted storage\n- Share via link", "Plain text", ["notes"]],
-    ["clip_encrypted", "Encrypted", "********************************\n********************************\n********************************", "JSON", ["secure"]],
-    ["clip_deploy_command", "Deploy command", "npm run build && npm run deploy", "BASH", ["deploy"]]
-  ];
-
-  return [
-    seed,
-    ...snippets.map(([id, title, content, format, tags]) => createClip({ id, title, content, format, tags }))
-  ];
-}
-
 export function createPlainRecord(clipboardId) {
-  const clips = createSeedClips();
   const timestamp = nowIso();
   return {
     version: appVersion,
@@ -153,7 +111,7 @@ export function createPlainRecord(clipboardId) {
     lastSavedAt: timestamp,
     settings: defaultVaultSettings(),
     protection: null,
-    payload: { clips, selectedId: clips[0]?.id ?? null }
+    payload: { clips: [], selectedId: null }
   };
 }
 
@@ -326,13 +284,12 @@ export function hydrateClipboard(clipboardId) {
   } catch {
     const fallback = createPlainRecord(clipboardId);
     saveRecord(clipboardId, fallback);
-    const selected = fallback.payload.clips[0];
     return {
       clips: fallback.payload.clips,
-      selectedId: selected.id,
-      draftTitle: selected.title,
-      draftContent: selected.content,
-      format: selected.format,
+      selectedId: null,
+      draftTitle: "",
+      draftContent: "",
+      format: "Plain text",
       locked: false,
       protection: null,
       error: "Clipboard data was corrupt, so PasteVault recovered a clean board.",
@@ -393,6 +350,102 @@ export function validateContent(content, format) {
     }
   }
   return "";
+}
+
+const importExtensions = new Set([
+  ".bash", ".css", ".csv", ".env", ".html", ".js", ".json", ".jsx", ".log",
+  ".md", ".py", ".sh", ".sql", ".text", ".ts", ".tsx", ".txt", ".xml", ".yaml", ".yml"
+]);
+
+export function formatForImportedFile(name, text) {
+  const lower = name.toLowerCase();
+  const trimmed = text.trim();
+  if (lower.endsWith(".json") || trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".ts") || lower.endsWith(".tsx")) return "JavaScript";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "BASH";
+  if (lower.endsWith(".sql")) return "SQL";
+  if (lower.endsWith(".csv")) return "CSV";
+  if (lower.endsWith(".md")) return "Markdown";
+  if (lower.endsWith(".html")) return "HTML";
+  return "Plain text";
+}
+
+function importExtension(name) {
+  const lower = name.toLowerCase();
+  if (lower === ".env" || lower.endsWith(".env")) return ".env";
+  const dot = lower.lastIndexOf(".");
+  return dot >= 0 ? lower.slice(dot) : "";
+}
+
+function looksBinary(text) {
+  const sample = text.slice(0, 4096);
+  if (!sample) return false;
+  let controlCharacters = 0;
+  for (const character of sample) {
+    const code = character.charCodeAt(0);
+    if (code === 0 || code === 0xfffd) return true;
+    if ((code < 9 || (code > 13 && code < 32)) && code !== 27) {
+      controlCharacters += 1;
+    }
+  }
+  return controlCharacters / sample.length > 0.02;
+}
+
+export async function readImportFile(file) {
+  if (!file || typeof file.name !== "string") {
+    throw new Error("The selected item is not a readable file.");
+  }
+  if (file.size === 0) {
+    throw new Error(`${file.name} is empty.`);
+  }
+  if (file.size > maxImportBytes) {
+    throw new Error(`${file.name} is larger than ${formatBytes(maxImportBytes)}.`);
+  }
+
+  const extension = importExtension(file.name);
+  const textMime = !file.type || file.type.startsWith("text/") || file.type === "application/json";
+  if (!importExtensions.has(extension) && !textMime) {
+    throw new Error(`${file.name} is not a supported text file.`);
+  }
+
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    throw new Error(`${file.name} could not be read.`);
+  }
+
+  if (!text.trim()) {
+    throw new Error(`${file.name} contains no text.`);
+  }
+  if (looksBinary(text)) {
+    throw new Error(`${file.name} appears to be binary, not text.`);
+  }
+
+  const exportedBoard = parseClipboardExport(text);
+  if (exportedBoard) {
+    return { kind: "board", fileName: file.name, board: exportedBoard };
+  }
+
+  const format = formatForImportedFile(file.name, text);
+  if (extension === ".json" && format === "JSON") {
+    try {
+      JSON.parse(text);
+    } catch {
+      throw new Error(`${file.name} contains invalid JSON.`);
+    }
+  }
+
+  return {
+    kind: "clip",
+    fileName: file.name,
+    clip: createClip({
+      title: file.name,
+      content: text,
+      format,
+      tags: ["import"]
+    })
+  };
 }
 
 export function arrayToBase64(bytes) {

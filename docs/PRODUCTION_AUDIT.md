@@ -1,73 +1,63 @@
 # PasteVault Production Audit
 
-Date: 2026-05-28
+Date: 2026-06-14
 
 ## Executive Summary
 
-Readiness score: 8.8/10.
+Readiness score: 9/10.
 
-PasteVault remains aligned with its existing direction: a no-account, local-first clipboard vault with link handoff, optional password protection, history, import/export, and Vercel-backed encrypted sync when durable storage is configured. This pass focused on hardening the existing product rather than changing the visual system or feature scope.
-
-## What Already Exists
-
-- Landing flow for pasting text or opening a clipboard link.
-- Dashboard shell with editor, history, details, tools, sidebar navigation, top actions, mobile tabs, and bottom composer.
-- Local persistence keyed by clipboard id with seed clips and import/export.
-- Password-protected vault records using PBKDF2 and AES-GCM.
-- Link-derived encrypted remote sync records for unprotected boards.
-- Conflict preservation, autosave toggling, cross-tab/session state, and remote polling.
-- Vercel API routes for encrypted clipboard records and session state.
-- CI, smoke/API tests, Playwright functional, interaction, sync, and visual checks.
+PasteVault is usable as a local-first clipboard now. The default workspace is `/new`, clipboard ids are created only after valid pasted or imported content exists, seeded demo records are gone, and direct Vercel SPA routes target the built app entry. Public cross-device sharing still depends on durable hosted storage being configured in Vercel.
 
 ## Improvements Completed
 
-- Consolidated duplicate API helpers into `api/_shared.js`.
-- Tightened encrypted record validation so records cannot be both link-sync and password-protected.
-- Added strict server validation for settings, timestamps, content versions, and session editor settings.
-- Hardened clipboard store normalization for formats, clip ids, dates, tags, selected ids, and settings.
-- Added safe payload normalization for imported exports, decrypted link-sync records, recovered drafts, and unlocked protected payloads.
-- Made storage usage and invalid date formatting resilient to restricted browser storage or malformed data.
-- Improved password modal accessibility with form submit, focus trapping, overlay close, autocomplete hints, explicit labels, and preserved custom validation.
-- Added locked-state submit behavior so Enter unlocks protected boards.
-- Disabled the details-panel pin button when no selected clip exists.
-- Memoized editor highlighting/line-number work and fixed command token classification.
-- Added focused store validation tests.
-- Expanded API tests for ambiguous encrypted records, invalid settings, and invalid session editor settings.
-- Updated smoke checks to understand shared API modules.
-- Added `npm run verify` for one-command release checks.
-- Added store checks to CI.
-- Hardened Vercel headers with explicit font, manifest, worker, and COOP directives.
-- Consolidated PasteVault hourly audit automation and paused the duplicate PasteVault automation.
+- Consolidated API helpers in `api/_shared.js`.
+- Hardened encrypted record, settings, timestamp, content-version, and session validation.
+- Preserved remote conflict detection and local drafts during version conflicts.
+- Rejected production remote writes with `503` when durable storage is unavailable.
+- Added honest local-only versus cloud-synced status and link feedback.
+- Made `/new` the default route and scoped history to `/clip/:id?view=history`.
+- Removed all seeded clipboard/demo content and identifiers.
+- Added robust multi-file import with drag/drop, per-file and batch limits, partial success, duplicate detection, malformed JSON rejection, and binary/empty-file checks.
+- Added graceful browser-storage and file-read errors.
+- Added a conservative service worker and installable manifest without API caching.
+- Improved password-modal accessibility, mobile layout coverage, editor rendering, and clipboard/store normalization.
+- Added focused store, API, functional, interaction, sync, mobile, visual, and smoke checks.
+- Pinned the fixed `esbuild` release while retaining the tested Vite 7 build pipeline.
+
+## Security And Durability
+
+- Remote clipboard payloads are encrypted before storage.
+- Password-protected boards use password-derived AES-GCM keys.
+- API ids are constrained to URL-safe values between 3 and 80 characters.
+- API responses are `no-store` and include `nosniff`.
+- In-memory API rate limiting is useful but is not globally durable across function instances.
+- Durable sync requires either:
+  - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+  - or `KV_REST_API_URL` and `KV_REST_API_TOKEN`
 
 ## Verification
 
-Passed:
+The release suite covers:
 
 ```powershell
-eslint .
-node ./tests/store-check.mjs
-node ./tests/api-check.mjs
-powershell -ExecutionPolicy Bypass -File ./tests/smoke.ps1
-node ./tests/functional-check.mjs
-node ./tests/interaction-check.mjs
-node ./tests/sync-check.mjs
-node ./tests/visual-check.mjs
-vite build
+npm run lint
+npm run build
+npm test
+npm run store:check
+npm run api:check
+npm run functional:check
+npm run interaction:check
+npm run sync:check
+npm run mobile:check
+npm run visual:check
+npm audit --audit-level=moderate
 ```
 
-Browser verification:
-
-- `/clip/audit-pass` loaded with one dashboard and one editor.
-- Password modal opened, focused the password input, and closed cleanly.
-- Default viewport had no horizontal overflow.
-- Captured browser console errors: none.
+Covered user flows include landing creation, blank and invalid input rejection, clipboard isolation, save, copy, password enable/unlock, conflict preservation, import/export, partial imports, history, search, sort, filter, tags, theme persistence, large clips, and responsive overflow checks.
 
 ## Remaining Production Work
 
-- Configure durable hosted storage in Vercel:
-  - `UPSTASH_REDIS_REST_URL`
-  - `UPSTASH_REDIS_REST_TOKEN`
-  - or `KV_REST_API_URL`
-  - and `KV_REST_API_TOKEN`
-- Add deployment-level abuse protection if public traffic increases, such as Vercel Firewall or provider-level rate limiting.
-- Consider share-link expiry controls and a clearer conflict-resolution UI if multi-device collaboration becomes a core workflow.
+- Configure durable hosted storage in Vercel for real cross-device sharing.
+- Verify a deployed save/open flow from two separate browsers after the storage variables are configured.
+- Add provider-level abuse protection if public traffic increases.
+- Consider share-link expiry controls if long-lived public links become a core workflow.

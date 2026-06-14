@@ -36,7 +36,7 @@ if (await page.locator(".pv-sidebar").isVisible()) {
 await assertNoOverflow(page, "initial mobile editor");
 
 await page.locator(".pv-mobile-actions").getByRole("button", { name: "Copy link" }).click();
-await page.getByRole("status").getByText("Clipboard link copied").waitFor();
+await page.locator(".pv-toast").getByText(/cloud share link copied|local link copied/i).waitFor();
 
 await page.locator(".pv-mobile-actions").getByRole("button", { name: "Password" }).click();
 await page.getByPlaceholder("8+ characters").fill("short");

@@ -126,6 +126,25 @@ if (staleSave.status !== 409 || staleSave.body.currentVersion !== 2) {
   throw new Error(`Expected stale save conflict, received ${staleSave.status}.`);
 }
 
+process.env.VERCEL = "1";
+const unavailableId = `api-check-unconfigured-${Date.now()}`;
+const unavailableSave = await invoke({
+  method: "PUT",
+  id: unavailableId,
+  body: JSON.stringify({
+    ...encryptedRecord,
+    id: unavailableId
+  })
+});
+if (unavailableSave.status !== 503) {
+  throw new Error(`Expected unconfigured production storage rejection, received ${unavailableSave.status}.`);
+}
+const unavailableFetch = await invoke({ method: "GET", id: unavailableId });
+if (unavailableFetch.status !== 503) {
+  throw new Error(`Expected unconfigured production fetch rejection, received ${unavailableFetch.status}.`);
+}
+delete process.env.VERCEL;
+
 const badId = await invoke({ method: "GET", id: "../etc/passwd" });
 if (badId.status !== 400) {
   throw new Error(`Expected invalid id rejection, received ${badId.status}.`);
@@ -205,6 +224,20 @@ const fetchedSession = await invokeSession({ method: "GET", id });
 if (fetchedSession.status !== 200 || fetchedSession.body.vaultId !== id || fetchedSession.body.theme !== "dark") {
   throw new Error(`Expected session state fetch, received ${fetchedSession.status}.`);
 }
+
+process.env.VERCEL = "1";
+const unavailableSession = await invokeSession({
+  method: "PUT",
+  id: unavailableId,
+  body: JSON.stringify({
+    ...sessionState,
+    vaultId: unavailableId
+  })
+});
+if (unavailableSession.status !== 503) {
+  throw new Error(`Expected unconfigured production session rejection, received ${unavailableSession.status}.`);
+}
+delete process.env.VERCEL;
 
 const badSession = await invokeSession({
   method: "PUT",

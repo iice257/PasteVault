@@ -4,24 +4,16 @@ import App from "./App.jsx";
 import "@fontsource-variable/inter";
 import "./styles.css";
 
-if (typeof window !== "undefined") {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-      .getRegistrations()
-      .then((registrations) => registrations.forEach((registration) => registration.unregister()))
-      .catch(() => {});
-  }
-
-  if ("caches" in window) {
-    window.caches
-      .keys()
-      .then((keys) => keys.forEach((key) => window.caches.delete(key)))
-      .catch(() => {});
-  }
-}
-
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />
   </StrictMode>
 );
+
+if (import.meta.env.PROD && typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // PasteVault still works as a local-first app if service worker registration is blocked.
+    });
+  });
+}

@@ -67,7 +67,8 @@ import {
   hydrateClipboard,
   inferTitle,
   loadRecord,
-  maxImportBytes,
+  maxImportFiles,
+  maxImportTotalBytes,
   mergeClipboardClips,
   nextContentVersion,
   normalizeClipboardPayload,
@@ -75,8 +76,8 @@ import {
   normalizeRecord,
   normalizeVaultSettings,
   nowIso,
-  parseClipboardExport,
   pushRemoteRecord,
+  readImportFile,
   recordContentVersion,
   saveRecord,
   sortOptions,
@@ -112,16 +113,6 @@ function clipboardTitle(id) {
   return id.length > 15 ? `${id.slice(0, 12)}...` : id;
 }
 
-function formatForFile(name, text) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".json") || text.trim().startsWith("{") || text.trim().startsWith("[")) return "JSON";
-  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".env") || /^[A-Z0-9_]+=/.test(text.trim())) return "BASH";
-  if (lower.endsWith(".csv")) return "CSV";
-  if (lower.endsWith(".md")) return "Markdown";
-  if (lower.endsWith(".html")) return "HTML";
-  return "Plain text";
-}
-
 function shortFormat(format) {
   if (format === "Plain text") return "TXT";
   if (format === "JavaScript") return "JS";
@@ -151,7 +142,13 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [filter, setFilter] = useState("All types");
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState("success");
-  const [error, setError] = useState(initialState.error);
+  const [error, setError] = useState(() => {
+    const warningCount = Number(new URLSearchParams(window.location.search).get("importWarnings")) || 0;
+    if (warningCount) {
+      return `Clipboard created, but ${warningCount} file${warningCount === 1 ? "" : "s"} could not be imported.`;
+    }
+    return initialState.error;
+  });
   const [locked, setLocked] = useState(initialState.locked);
   const [protection, setProtection] = useState(initialState.protection);
   const [passwordInput, setPasswordInput] = useState("");
@@ -160,6 +157,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
+  const [cloudReady, setCloudReady] = useState(false);
   const [activeSection, setActiveSection] = useState(() => (initialHistory ? "history" : initialSettings ? "tools" : "editor"));
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
   const [contentVersion, setContentVersion] = useState(() => initialState.contentVersion ?? 1);
@@ -172,6 +170,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [boardDirty, setBoardDirty] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailsTab, setDetailsTab] = useState("details");
+  const [importing, setImporting] = useState(false);
 
   const selectedClip = useMemo(
     () => clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null,
@@ -293,6 +292,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setDraftBaseVersion(normalizedVersion);
     setLastSavedAt(record.lastSavedAt ?? record.updatedAt ?? nowIso());
     setAutosaveEnabled(settings.autosaveEnabled);
+    setCloudReady(status.toLowerCase().includes("cloud"));
     setSaveConflict(null);
     setBoardDirty(false);
 
@@ -385,6 +385,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         }
       } catch {
         // Remote storage is optional; local-first saving still works offline.
+        setCloudReady(false);
       }
 
       setSyncStatus("Saving...");
@@ -432,7 +433,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       setSaveConflict(null);
       setError("");
       setBoardDirty(false);
-      setSyncStatus("Saved");
+      setCloudReady(false);
+      setSyncStatus("Saved locally");
       clearDraftState(clipboardId, sessionIdRef.current);
       postVaultMessage(channelRef.current, {
         type: vaultMessageTypes.contentSaved,
@@ -442,13 +444,25 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
       if (nextProtection) {
         void pushRemoteRecord(clipboardId, savedRecord, { baseVersion, force: options.force })
-          .then(() => setSyncStatus("Saved"))
-          .catch((remoteError) => handleRemoteSaveError(remoteError, baseVersion));
+          .then(() => {
+            setCloudReady(true);
+            setSyncStatus("Synced to cloud");
+          })
+          .catch((remoteError) => {
+            setCloudReady(false);
+            handleRemoteSaveError(remoteError, baseVersion);
+          });
       } else {
         void buildLinkSyncRecord(clipboardId, nextPayload, metadata)
           .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion, force: options.force }))
-          .then(() => setSyncStatus("Saved"))
-          .catch((remoteError) => handleRemoteSaveError(remoteError, baseVersion));
+          .then(() => {
+            setCloudReady(true);
+            setSyncStatus("Synced to cloud");
+          })
+          .catch((remoteError) => {
+            setCloudReady(false);
+            handleRemoteSaveError(remoteError, baseVersion);
+          });
       }
       setStorageUsage(storageUsageBytes());
       return true;
@@ -543,7 +557,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         if (!active) return;
         applyRecordToState(localRecord, localRecord.protection ? "Cloud locked" : "Cloud synced");
       } catch {
-        if (active) setSyncStatus("Saved locally - cloud unavailable");
+        if (active) {
+          setCloudReady(false);
+          setSyncStatus("Saved locally - cloud unavailable");
+        }
       }
     }
     void syncRemoteClipboard();
@@ -910,12 +927,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const handleCopyLink = useCallback(async () => {
     try {
       await copyText(`${window.location.origin}/clip/${encodeURIComponent(clipboardId)}`);
-      showToast("Clipboard link copied");
+      showToast(cloudReady ? "Cloud share link copied" : "Local link copied - cloud sync is not ready", cloudReady ? "success" : "error");
     } catch {
       setError("Could not copy the clipboard link.");
       showToast("Could not copy the clipboard link", "error");
     }
-  }, [clipboardId, showToast]);
+  }, [clipboardId, cloudReady, showToast]);
 
   const handleCopy = useCallback(async (value = draftContent) => {
     try {
@@ -1022,58 +1039,66 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     showToast("Content cleared");
   }, [showToast, updateDraftContent]);
 
-  const handleImportFile = useCallback(async (eventOrFiles) => {
-    const files = Array.isArray(eventOrFiles) ? eventOrFiles : Array.from(eventOrFiles?.target?.files ?? []);
-    if (eventOrFiles?.target) {
-      eventOrFiles.target.value = "";
-    }
+  const handleImportFiles = useCallback(async (files) => {
     if (!files.length) return;
 
+    setImporting(true);
+    setError("");
     let nextClips = [...clips];
     let selectedImportedId = null;
     let importedCount = 0;
-    let skippedCount = 0;
+    let totalBytes = 0;
+    const failures = [];
+    const accepted = files.slice(0, maxImportFiles);
 
-    for (const file of files) {
-      if (file.size > maxImportBytes) {
-        skippedCount += 1;
+    if (files.length > maxImportFiles) {
+      failures.push(`Only the first ${maxImportFiles} files were considered.`);
+    }
+
+    for (const file of accepted) {
+      if (totalBytes + file.size > maxImportTotalBytes) {
+        failures.push(`${file.name}: the ${Math.round(maxImportTotalBytes / (1024 * 1024))}MB batch limit was reached.`);
         continue;
       }
+      totalBytes += file.size;
 
       try {
-        const text = await file.text();
-        const exportedBoard = parseClipboardExport(text);
-        if (exportedBoard) {
-          nextClips = mergeClipboardClips(nextClips, exportedBoard.clips);
-          selectedImportedId = exportedBoard.selectedId;
-          importedCount += exportedBoard.clips.length;
+        const result = await readImportFile(file);
+        if (result.kind === "board") {
+          nextClips = mergeClipboardClips(nextClips, result.board.clips);
+          selectedImportedId = result.board.selectedId;
+          importedCount += result.board.clips.length;
           continue;
         }
 
-        const imported = createClip({
-          title: file.name,
-          content: text,
-          format: formatForFile(file.name, text),
-          tags: ["import"]
-        });
-        nextClips = [imported, ...nextClips];
-        selectedImportedId = imported.id;
+        const duplicate = nextClips.some((clip) => clip.content === result.clip.content && clip.format === result.clip.format);
+        if (duplicate) {
+          failures.push(`${file.name}: duplicate content was skipped.`);
+          continue;
+        }
+
+        nextClips = [result.clip, ...nextClips];
+        selectedImportedId = result.clip.id;
         importedCount += 1;
-      } catch {
-        skippedCount += 1;
+      } catch (fileError) {
+        failures.push(fileError.message);
       }
     }
 
+    setImporting(false);
     if (!importedCount) {
-      const message = skippedCount ? "No files imported. Check file size or format." : "No importable files selected.";
+      const message = failures.join(" ") || "No importable files were selected.";
       setError(message);
       showToast(message, "error");
       return;
     }
 
-    await replaceClips(nextClips, selectedImportedId ?? nextClips[0]?.id ?? null);
-    if (skippedCount) {
-      showToast(`Imported ${importedCount} clips. Skipped ${skippedCount}.`, "error");
+    const didImport = await replaceClips(nextClips, selectedImportedId ?? nextClips[0]?.id ?? null);
+    if (!didImport) return;
+    if (failures.length) {
+      const message = `Imported ${importedCount} clip${importedCount === 1 ? "" : "s"}. ${failures.join(" ")}`;
+      setError(message);
+      showToast(`Imported ${importedCount}; ${failures.length} warning${failures.length === 1 ? "" : "s"}`, "error");
     } else {
       showToast(importedCount === 1 ? "Imported 1 clip" : `Imported ${importedCount} clips`);
     }
@@ -1145,9 +1170,17 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         settings: { autosaveEnabled }
       });
       saveRecord(clipboardId, protectedRecord.record);
-      void pushRemoteRecord(clipboardId, protectedRecord.record, { baseVersion: draftBaseVersion }).catch((remoteError) => {
-        handleRemoteSaveError(remoteError, draftBaseVersion);
-      });
+      setCloudReady(false);
+      setSyncStatus("Password saved locally");
+      void pushRemoteRecord(clipboardId, protectedRecord.record, { baseVersion: draftBaseVersion })
+        .then(() => {
+          setCloudReady(true);
+          setSyncStatus("Synced to cloud");
+        })
+        .catch((remoteError) => {
+          setCloudReady(false);
+          handleRemoteSaveError(remoteError, draftBaseVersion);
+        });
       setCryptoKey(protectedRecord.key);
       setProtection(protectedRecord.record.protection);
       setContentVersion(nextVersion);
@@ -1200,9 +1233,18 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       record,
       sessionId: sessionIdRef.current
     });
+    setCloudReady(false);
+    setSyncStatus("Password removed locally");
     await buildLinkSyncRecord(clipboardId, payload, record)
       .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion: draftBaseVersion }))
-      .catch((remoteError) => handleRemoteSaveError(remoteError, draftBaseVersion));
+      .then(() => {
+        setCloudReady(true);
+        setSyncStatus("Synced to cloud");
+      })
+      .catch((remoteError) => {
+        setCloudReady(false);
+        handleRemoteSaveError(remoteError, draftBaseVersion);
+      });
     showToast("Password removed");
   }, [autosaveEnabled, clipboardId, draftBaseVersion, handleRemoteSaveError, locked, payload, protection, showToast]);
 
@@ -1378,6 +1420,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
                 <div className={activeSection === "history" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="history">
                   <HistoryTable
+                    clipboardId={clipboardId}
                     clips={filteredClips}
                     selectedId={selectedId}
                     isProtected={Boolean(protection)}
@@ -1433,7 +1476,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           </div>
         </div>
 
-        <FileImportDropzone inputRef={fileRef} onImport={handleImportFile} compact />
+        <FileImportDropzone inputRef={fileRef} onFiles={handleImportFiles} disabled={importing} compact />
         <BottomPasteBar value={draftContent} onChange={updateDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
         {error && <p className="pv-inline-error">{error}</p>}
       </main>
@@ -1600,7 +1643,7 @@ function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, 
           </span>
           <span className="pv-account-copy">
             <strong>{profile?.name ?? "Sign in for cloud sync"}</strong>
-            <small>{profile?.email ?? "Sync clipboards across devices"}</small>
+            <small>{profile?.email ?? "Cloud sync is optional and not configured yet"}</small>
           </span>
           <Cloud size={17} />
         </button>
@@ -1697,7 +1740,7 @@ function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, p
   );
 }
 
-function HistoryTable({ clips, selectedId, isProtected = false, search, setSearch, searchRef, sort, setSort, filter, setFilter, onOpen, onTogglePin, onToggleStar }) {
+function HistoryTable({ clipboardId, clips, selectedId, isProtected = false, search, setSearch, searchRef, sort, setSort, filter, setFilter, onOpen, onTogglePin, onToggleStar }) {
   return (
     <section className="history-panel pv-history-table-card" aria-label="Recent clipboard history">
       <header>
@@ -1767,7 +1810,7 @@ function HistoryTable({ clips, selectedId, isProtected = false, search, setSearc
         ))}
         {!clips.length && <p className="pv-empty-text">No clips match this view.</p>}
       </div>
-      <a className="pv-history-view-all" href="/history">View all history</a>
+      <a className="pv-history-view-all" href={`/clip/${encodeURIComponent(clipboardId)}?view=history`}>View all history</a>
     </section>
   );
 }
@@ -1795,7 +1838,7 @@ function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, on
         <span>Storage</span>
         <strong>{formatBytes(storageUsage)} / {formatBytes(storageBudgetBytes)}</strong>
         <i><b style={{ width: `${storagePercent}%` }} /></i>
-        <p>Local-first storage with remote sync fallback when configured.</p>
+        <p>Local-first storage. Cloud sync works only when hosted storage is configured.</p>
       </div>
     </section>
   );

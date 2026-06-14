@@ -18,7 +18,10 @@ page.on("pageerror", (error) => {
 
 await page.addInitScript((key) => {
   window.localStorage.setItem("pastevault-theme", "dark");
-  window.localStorage.removeItem(key);
+  if (!window.sessionStorage.getItem("pastevault:interaction-initialized")) {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.setItem("pastevault:interaction-initialized", "1");
+  }
 }, storageKey);
 
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
@@ -30,7 +33,7 @@ await page.getByRole("button", { name: "Theme toggle" }).click();
 await page.locator(".vault-theme.theme-dark").waitFor();
 
 await page.getByRole("banner").getByRole("button", { name: "Copy link" }).click();
-await page.getByRole("status").getByText("Clipboard link copied").waitFor();
+await page.locator(".pv-toast").getByText(/cloud share link copied|local link copied/i).waitFor();
 
 await page.getByRole("button", { name: "Password optional" }).click();
 await page.getByPlaceholder("8+ characters").fill("short");
@@ -78,6 +81,21 @@ await page.locator("input[type='file']").setInputFiles({
   buffer: Buffer.from("imported from interaction check")
 });
 await page.getByRole("status").getByText(/Imported .*clip/).waitFor();
+
+await page.locator("input[type='file']").setInputFiles([
+  {
+    name: "valid-partial-import.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("valid file from a partial import")
+  },
+  {
+    name: "invalid-partial-import.json",
+    mimeType: "application/json",
+    buffer: Buffer.from("{invalid json")
+  }
+]);
+await page.locator(".pv-toast").getByText(/Imported 1; 1 warning/i).waitFor();
+await page.getByText(/invalid-partial-import\.json contains invalid JSON/i).waitFor();
 
 const exportedClipTimestamp = new Date().toISOString();
 await page.locator("input[type='file']").setInputFiles([
@@ -127,9 +145,13 @@ await page.locator(".vault-card-actions").getByRole("button", { name: "More acti
 await page.getByRole("menuitem", { name: "Copy latest" }).click();
 await page.getByRole("status").getByText("Clip copied").waitFor();
 
-await page.goto(`${baseUrl}/history`, { waitUntil: "networkidle" });
+await page.goto(`${baseUrl}/clip/${boardId}?view=history`, { waitUntil: "networkidle" });
 await page.locator(".pv-history-page").getByRole("heading", { name: "Recent history" }).waitFor();
-await page.locator(".pv-history-page .pv-history-card").first().waitFor();
+const historyCardCount = await page.locator(".pv-history-page .pv-history-card").count();
+if (!historyCardCount) {
+  const persisted = await page.evaluate((key) => window.localStorage.getItem(key), storageKey);
+  throw new Error(`History route rendered without cards. Persisted board: ${persisted ?? "missing"}`);
+}
 
 await context.close();
 await browser.close();

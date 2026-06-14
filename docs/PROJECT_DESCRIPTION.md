@@ -30,7 +30,7 @@ PasteVault is especially useful for:
 
 ## Product Experience
 
-The root page is a paste-first landing screen. It uses one visual background and keeps the entire first impression focused on the main action: paste something or enter a clipboard link.
+The default workspace is `/new`. It uses one visual background and keeps the entire first impression focused on the main action: paste something, import a supported text file, or enter a clipboard link. No clipboard id exists until valid content is supplied.
 
 Once content is pasted or a board is opened, the dashboard becomes a compact workspace. The editor is the center of gravity. History stays close. Details, metadata, tags, password state, and secondary actions are available without turning the page into a cluttered control panel.
 
@@ -54,7 +54,7 @@ Unprotected hosted sync still encrypts data using the clipboard id as a link-der
 
 PasteVault works locally first. Browser localStorage keeps clip history durable on the current device. Hosted sync can be enabled on Vercel by configuring Upstash Redis REST or Vercel KV-compatible REST environment variables.
 
-If hosted storage is not configured, the frontend still works as a local clipboard app. The API can fall back to per-function memory, but durable cross-device sync requires real hosted storage.
+If hosted storage is not configured, the frontend still works as a local clipboard app. The hosted API rejects writes instead of pretending per-function memory is durable, so real cross-device sync requires configured hosted storage.
 
 ## Current Feature Set
 

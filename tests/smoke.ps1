@@ -15,7 +15,9 @@ $required = @(
   "src/components/ui/dialog.jsx",
   "src/components/ui/sheet.jsx",
   "src/components/ui/tabs.jsx",
-  "manifest.webmanifest"
+  "manifest.webmanifest",
+  "public/sw.js",
+  "public/favicon.svg"
 )
 
 foreach ($file in $required) {
@@ -34,6 +36,8 @@ $app = @(
 ) -join "`n"
 $css = Get-Content -Raw -LiteralPath (Join-Path $root "src/styles.css")
 $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
+$manifest = Get-Content -Raw -LiteralPath (Join-Path $root "manifest.webmanifest")
+$serviceWorker = Get-Content -Raw -LiteralPath (Join-Path $root "public/sw.js")
 
 @(
   "/src/main.jsx",
@@ -84,6 +88,27 @@ $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json")
 ) | ForEach-Object {
   if ($package -notmatch [regex]::Escape($_)) {
     throw "package.json missing $_"
+  }
+}
+
+@(
+  "`"start_url`": `"/`"",
+  "`"scope`": `"/`"",
+  "`"icons`"",
+  "`"/favicon.svg`""
+) | ForEach-Object {
+  if ($manifest -notmatch [regex]::Escape($_)) {
+    throw "Manifest missing $_"
+  }
+}
+
+@(
+  "pastevault-app-v1",
+  "request.mode === `"navigate`"",
+  "url.pathname.startsWith(`"/api/`")"
+) | ForEach-Object {
+  if ($serviceWorker -notmatch [regex]::Escape($_)) {
+    throw "Service worker missing $_"
   }
 }
 

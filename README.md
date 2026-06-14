@@ -1,16 +1,19 @@
 # PasteVault
 
-A fast link-based clipboard for moving text, code, URLs, and JSON between browsers without sending messages to yourself.
+A fast local-first clipboard for saving text, code, URLs, and JSON without sending messages to yourself. Cross-device sharing requires hosted storage.
 
 ## What It Does
 
 - Uses a clipboard id in the URL as the primary workspace context.
+- Opens at `/new` without creating an id; the first paste or valid import creates the clipboard.
+- Starts every new clipboard empty, with no seeded demo clips.
 - Keeps clips until you delete them; clipboard links do not expire by default.
 - Supports optional password-protected local clipboards with encrypted stored payloads.
 - Copies the latest or selected clip in one tap.
 - Reads from the system clipboard when the browser grants permission.
 - Shares a selected clip or draft through a clipboard link.
-- Imports and exports full history as JSON.
+- Imports text/code files and PasteVault exports with per-file validation and partial-batch warnings.
+- Exports full history as JSON.
 
 ## Run
 

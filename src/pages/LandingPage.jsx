@@ -1,25 +1,25 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clipboard, DatabaseZap, KeyRound, Link2, Mouse } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
+import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
 import {
   appVersion,
   clipboardIdPattern,
   createClip,
   createVaultId,
-  defaultClipboardId,
-  inferTitle,
+  maxImportFiles,
+  maxImportTotalBytes,
+  mergeClipboardClips,
   nowIso,
+  readImportFile,
   saveRecord
 } from "../features/clipboard/clipboard-store";
 
-function detectFormat(value, name = "") {
+function detectFormat(value) {
   const trimmed = value.trim();
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".json") || trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
-  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".env") || trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
-  if (lower.endsWith(".md")) return "Markdown";
-  if (lower.endsWith(".html")) return "HTML";
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
+  if (trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
   return "Plain text";
 }
 
@@ -46,34 +46,47 @@ function parseClipboardTarget(value) {
 }
 
 export default function LandingPage() {
+  const fileRef = useRef(null);
   const [entry, setEntry] = useState("");
+  const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
 
-  const createClipboardFromText = useCallback((value, sourceName = "") => {
+  const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0) => {
     const clipboardId = createVaultId();
-    const format = detectFormat(value, sourceName);
+    const timestamp = nowIso();
+
+    try {
+      saveRecord(clipboardId, {
+        version: appVersion,
+        id: clipboardId,
+        contentVersion: 1,
+        updatedAt: timestamp,
+        lastSavedAt: timestamp,
+        settings: { autosaveEnabled: true },
+        protection: null,
+        payload: { clips, selectedId }
+      });
+    } catch {
+      setError("PasteVault could not save this clipboard. Free some browser storage and try again.");
+      return;
+    }
+    window.location.href = `/clip/${clipboardId}${importWarnings ? `?importWarnings=${importWarnings}` : ""}`;
+  }, []);
+
+  const createClipboardFromText = useCallback((value) => {
+    const format = detectFormat(value);
     const clip = createClip({
-      id: sourceName ? `clip_${sourceName.replace(/[^a-z0-9]/gi, "_").slice(0, 24).toLowerCase()}` : undefined,
-      title: sourceName || inferTitle(value, format),
       content: value,
       format,
-      pinned: true,
-      tags: sourceName ? ["import"] : []
+      pinned: true
     });
-
-    saveRecord(clipboardId, {
-      version: appVersion,
-      id: clipboardId,
-      updatedAt: nowIso(),
-      protection: null,
-      payload: { clips: [clip], selectedId: clip.id }
-    });
-    window.location.href = `/clip/${clipboardId}`;
-  }, []);
+    createClipboard([clip], clip.id);
+  }, [createClipboard]);
 
   const openClipboard = useCallback((overrideValue) => {
     const value = (overrideValue ?? entry).trim();
     if (!value) {
-      window.location.href = `/clip/${defaultClipboardId}`;
+      setError("Paste some text, enter a PasteVault link, or import a file first.");
       return;
     }
 
@@ -83,15 +96,63 @@ export default function LandingPage() {
       return;
     }
 
+    setError("");
     createClipboardFromText(value);
   }, [createClipboardFromText, entry]);
+
+  const handleFiles = useCallback(async (files) => {
+    setError("");
+    setImporting(true);
+    const accepted = files.slice(0, maxImportFiles);
+    const failures = [];
+    let totalBytes = 0;
+    let clips = [];
+    let selectedId = null;
+
+    if (files.length > maxImportFiles) {
+      failures.push(`Only the first ${maxImportFiles} files were considered.`);
+    }
+
+    for (const file of accepted) {
+      if (totalBytes + file.size > maxImportTotalBytes) {
+        failures.push(`${file.name}: the ${Math.round(maxImportTotalBytes / (1024 * 1024))}MB batch limit was reached.`);
+        continue;
+      }
+      totalBytes += file.size;
+
+      try {
+        const result = await readImportFile(file);
+        if (result.kind === "board") {
+          clips = mergeClipboardClips(clips, result.board.clips);
+          selectedId = result.board.selectedId ?? selectedId;
+        } else {
+          const duplicate = clips.some((clip) => clip.content === result.clip.content && clip.format === result.clip.format);
+          if (duplicate) {
+            failures.push(`${file.name}: duplicate content was skipped.`);
+          } else {
+            clips.push(result.clip);
+            selectedId = result.clip.id;
+          }
+        }
+      } catch (fileError) {
+        failures.push(fileError.message);
+      }
+    }
+
+    setImporting(false);
+    if (!clips.length) {
+      setError(failures.join(" ") || "No importable files were selected.");
+      return;
+    }
+    createClipboard(clips, selectedId, failures.length);
+  }, [createClipboard]);
 
   return (
     <div className="vault-landing pv-landing">
       <main className="pv-landing-core" aria-labelledby="landing-title">
         <AppLogo />
         <h1 id="landing-title">The fastest way to move text between devices</h1>
-        <p>Paste once. Open the link anywhere. Optional password. No account.</p>
+        <p>Paste once. Save locally first. Sync and share when cloud storage is configured.</p>
         <form
           className="landing-input-shell pv-open-shell"
           onSubmit={(event) => {
@@ -116,10 +177,12 @@ export default function LandingPage() {
             }}
           />
           <ActionButton variant="primary" type="submit">
-            Open clipboard
+            Create clipboard
             <ArrowRight size={24} />
           </ActionButton>
         </form>
+        {error && <p className="pv-inline-error" role="alert">{error}</p>}
+        <FileImportDropzone inputRef={fileRef} onFiles={handleFiles} disabled={importing} compact />
         <a className="pv-scroll-cue" href="#how-it-works" aria-label="Scroll to learn how PasteVault works">
           <Mouse size={18} />
           Scroll for the quick tour
@@ -158,7 +221,7 @@ export default function LandingPage() {
       <footer className="pv-landing-footer">
         <AppLogo compact />
         <strong>PasteVault</strong>
-        <p>No account. Optional password. One link for the thing you need on another device.</p>
+        <p>No account. Optional password. Local-first clips with share links once cloud sync is ready.</p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Launch PasteVault <ArrowRight size={20} /></ActionButton>
       </footer>
     </div>

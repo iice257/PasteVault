@@ -23,7 +23,8 @@ PasteVault is a no-account, link-based online clipboard for moving text, code, c
 
 ## Routing
 
-- `/` renders the paste-first landing page.
+- `/` normalizes to `/new`.
+- `/new` renders the paste-first empty workspace and does not allocate a clipboard id.
 - `/clip/:id` renders the clipboard workspace for that id.
 - `/app` and `/clipboard` continue to resolve into the app route through existing Vite/Vercel rewrites.
 - Clipboard id context comes from route params or generated ids, not accounts.
@@ -32,7 +33,7 @@ PasteVault is a no-account, link-based online clipboard for moving text, code, c
 
 ### Open Or Create Clipboard
 
-1. User lands on `/`.
+1. User lands on `/new`.
 2. User pastes text or enters an existing clipboard link/id.
 3. If a link/id is provided, route to that board.
 4. If text is provided, create a new board and save the first clip.
@@ -63,6 +64,9 @@ PasteVault is a no-account, link-based online clipboard for moving text, code, c
 ### Import And Export
 
 - Import accepts supported text/JSON-like payloads up to the configured local import limit.
+- Import supports drag/drop and file selection, up to 20 files, 5 MB per file, and 20 MB per batch.
+- Empty, binary, unsupported, unreadable, duplicate, and malformed JSON files produce named errors.
+- Mixed batches import valid files and report failures without discarding successful imports.
 - Export downloads the full clipboard payload as JSON.
 - Invalid imports must fail with a clear error toast and leave existing data untouched.
 
@@ -116,7 +120,7 @@ PasteVault is a no-account, link-based online clipboard for moving text, code, c
   - `UPSTASH_REDIS_REST_TOKEN`
   - `KV_REST_API_URL`
   - `KV_REST_API_TOKEN`
-- If hosted storage is unavailable, the API falls back to per-function memory and the app remains locally useful.
+- If hosted storage is unavailable, the API rejects remote sync writes and the app remains locally useful.
 
 ## API Contract
 
@@ -161,7 +165,7 @@ Responses:
 - Use a single decorative background image layer.
 - Keep the first screen centered on the PasteVault logo, headline, subtitle, and paste/open input.
 - Preserve accessible label/selector: `Paste something or enter a clipboard link`.
-- Preserve primary CTA text: `Open clipboard`.
+- Preserve primary CTA text: `Create clipboard`.
 - Include minimal nav actions: theme and open clipboard.
 
 ### Clipboard Dashboard
@@ -191,7 +195,7 @@ Responses:
 - Preserve labels used by tests:
   - `Clipboard content`
   - `Paste something or enter a clipboard link`
-  - `Open clipboard`
+  - `Create clipboard`
   - `Theme menu`
   - `Password optional`
   - `Copy link`
@@ -240,7 +244,9 @@ npm audit --audit-level=moderate
 
 Manual QA:
 
-- `/` loads the landing page in light and dark modes.
+- `/new` loads the empty paste-first workspace in light and dark modes.
+- Blank submission and invalid imports remain on `/new` without allocating an id.
+- Newly opened `/clip/:id` workspaces contain no demo clips.
 - `/clip/visual-check-board` loads editor, history, and details.
 - Theme switching works.
 - Save, paste, copy link, copy latest, delete, pin, star, tags, import, export, password, search, sort, and filter work.
