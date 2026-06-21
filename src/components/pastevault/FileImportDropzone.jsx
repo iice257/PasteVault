@@ -1,10 +1,20 @@
 import { useState } from "react";
-import { FileUp, LoaderCircle } from "lucide-react";
+import { FileUp, LoaderCircle, Plus } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-export function FileImportDropzone({ inputRef, onFiles, compact = false, disabled = false }) {
+export function FileImportDropzone({
+  inputRef,
+  onFiles,
+  compact = false,
+  disabled = false,
+  className,
+  active = false,
+  plusIcon = false,
+  onDragComplete
+}) {
   const [dragging, setDragging] = useState(false);
-  const Icon = disabled ? LoaderCircle : FileUp;
+  const isActive = dragging || active;
+  const Icon = disabled ? LoaderCircle : plusIcon ? Plus : FileUp;
 
   const submitFiles = (files) => {
     const selected = Array.from(files ?? []);
@@ -32,8 +42,9 @@ export function FileImportDropzone({ inputRef, onFiles, compact = false, disable
         className={cn(
           "pv-dropzone",
           compact && "pv-dropzone-compact",
-          dragging && "is-dragging",
-          disabled && "is-disabled"
+          isActive && "is-dragging",
+          disabled && "is-disabled",
+          className
         )}
         type="button"
         aria-label="Import clipboard files"
@@ -41,18 +52,26 @@ export function FileImportDropzone({ inputRef, onFiles, compact = false, disable
         onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           if (!disabled) setDragging(true);
         }}
         onDragOver={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
         }}
         onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+          event.stopPropagation();
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setDragging(false);
+            onDragComplete?.();
+          }
         }}
         onDrop={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           setDragging(false);
+          onDragComplete?.();
           submitFiles(event.dataTransfer.files);
         }}
       >

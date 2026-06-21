@@ -50,6 +50,7 @@ export default function LandingPage() {
   const [entry, setEntry] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [heroDragging, setHeroDragging] = useState(false);
 
   const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0) => {
     const clipboardId = createVaultId();
@@ -149,7 +150,27 @@ export default function LandingPage() {
 
   return (
     <div className="vault-landing pv-landing">
-      <main className="pv-landing-core" aria-labelledby="landing-title">
+      <main
+        className="pv-landing-core"
+        aria-labelledby="landing-title"
+        onDragEnter={(event) => {
+          event.preventDefault();
+          if (!importing) setHeroDragging(true);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setHeroDragging(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setHeroDragging(false);
+          const files = Array.from(event.dataTransfer.files ?? []);
+          if (files.length) handleFiles(files);
+        }}
+      >
         <AppLogo />
         <h1 id="landing-title">The fastest way to move text between devices</h1>
         <p>Paste once. Save locally first. Sync and share when cloud storage is configured.</p>
@@ -182,7 +203,15 @@ export default function LandingPage() {
           </ActionButton>
         </form>
         {error && <p className="pv-inline-error" role="alert">{error}</p>}
-        <FileImportDropzone inputRef={fileRef} onFiles={handleFiles} disabled={importing} compact />
+        <FileImportDropzone
+          inputRef={fileRef}
+          onFiles={handleFiles}
+          disabled={importing}
+          className="pv-landing-dropzone"
+          active={heroDragging}
+          plusIcon
+          onDragComplete={() => setHeroDragging(false)}
+        />
         <a className="pv-scroll-cue" href="#how-it-works" aria-label="Scroll to learn how PasteVault works">
           <Mouse size={18} />
           Scroll for the quick tour

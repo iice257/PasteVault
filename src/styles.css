@@ -350,9 +350,13 @@ a {
   min-height: 88px;
   border: 1px solid rgba(15, 23, 42, 0.11);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
+  background: #ffffff;
   padding: 12px 14px 12px 34px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 24px 68px rgba(28, 38, 58, 0.16);
+}
+
+.landing-input-shell {
+  background: #ffffff;
 }
 
 .pv-open-shell > svg {
@@ -389,6 +393,42 @@ a {
   transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
 }
 
+.pv-landing-dropzone {
+  position: relative;
+  bottom: auto;
+  width: min(870px, calc(100vw - 80px));
+  min-width: 0;
+  min-height: 88px;
+  margin-top: 18px;
+  justify-content: flex-start;
+  border-style: solid;
+  border-color: rgba(15, 23, 42, 0.11);
+  border-radius: 24px;
+  background: #ffffff;
+  padding: 14px 28px 14px 16px;
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 24px 68px rgba(28, 38, 58, 0.14);
+  transform-origin: center;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 220ms ease;
+}
+
+.pv-landing-dropzone:hover,
+.pv-landing-dropzone:focus-visible {
+  transform: scale(1.018);
+  border-color: rgba(17, 24, 39, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 28px 76px rgba(28, 38, 58, 0.18);
+}
+
+.pv-landing-dropzone > svg {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  padding: 12px;
+  background: #111827;
+  color: #ffffff;
+}
+
 .pv-dropzone.is-dragging {
   border-color: #111827;
   background: rgba(255, 255, 255, 0.92);
@@ -410,6 +450,17 @@ a {
 .theme-dark .pv-dropzone.is-dragging {
   background: rgba(20, 184, 166, 0.16);
   color: #d8fffb;
+}
+
+.pv-landing-dropzone.is-dragging {
+  border-color: rgba(24, 199, 192, 0.76);
+  background: #f0fdfa;
+  color: #075f5b;
+  transform: scale(1.018);
+}
+
+.pv-landing-dropzone.is-dragging > svg {
+  background: #0f766e;
 }
 
 .pv-dropzone span {
@@ -2287,6 +2338,7 @@ a {
 
   .pv-open-shell input {
     min-height: 52px;
+    font-size: 17px;
     text-align: center;
   }
 
@@ -2302,6 +2354,21 @@ a {
   .pv-dropzone-compact {
     opacity: 0.42;
     pointer-events: none;
+  }
+
+  .pv-landing-dropzone {
+    width: calc(100vw - 38px);
+    min-height: 76px;
+    border-radius: 24px;
+    padding: 12px 16px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .pv-landing-dropzone > svg {
+    width: 44px;
+    height: 44px;
+    padding: 11px;
   }
 
   .pv-float-api {
