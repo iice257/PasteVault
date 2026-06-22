@@ -20,12 +20,14 @@ await page.addInitScript(() => {
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.waitForURL(/\/new$/);
-await page.getByRole("button", { name: /Create clipboard/i }).click();
-await page.getByRole("alert").getByText(/Paste some text/i).waitFor();
-if (!page.url().endsWith("/new")) {
-  throw new Error("Blank new workspace created a clipboard id.");
+await page.locator(".landing-input-shell").getByRole("button", { name: /Open workspace/i }).click();
+await page.waitForURL(/\/clip\/[a-zA-Z0-9_-]+$/);
+await page.getByLabel("Clipboard content").waitFor();
+if (await page.locator(".pv-history-row").count()) {
+  throw new Error("Empty workspace opened with unexpected history.");
 }
 
+await page.goto(`${baseUrl}/new`, { waitUntil: "networkidle" });
 await page.locator("input[type='file']").setInputFiles({
   name: "broken.json",
   mimeType: "application/json",

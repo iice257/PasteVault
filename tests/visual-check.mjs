@@ -41,9 +41,9 @@ if (retiredArtifacts !== 0) {
   throw new Error(`Expected retired artifact layers to be removed from the DOM, found ${retiredArtifacts}.`);
 }
 
-const openButtonVisible = await landingPage.getByRole("button", { name: "Create clipboard" }).first().isVisible();
+const openButtonVisible = await landingPage.getByRole("button", { name: "Open workspace" }).first().isVisible();
 if (!openButtonVisible) {
-  throw new Error("Expected visible landing Create clipboard action.");
+  throw new Error("Expected visible landing Open workspace action.");
 }
 const footerVisibleAfterScroll = await landingPage.locator(".pv-landing-footer").count();
 if (footerVisibleAfterScroll !== 1) {

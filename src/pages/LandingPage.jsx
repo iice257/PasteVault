@@ -7,6 +7,7 @@ import {
   appVersion,
   clipboardIdPattern,
   createClip,
+  createPlainRecord,
   createVaultId,
   maxImportFiles,
   maxImportTotalBytes,
@@ -84,10 +85,22 @@ export default function LandingPage() {
     createClipboard([clip], clip.id);
   }, [createClipboard]);
 
+  const openEmptyWorkspace = useCallback(() => {
+    const clipboardId = createVaultId();
+    try {
+      saveRecord(clipboardId, createPlainRecord(clipboardId));
+    } catch {
+      setError("PasteVault could not open a workspace. Free some browser storage and try again.");
+      return;
+    }
+    window.location.href = `/clip/${clipboardId}`;
+  }, []);
+
   const openClipboard = useCallback((overrideValue) => {
     const value = (overrideValue ?? entry).trim();
     if (!value) {
-      setError("Paste some text, enter a PasteVault link, or import a file first.");
+      setError("");
+      openEmptyWorkspace();
       return;
     }
 
@@ -99,7 +112,7 @@ export default function LandingPage() {
 
     setError("");
     createClipboardFromText(value);
-  }, [createClipboardFromText, entry]);
+  }, [createClipboardFromText, entry, openEmptyWorkspace]);
 
   const handleFiles = useCallback(async (files) => {
     setError("");
@@ -172,8 +185,8 @@ export default function LandingPage() {
         }}
       >
         <AppLogo />
-        <h1 id="landing-title">The fastest way to move text between devices</h1>
-        <p>Paste once. Save locally first. Sync and share when cloud storage is configured.</p>
+        <h1 id="landing-title">Paste <span className="pv-landing-emphasis">stuff</span>. Open it anywhere.</h1>
+        <p>Paste once. Open anywhere.</p>
         <form
           className="landing-input-shell pv-open-shell"
           onSubmit={(event) => {
@@ -198,7 +211,7 @@ export default function LandingPage() {
             }}
           />
           <ActionButton variant="primary" type="submit">
-            Create clipboard
+            {entry.trim() ? "Create clipboard" : "Open workspace"}
             <ArrowRight size={24} />
           </ActionButton>
         </form>
@@ -250,8 +263,8 @@ export default function LandingPage() {
       <footer className="pv-landing-footer">
         <AppLogo compact />
         <strong>PasteVault</strong>
-        <p>No account. Optional password. Local-first clips with share links once cloud sync is ready.</p>
-        <ActionButton variant="primary" onClick={() => openClipboard()}>Launch PasteVault <ArrowRight size={20} /></ActionButton>
+        <p>No account. Local-first clips. Share links once cloud sync is ready. Optional password.</p>
+        <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
       </footer>
     </div>
   );
