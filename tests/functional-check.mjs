@@ -59,7 +59,8 @@ await page.getByRole("button", { name: "History" }).click();
 await page.getByPlaceholder("Search history").fill(largeMarker);
 await page.locator(".pv-history-row").first().waitFor();
 
-await page.getByRole("button", { name: /Password optional/i }).click();
+await page.getByRole("button", { name: "Top bar more actions" }).click();
+await page.getByRole("menuitem", { name: "Password" }).click();
 await page.getByPlaceholder("8+ characters").fill(password);
 await page.getByPlaceholder("Repeat password").fill(password);
 await page.getByLabel("I understand this password cannot be recovered.").check();
@@ -78,6 +79,7 @@ await page.getByRole("button", { name: /^Unlock clipboard$/ }).click();
 await page.getByText("Password did not unlock this clipboard.").waitFor();
 await page.getByPlaceholder("Clipboard password").fill(password);
 await page.getByRole("button", { name: /^Unlock clipboard$/ }).click();
+await page.getByRole("button", { name: "Editor" }).click();
 await page.getByLabel("Clipboard content").waitFor();
 await page.waitForFunction((marker) => {
   const editor = document.querySelector("[aria-label='Clipboard content']");

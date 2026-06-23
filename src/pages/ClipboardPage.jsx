@@ -1538,17 +1538,24 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
         <AppLogo />
       )}
       <div className="pv-dashboard-actions">
-        <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
-        <ActionButton icon={Lock} onClick={onPassword} aria-label="Password optional">Password</ActionButton>
         <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-        {onPaste && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="pv-icon-button" type="button" aria-label="Top bar more actions">
-                <MoreHorizontal size={22} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="pv-menu" align="end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="pv-icon-button" type="button" aria-label="Top bar more actions">
+              <MoreHorizontal size={22} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="pv-menu" align="end">
+            <DropdownMenuItem onSelect={onCopyLink}>
+              <Link2 size={16} />
+              Copy link
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onPassword}>
+              <Lock size={16} />
+              Password
+            </DropdownMenuItem>
+            {onPaste && (
+              <>
               <DropdownMenuItem onSelect={onPaste}>
                 <ClipboardPaste size={16} />
                 Paste from clipboard
@@ -1569,9 +1576,10 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
                 <Download size={16} />
                 Export board
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

@@ -111,9 +111,16 @@ for (const theme of ["light", "dark"]) {
   }
 
   const primaryActions = await page.getByRole("banner").getByRole("button").count();
-  if (primaryActions < 4) {
-    throw new Error(`Expected functional top-right dashboard actions in ${theme} mode, found ${primaryActions}.`);
+  if (primaryActions !== 2) {
+    throw new Error(`Expected compact theme and overflow dashboard actions in ${theme} mode, found ${primaryActions}.`);
   }
+  await page.getByRole("button", { name: "Top bar more actions" }).click();
+  for (const menuItem of ["Copy link", "Password", "Paste from clipboard", "Import file", "New clip", "Copy latest", "Export board"]) {
+    if (!(await page.getByRole("menuitem", { name: menuItem }).isVisible())) {
+      throw new Error(`Expected ${theme} overflow menu item: ${menuItem}.`);
+    }
+  }
+  await page.keyboard.press("Escape");
   await assertNoOverflow(page, `${theme} desktop`);
   await page.close();
 }

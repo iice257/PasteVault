@@ -185,7 +185,7 @@ export default function LandingPage() {
         }}
       >
         <AppLogo />
-        <h1 id="landing-title">Paste <span className="pv-landing-emphasis">stuff</span>. Open it anywhere.</h1>
+        <h1 id="landing-title">The fastest way to move <span className="pv-landing-emphasis">stuff</span> between devices</h1>
         <p>Paste once. Open anywhere.</p>
         <form
           className="landing-input-shell pv-open-shell"
@@ -231,14 +231,23 @@ export default function LandingPage() {
         </a>
       </main>
       <section className="pv-landing-section pv-landing-feature" id="how-it-works">
-        <div>
+        <div className="pv-landing-feature-copy">
           <span><Link2 size={18} /> Link-first clipboard</span>
           <h2>Paste something. Get a clipboard URL. Move on.</h2>
         </div>
-        <p>
-          PasteVault keeps the entry path deliberately short: text or link in, clipboard out. Use it for payloads,
-          commands, notes, JSON, env vars, and anything else that should not involve sending yourself a message.
-        </p>
+        <div className="pv-landing-flow" aria-label="PasteVault workflow">
+          {[
+            ["01", "Paste", "Drop text, JSON, commands, links, or files."],
+            ["02", "Vault", "Save locally first with optional password protection."],
+            ["03", "Open", "Copy the link and keep moving across devices."]
+          ].map(([step, title, copy]) => (
+            <article key={step}>
+              <small>{step}</small>
+              <strong>{title}</strong>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="pv-landing-section pv-landing-split">
         <article>
@@ -263,7 +272,10 @@ export default function LandingPage() {
       <footer className="pv-landing-footer">
         <AppLogo compact />
         <strong>PasteVault</strong>
-        <p>No account. Local-first clips. Share links once cloud sync is ready. Optional password.</p>
+        <p>
+          <span>No account. Local-first clips.</span>
+          <span>Share links once cloud sync is ready. Optional password.</span>
+        </p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
       </footer>
     </div>
