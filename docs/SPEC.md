@@ -197,7 +197,7 @@ Responses:
   - `Paste something or enter a clipboard link`
   - `Create clipboard`
   - `Theme menu`
-  - `Password optional`
+  - `Password`
   - `Copy link`
   - `Search history`
 - All icon buttons need accessible names.

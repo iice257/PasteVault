@@ -32,10 +32,12 @@ await page.locator(".vault-theme.theme-light").waitFor();
 await page.getByRole("button", { name: "Theme toggle" }).click();
 await page.locator(".vault-theme.theme-dark").waitFor();
 
-await page.getByRole("banner").getByRole("button", { name: "Copy link" }).click();
-await page.locator(".pv-toast").getByText(/cloud share link copied|local link copied/i).waitFor();
+await page.getByRole("button", { name: "Top bar options" }).click();
+await page.getByRole("menuitem", { name: "Copy link" }).click();
+await page.locator(".pv-toast").getByText(/clipboard link copied|synced link copied|local link copied/i).waitFor();
 
-await page.getByRole("button", { name: "Password optional" }).click();
+await page.getByRole("button", { name: "Top bar options" }).click();
+await page.getByRole("menuitem", { name: "Password" }).click();
 await page.getByPlaceholder("8+ characters").fill("short");
 await page.getByRole("button", { name: /^Enable$/ }).click();
 await page.getByText("Use at least 8 characters").waitFor();
@@ -65,7 +67,7 @@ await page.getByRole("menuitem", { name: "Largest" }).click();
 await page.locator(".history-toolbar .filter-trigger").click();
 await page.getByRole("menuitem", { name: "JSON" }).click();
 await page.getByPlaceholder("Search history").fill("dropdown");
-await page.getByText("{\"from\":\"dropdown\"}").first().waitFor();
+await page.locator(".pv-history-row").filter({ hasText: "dropdown" }).waitFor();
 
 await page.getByLabel("Workspace navigation").getByRole("button", { name: "Details" }).click();
 await page.locator(".details-panel input[placeholder='Add tag...']").fill("tested");
@@ -136,7 +138,7 @@ await page.getByRole("menuitem", { name: "Open clip" }).click();
 await page.getByLabel("Clipboard content").waitFor();
 
 const downloadPromise = page.waitForEvent("download");
-await page.getByRole("button", { name: "Top bar more actions" }).click();
+await page.getByRole("button", { name: "Top bar options" }).click();
 await page.getByRole("menuitem", { name: "Export board" }).click();
 await downloadPromise;
 

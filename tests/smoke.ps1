@@ -32,6 +32,9 @@ $app = @(
   Get-Content -Raw -LiteralPath (Join-Path $root "src/App.jsx")
   Get-Content -Raw -LiteralPath (Join-Path $root "src/pages/LandingPage.jsx")
   Get-Content -Raw -LiteralPath (Join-Path $root "src/pages/ClipboardPage.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/components/pastevault/ClipboardEditor.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/components/pastevault/MetadataRow.jsx")
+  Get-Content -Raw -LiteralPath (Join-Path $root "src/components/pastevault/PasswordModal.jsx")
   Get-Content -Raw -LiteralPath (Join-Path $root "src/features/clipboard/clipboard-store.js")
 ) -join "`n"
 $css = Get-Content -Raw -LiteralPath (Join-Path $root "src/styles.css")
@@ -54,10 +57,11 @@ $serviceWorker = Get-Content -Raw -LiteralPath (Join-Path $root "public/sw.js")
   "theme-dark",
   "theme-light",
   "Password optional",
-  "Clipboard ID",
+  "Clipboard {clipboardId}",
   "Selected clip",
   "Copy link",
-  "Password cannot be recovered"
+  "No account storage",
+  "password cannot be recovered"
 ) | ForEach-Object {
   if ($app -notmatch [regex]::Escape($_)) {
     throw "App missing $_"

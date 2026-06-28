@@ -28,8 +28,9 @@ export function normalizeFormat(format) {
 }
 
 export function createVaultId() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return `pv_${arrayToBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")}`;
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return String(10000 + (values[0] % 90000));
 }
 
 export function getClipboardId() {
@@ -632,8 +633,12 @@ export function exportClipboard(clipboardId, payload) {
 
 export async function copyText(value) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Some browsers expose the async Clipboard API but reject writes without a gesture.
+    }
   }
 
   const textarea = document.createElement("textarea");

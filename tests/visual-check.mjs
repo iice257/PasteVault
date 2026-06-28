@@ -114,7 +114,7 @@ for (const theme of ["light", "dark"]) {
   if (primaryActions !== 2) {
     throw new Error(`Expected compact theme and overflow dashboard actions in ${theme} mode, found ${primaryActions}.`);
   }
-  await page.getByRole("button", { name: "Top bar more actions" }).click();
+  await page.getByRole("button", { name: "Top bar options" }).click();
   for (const menuItem of ["Copy link", "Password", "Paste from clipboard", "Import file", "New clip", "Copy latest", "Export board"]) {
     if (!(await page.getByRole("menuitem", { name: menuItem }).isVisible())) {
       throw new Error(`Expected ${theme} overflow menu item: ${menuItem}.`);
@@ -141,8 +141,12 @@ for (const theme of ["light", "dark"]) {
   }
 
   const mobileActions = await page.locator(".pv-mobile-actions button").count();
-  if (mobileActions < 3) {
-    throw new Error(`Expected three mobile clipboard actions in ${theme} mode, found ${mobileActions}.`);
+  if (mobileActions !== 2) {
+    throw new Error(`Expected two mobile clipboard actions in ${theme} mode, found ${mobileActions}.`);
+  }
+  const mobileThemeToggle = await page.locator(".pv-mobile-hero-top").getByRole("button", { name: "Theme toggle" }).count();
+  if (mobileThemeToggle !== 1) {
+    throw new Error(`Expected top-right mobile theme toggle in ${theme} mode, found ${mobileThemeToggle}.`);
   }
   const mobileSectionTabs = await page.locator(".pv-mobile-section-tabs button").count();
   if (mobileSectionTabs !== 4) {

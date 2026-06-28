@@ -78,17 +78,15 @@ export function ClipboardEditor({
               <AutosaveIcon size={16} />
               Autosave {autosaveEnabled ? "on" : "off"}
             </button>
+            {(!autosaveEnabled || conflict) && (
+              <ActionButton icon={RotateCcw} compact onClick={onReloadLatest}>Reload latest</ActionButton>
+            )}
+            {conflict && <ActionButton icon={AlertTriangle} compact onClick={onForceSave}>Force save</ActionButton>}
             <span className={conflict ? "pv-sync-pill is-conflict" : "pv-sync-pill"}>
               <StatusIcon size={16} />
               {syncStatus}
             </span>
           </div>
-          {(!autosaveEnabled || conflict) && (
-            <div className="pv-unsaved-actions">
-              <ActionButton icon={RotateCcw} compact onClick={onReloadLatest}>Reload latest</ActionButton>
-              {conflict && <ActionButton icon={AlertTriangle} compact onClick={onForceSave}>Force save</ActionButton>}
-            </div>
-          )}
           <div className="pv-workbench-actions vault-card-actions">
             <ActionButton icon={Save} variant="primary" compact onClick={onSave}>Save</ActionButton>
             <ActionButton icon={ClipboardCopy} compact onClick={onCopy}>Copy</ActionButton>

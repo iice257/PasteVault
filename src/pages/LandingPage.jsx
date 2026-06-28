@@ -39,7 +39,7 @@ function parseClipboardTarget(value) {
   const pathMatch = value.match(/^\/?clip\/([a-zA-Z0-9_-]{3,80})$/);
   if (pathMatch) return pathMatch[1];
 
-  if (/^(pv_[a-zA-Z0-9_-]{16,75}|clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
+  if (/^(\d{5}|pv_[a-zA-Z0-9_-]{16,75}|clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
     return value;
   }
 
@@ -274,7 +274,7 @@ export default function LandingPage() {
         <strong>PasteVault</strong>
         <p>
           <span>No account. Local-first clips.</span>
-          <span>Share links once cloud sync is ready. Optional password.</span>
+          <span>Share links once hosted sync is ready. Optional password.</span>
         </p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
       </footer>

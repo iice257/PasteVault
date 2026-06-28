@@ -333,6 +333,246 @@ a {
   letter-spacing: -0.055em;
 }
 
+/* Targeted polish from live QA comments: compact identity, responsive editor, and action clarity. */
+.pv-logo-icon-only {
+  width: 58px;
+  min-width: 58px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.pv-logo-icon-only img {
+  width: 168px;
+  max-width: none;
+  height: 44px;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.pv-options-button {
+  width: auto;
+  min-width: 112px;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.pv-options-button span {
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.pv-clipboard-identity {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pv-clipboard-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(100%, 520px);
+  min-width: 0;
+}
+
+.pv-clipboard-name-row h1,
+.pv-clipboard-name-row input {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--pv-strong, var(--ink));
+  font-size: clamp(24px, 8vw, 42px);
+  font-weight: 920;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.pv-clipboard-name-row input {
+  width: min(100%, 420px);
+  border: 1px solid var(--pv-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--pv-panel, rgba(255, 255, 255, 0.9));
+  padding: 8px 10px;
+}
+
+.pv-clipboard-name-row button,
+.pv-clipboard-id-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pv-border, rgba(15, 23, 42, 0.12));
+  background: var(--pv-panel, rgba(255, 255, 255, 0.82));
+  color: var(--pv-muted, #667085);
+}
+
+.pv-clipboard-name-row button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.pv-clipboard-id-pill {
+  max-width: 100%;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.pv-sync-pill-row .pv-action {
+  min-height: 36px;
+  border-radius: 12px;
+  padding-inline: 12px;
+  box-shadow: none;
+}
+
+.pv-code-highlight,
+.pv-code-surface textarea {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.pv-code-surface textarea {
+  resize: none;
+}
+
+.pv-landing-dropzone {
+  align-items: center;
+}
+
+.pv-landing-dropzone > svg {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+}
+
+.pv-landing-dropzone strong {
+  line-height: 1.2;
+}
+
+@media (max-width: 1100px) {
+  .pv-mobile-hero {
+    gap: 14px;
+    padding-top: 18px;
+  }
+
+  .pv-mobile-hero-top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+  }
+
+  .pv-mobile-hero-top .pv-logo {
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+
+  .pv-mobile-hero-top .pv-action {
+    grid-column: 3;
+    justify-self: end;
+    min-width: 74px;
+    min-height: 42px;
+    border-radius: 13px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .pv-mobile-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-mobile-actions .pv-action {
+    min-height: 58px;
+  }
+
+  .pv-code-toolbar,
+  .section-title-row {
+    top: 16px;
+  }
+
+  .pv-line-numbers,
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    margin-top: 72px;
+  }
+
+  .pv-bottom-paste button {
+    display: grid;
+    place-items: center;
+    min-width: 42px;
+    min-height: 42px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #0f172a;
+  }
+
+  .theme-dark .pv-bottom-paste button {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8f3ff;
+  }
+
+  .pv-bottom-paste button:last-child {
+    border-color: transparent;
+    background: #d9efff;
+    color: #0f172a;
+  }
+}
+
+@media (max-width: 700px) {
+  .pv-mobile-hero .pv-logo {
+    max-width: 154px;
+  }
+
+  .pv-clipboard-name-row h1,
+  .pv-clipboard-name-row input {
+    font-size: clamp(22px, 7.6vw, 31px);
+  }
+
+  .pv-mobile-meta {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .pv-code-surface {
+    min-height: 520px;
+  }
+
+  .pv-line-numbers,
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    margin-top: 76px;
+  }
+
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    padding-right: 8px;
+  }
+
+  .pv-landing-dropzone {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .pv-landing-dropzone > svg {
+    width: 32px;
+    height: 32px;
+    padding: 8px;
+  }
+}
+
 .pv-landing-emphasis {
   display: inline-block;
   padding: 0 0.04em 0.02em;
@@ -4734,5 +4974,245 @@ a {
   .pv-code-highlight,
   .pv-code-surface textarea {
     font-size: 14px;
+  }
+}
+
+/* Final live-QA overrides: keep these last so they win over legacy responsive rules above. */
+.pv-logo-icon-only {
+  width: 58px;
+  min-width: 58px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.pv-logo-icon-only img {
+  width: 168px;
+  max-width: none;
+  height: 44px;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.pv-options-button {
+  width: auto;
+  min-width: 112px;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.pv-options-button span {
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.pv-clipboard-identity {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pv-clipboard-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(100%, 520px);
+  min-width: 0;
+}
+
+.pv-clipboard-name-row h1,
+.pv-clipboard-name-row input {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--pv-strong, var(--ink));
+  font-size: clamp(24px, 8vw, 42px);
+  font-weight: 920;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.pv-clipboard-name-row input {
+  width: min(100%, 420px);
+  border: 1px solid var(--pv-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--pv-panel, rgba(255, 255, 255, 0.9));
+  padding: 8px 10px;
+}
+
+.pv-clipboard-name-row button,
+.pv-clipboard-id-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pv-border, rgba(15, 23, 42, 0.12));
+  background: var(--pv-panel, rgba(255, 255, 255, 0.82));
+  color: var(--pv-muted, #667085);
+}
+
+.pv-clipboard-name-row button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.pv-clipboard-id-pill {
+  max-width: 100%;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.pv-sync-pill-row .pv-action {
+  min-height: 36px;
+  border-radius: 12px;
+  padding-inline: 12px;
+  box-shadow: none;
+}
+
+.pv-code-highlight,
+.pv-code-surface textarea {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.pv-code-surface textarea {
+  resize: none;
+}
+
+.pv-landing-dropzone {
+  align-items: center;
+}
+
+.pv-landing-dropzone > svg {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+}
+
+.pv-landing-dropzone strong {
+  line-height: 1.2;
+}
+
+@media (max-width: 1100px) {
+  .pv-mobile-hero {
+    gap: 14px;
+    padding-top: 18px;
+  }
+
+  .pv-mobile-hero-top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+  }
+
+  .pv-mobile-hero-top .pv-logo {
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+
+  .pv-mobile-hero-top .pv-action {
+    grid-column: 3;
+    justify-self: end;
+    min-width: 74px;
+    min-height: 42px;
+    border-radius: 13px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .pv-mobile-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-mobile-actions .pv-action {
+    min-height: 58px;
+  }
+
+  .pv-code-toolbar,
+  .section-title-row {
+    top: 16px;
+  }
+
+  .pv-line-numbers,
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    margin-top: 72px;
+  }
+
+  .pv-bottom-paste button {
+    display: grid;
+    place-items: center;
+    min-width: 42px;
+    min-height: 42px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #0f172a;
+  }
+
+  .theme-dark .pv-bottom-paste button {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8f3ff;
+  }
+
+  .pv-bottom-paste button:last-child {
+    border-color: transparent;
+    background: #d9efff;
+    color: #0f172a;
+  }
+}
+
+@media (max-width: 700px) {
+  .pv-mobile-hero .pv-logo {
+    max-width: 154px;
+  }
+
+  .pv-clipboard-name-row h1,
+  .pv-clipboard-name-row input {
+    font-size: clamp(22px, 7.6vw, 31px);
+  }
+
+  .pv-mobile-meta {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .pv-code-surface {
+    min-height: 520px;
+  }
+
+  .pv-line-numbers,
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    margin-top: 76px;
+  }
+
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    padding-right: 8px;
+  }
+
+  .pv-landing-dropzone {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .pv-landing-dropzone > svg {
+    width: 32px;
+    height: 32px;
+    padding: 8px;
   }
 }

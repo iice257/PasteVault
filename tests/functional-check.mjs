@@ -59,7 +59,7 @@ await page.getByRole("button", { name: "History" }).click();
 await page.getByPlaceholder("Search history").fill(largeMarker);
 await page.locator(".pv-history-row").first().waitFor();
 
-await page.getByRole("button", { name: "Top bar more actions" }).click();
+await page.getByRole("button", { name: "Top bar options" }).click();
 await page.getByRole("menuitem", { name: "Password" }).click();
 await page.getByPlaceholder("8+ characters").fill(password);
 await page.getByPlaceholder("Repeat password").fill(password);

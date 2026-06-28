@@ -1,7 +1,7 @@
 {
   "name": "PasteVault",
   "short_name": "PasteVault",
-  "description": "A local-first clipboard vault with optional encrypted cloud sync.",
+  "description": "A local-first clipboard vault with optional encrypted hosted sync.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

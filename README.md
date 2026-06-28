@@ -26,6 +26,14 @@ npm start
 
 Then open `http://localhost:4000`.
 
+For port 1200, run:
+
+```powershell
+npm run start:1200
+```
+
+Then open `http://localhost:1200`.
+
 ```powershell
 npm test
 npm run functional:check

@@ -11,6 +11,7 @@ import {
   Lock,
   PanelLeft,
   MoreHorizontal,
+  Pencil,
   Pin,
   Search,
   Settings,
@@ -18,7 +19,6 @@ import {
   Share2,
   Star,
   Upload,
-  UserCircle2,
   Trash2,
   Zap,
   X
@@ -113,6 +113,10 @@ function clipboardTitle(id) {
   return id.length > 15 ? `${id.slice(0, 12)}...` : id;
 }
 
+function clipboardDefaultName(id) {
+  return `Clipboard ${clipboardTitle(id)}`;
+}
+
 function shortFormat(format) {
   if (format === "Plain text") return "TXT";
   if (format === "JavaScript") return "JS";
@@ -171,6 +175,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailsTab, setDetailsTab] = useState("details");
   const [importing, setImporting] = useState(false);
+  const [clipboardName, setClipboardName] = useState(() => {
+    try {
+      return localStorage.getItem(`pastevault:name:${clipboardId}`) || clipboardDefaultName(clipboardId);
+    } catch {
+      return clipboardDefaultName(clipboardId);
+    }
+  });
+  const [editingClipboardName, setEditingClipboardName] = useState(false);
 
   const selectedClip = useMemo(
     () => clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null,
@@ -335,7 +347,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         detectedAt: nowIso()
       });
       setSyncStatus("Conflict: remote version changed");
-      setError("This vault changed on another device before cloud sync finished. Your local draft is preserved.");
+      setError("This vault changed on another device before hosted sync finished. Your local draft is preserved.");
       preserveCurrentDraft();
       showToast("Remote conflict detected. Review before overwriting.", "error");
       return;
@@ -442,27 +454,29 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         sessionId: sessionIdRef.current
       });
 
-      if (nextProtection) {
-        void pushRemoteRecord(clipboardId, savedRecord, { baseVersion, force: options.force })
-          .then(() => {
-            setCloudReady(true);
-            setSyncStatus("Synced to cloud");
-          })
-          .catch((remoteError) => {
-            setCloudReady(false);
-            handleRemoteSaveError(remoteError, baseVersion);
-          });
+      const remoteSave = nextProtection
+        ? pushRemoteRecord(clipboardId, savedRecord, { baseVersion, force: options.force })
+        : buildLinkSyncRecord(clipboardId, nextPayload, metadata)
+          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion, force: options.force }));
+      const handleRemoteSaved = () => {
+        setCloudReady(true);
+        setSyncStatus("Hosted sync saved");
+      };
+      const handleRemoteFailed = (remoteError) => {
+        setCloudReady(false);
+        handleRemoteSaveError(remoteError, baseVersion);
+      };
+
+      if (options.awaitRemote) {
+        try {
+          await remoteSave;
+          handleRemoteSaved();
+        } catch (remoteError) {
+          handleRemoteFailed(remoteError);
+          return false;
+        }
       } else {
-        void buildLinkSyncRecord(clipboardId, nextPayload, metadata)
-          .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion, force: options.force }))
-          .then(() => {
-            setCloudReady(true);
-            setSyncStatus("Synced to cloud");
-          })
-          .catch((remoteError) => {
-            setCloudReady(false);
-            handleRemoteSaveError(remoteError, baseVersion);
-          });
+        void remoteSave.then(handleRemoteSaved).catch(handleRemoteFailed);
       }
       setStorageUsage(storageUsageBytes());
       return true;
@@ -555,11 +569,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         const localRecord = await remoteRecordToLocalRecord(remote);
         saveRecord(clipboardId, localRecord);
         if (!active) return;
-        applyRecordToState(localRecord, localRecord.protection ? "Cloud locked" : "Cloud synced");
+        applyRecordToState(localRecord, localRecord.protection ? "Hosted sync locked" : "Hosted sync loaded");
       } catch {
         if (active) {
           setCloudReady(false);
-          setSyncStatus("Saved locally - cloud unavailable");
+          setSyncStatus("Saved locally - hosted sync unavailable");
         }
       }
     }
@@ -924,15 +938,41 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [handleSave]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(`pastevault:name:${clipboardId}`, clipboardName || clipboardDefaultName(clipboardId));
+    } catch {
+      // Clipboard names are local UI labels. The clipboard ID remains the durable key.
+    }
+  }, [clipboardId, clipboardName]);
+
   const handleCopyLink = useCallback(async () => {
     try {
+      if (!locked && draftContent.trim()) {
+        setSyncStatus("Saving link...");
+        const didSync = await handleSave({ silent: true, awaitRemote: true });
+        if (!didSync) {
+          showToast("Save before sharing this link", "error");
+          return;
+        }
+      }
       await copyText(`${window.location.origin}/clip/${encodeURIComponent(clipboardId)}`);
-      showToast(cloudReady ? "Cloud share link copied" : "Local link copied - cloud sync is not ready", cloudReady ? "success" : "error");
+      showToast(draftContent.trim() ? "Synced link copied" : "Clipboard link copied");
     } catch {
       setError("Could not copy the clipboard link.");
       showToast("Could not copy the clipboard link", "error");
     }
-  }, [clipboardId, cloudReady, showToast]);
+  }, [clipboardId, draftContent, handleSave, locked, showToast]);
+
+  const handleCopyId = useCallback(async () => {
+    try {
+      await copyText(clipboardId);
+      showToast("Clipboard ID copied");
+    } catch {
+      setError("Could not copy the clipboard ID.");
+      showToast("Could not copy the clipboard ID", "error");
+    }
+  }, [clipboardId, showToast]);
 
   const handleCopy = useCallback(async (value = draftContent) => {
     try {
@@ -1175,7 +1215,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       void pushRemoteRecord(clipboardId, protectedRecord.record, { baseVersion: draftBaseVersion })
         .then(() => {
           setCloudReady(true);
-          setSyncStatus("Synced to cloud");
+          setSyncStatus("Hosted sync saved");
         })
         .catch((remoteError) => {
           setCloudReady(false);
@@ -1239,7 +1279,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       .then((syncRecord) => pushRemoteRecord(clipboardId, syncRecord, { baseVersion: draftBaseVersion }))
       .then(() => {
         setCloudReady(true);
-        setSyncStatus("Synced to cloud");
+        setSyncStatus("Hosted sync saved");
       })
       .catch((remoteError) => {
         setCloudReady(false);
@@ -1334,17 +1374,26 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         storageUsage={storageUsage}
         onImport={() => fileRef.current?.click()}
         onExport={() => exportClipboard(clipboardId, payload)}
-        onAccount={() => showToast("Sign in for cloud sync is not configured yet")}
-      />
+        onStorageInfo={() => showToast(cloudReady ? "Encrypted hosted sync is connected" : "Saved locally on this device")}
+        />
       <main className={`pv-dashboard-stage pv-section-${activeSection}`}>
         <section className="pv-mobile-hero" aria-label="Clipboard summary">
-          <AppLogo />
-          <h1>{clipboardTitle(clipboardId)}</h1>
+          <div className="pv-mobile-hero-top">
+            <AppLogo />
+            <ThemeToggle theme={theme} toggleTheme={handleThemeToggle} />
+          </div>
+          <ClipboardIdentity
+            clipboardId={clipboardId}
+            name={clipboardName}
+            editing={editingClipboardName}
+            onEditingChange={setEditingClipboardName}
+            onNameChange={setClipboardName}
+            onCopyId={handleCopyId}
+          />
           <MetadataRow compact bytes={stats.bytes} characters={stats.characters} lines={stats.lines} format={format} passwordLabel={protection ? "Password enabled" : "Password optional"} />
           <div className="pv-mobile-actions">
             <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
             <ActionButton icon={Lock} onClick={() => setPasswordOpen(true)}>Password</ActionButton>
-            <ThemeToggle theme={theme} toggleTheme={handleThemeToggle} />
           </div>
           <nav className="pv-mobile-section-tabs" aria-label="Clipboard sections">
             {[
@@ -1391,7 +1440,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
               <>
                 <div className={activeSection === "editor" ? "pv-mobile-section is-active" : "pv-mobile-section"} data-section="editor">
                   <ClipboardEditor
-                    clipboardId={clipboardTitle(clipboardId)}
+                    clipboardId={clipboardName}
                     title={draftTitle}
                     content={draftContent}
                     format={format}
@@ -1441,7 +1490,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
             {!initialHistory && activeSection === "tools" && (
               <ToolsPanel
-                clipboardId={clipboardTitle(clipboardId)}
+                clipboardId={clipboardName}
                 storageUsage={storageUsage}
                 onPaste={handlePasteFromClipboard}
                 onImport={() => fileRef.current?.click()}
@@ -1517,6 +1566,40 @@ function PreservedDraftNotice({ draft, onRestore, onDismiss }) {
   );
 }
 
+function ClipboardIdentity({ clipboardId, name, editing, onEditingChange, onNameChange, onCopyId }) {
+  const fallbackName = clipboardDefaultName(clipboardId);
+
+  return (
+    <div className="pv-clipboard-identity">
+      <div className="pv-clipboard-name-row">
+        {editing ? (
+          <input
+            value={name}
+            aria-label="Clipboard name"
+            maxLength={42}
+            autoFocus
+            onChange={(event) => onNameChange(event.target.value)}
+            onBlur={() => onEditingChange(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === "Escape") {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        ) : (
+          <h1>{name.trim() || fallbackName}</h1>
+        )}
+        <button type="button" aria-label="Edit clipboard name" onClick={() => onEditingChange(true)}>
+          <Pencil size={17} />
+        </button>
+      </div>
+      <button className="pv-clipboard-id-pill" type="button" onClick={onCopyId} aria-label="Copy clipboard ID">
+        ID: {clipboardId}
+      </button>
+    </div>
+  );
+}
+
 function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
   const shortcutLabel = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "Cmd K" : "Ctrl K";
 
@@ -1535,14 +1618,15 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
           <kbd>{shortcutLabel}</kbd>
         </label>
       ) : (
-        <AppLogo />
+        <AppLogo iconOnly />
       )}
       <div className="pv-dashboard-actions">
         <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="pv-icon-button" type="button" aria-label="Top bar more actions">
+            <button className="pv-icon-button pv-options-button" type="button" aria-label="Top bar options">
               <MoreHorizontal size={22} />
+              <span>Options</span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="pv-menu" align="end">
@@ -1585,8 +1669,7 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
   );
 }
 
-function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, storageUsage, onImport, onExport, onAccount }) {
-  const profile = getStoredProfile();
+function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, storageUsage, onImport, onExport, onStorageInfo }) {
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
   const storageLabel = `${formatBytes(storageUsage)} / ${formatBytes(storageBudgetBytes)}`;
   const sections = [
@@ -1645,34 +1728,19 @@ function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, 
           <i><b style={{ width: `${storagePercent}%` }} /></i>
           <em><Zap size={15} /> Local-first</em>
         </div>
-        <button className="pv-account-panel" type="button" onClick={onAccount} aria-label={profile ? "Open user profile" : "Sign in for cloud sync"}>
+        <button className="pv-account-panel" type="button" onClick={onStorageInfo} aria-label="Local storage and hosted sync status">
           <span className="pv-account-avatar" aria-hidden="true">
-            {profile?.avatar ? <img src={profile.avatar} alt="" /> : profile?.name ? profile.name.slice(0, 1).toUpperCase() : <UserCircle2 size={22} />}
+            <Cloud size={22} />
           </span>
           <span className="pv-account-copy">
-            <strong>{profile?.name ?? "Sign in for cloud sync"}</strong>
-            <small>{profile?.email ?? "Cloud sync is optional and not configured yet"}</small>
+            <strong>No account storage</strong>
+            <small>Local now; encrypted hosted sync when configured</small>
           </span>
           <Cloud size={17} />
         </button>
       </SidebarFooter>
     </Sidebar>
   );
-}
-
-function getStoredProfile() {
-  try {
-    const rawProfile = window.localStorage.getItem("pastevault-user-profile");
-    const profile = rawProfile ? JSON.parse(rawProfile) : null;
-    if (!profile || typeof profile !== "object") return null;
-    return {
-      avatar: typeof profile.avatar === "string" ? profile.avatar : "",
-      email: typeof profile.email === "string" ? profile.email : "",
-      name: typeof profile.name === "string" ? profile.name : ""
-    };
-  } catch {
-    return null;
-  }
 }
 
 function noop() {
@@ -1706,7 +1774,7 @@ function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, p
             <div><dt>Characters</dt><dd>{stats.characters.toLocaleString()}</dd></div>
             <div><dt>Lines</dt><dd>{stats.lines.toLocaleString()}</dd></div>
             <div><dt>ID</dt><dd>{selectedClip?.id ?? "draft"}</dd></div>
-            <div><dt>Owner</dt><dd><span className="pv-owner-pill">You</span></dd></div>
+            <div><dt>Workspace</dt><dd><span className="pv-owner-pill">Link-based</span></dd></div>
           </dl>
           <TagEditor clip={selectedClip} clips={clips} replaceClips={replaceClips} />
           <div className="pv-inspector-card">
@@ -1779,7 +1847,7 @@ function HistoryTable({ clipboardId, clips, selectedId, isProtected = false, sea
             <span className="pv-history-secure" aria-label={isProtected ? "Password protected vault" : "Local clipboard"} title={isProtected ? "Password protected vault" : "Local clipboard"}>
               {isProtected ? <Lock size={15} /> : <ShieldCheck size={15} />}
             </span>
-            <span className="pv-owner-pill">{clip.starred ? "Team" : "You"}</span>
+            <span className="pv-owner-pill">{clip.starred ? "Starred" : "Local"}</span>
             <span className="pv-history-menu">
               <button
                 type="button"
@@ -1846,7 +1914,7 @@ function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, on
         <span>Storage</span>
         <strong>{formatBytes(storageUsage)} / {formatBytes(storageBudgetBytes)}</strong>
         <i><b style={{ width: `${storagePercent}%` }} /></i>
-        <p>Local-first storage. Cloud sync works only when hosted storage is configured.</p>
+        <p>Local-first storage. Encrypted hosted sync works only when storage is configured.</p>
       </div>
     </section>
   );

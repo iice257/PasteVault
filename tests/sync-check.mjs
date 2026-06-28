@@ -108,6 +108,26 @@ const contextB = await makeContext(browser);
 const pageA = await contextA.newPage();
 const pageB = await contextB.newPage();
 
+const shareBoardId = `share-${Date.now()}`;
+const shareContent = `share-link-${shareBoardId}`;
+const shareContextA = await makeContext(browser);
+const sharePageA = await shareContextA.newPage();
+await sharePageA.goto(`${baseUrl}/clip/${shareBoardId}`, { waitUntil: "networkidle" });
+await sharePageA.locator(".vault-theme.theme-light").waitFor();
+await sharePageA.locator(".section-title-row .select-trigger").click();
+await sharePageA.getByRole("menuitem", { name: "Plain text" }).click();
+await sharePageA.getByLabel("Clipboard content").fill(shareContent);
+await sharePageA.getByRole("button", { name: "Top bar options" }).click();
+await sharePageA.getByRole("menuitem", { name: "Copy link" }).click();
+await sharePageA.locator(".pv-toast").getByText(/synced link copied/i).waitFor({ timeout: 10000 });
+
+const shareContextB = await makeContext(browser);
+const sharePageB = await shareContextB.newPage();
+await sharePageB.goto(`${baseUrl}/clip/${shareBoardId}`, { waitUntil: "networkidle" });
+await waitForEditorValue(sharePageB, shareContent, "copied link content on clean device");
+await shareContextA.close();
+await shareContextB.close();
+
 for (const page of [pageA, pageB]) {
   page.on("pageerror", (error) => {
     throw error;
