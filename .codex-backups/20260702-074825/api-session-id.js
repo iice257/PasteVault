@@ -4,6 +4,7 @@ import {
   isIsoDateString,
   isJsonRequest,
   isPlainObject,
+  isShortText,
   isShortToken,
   json,
   kvCommand,

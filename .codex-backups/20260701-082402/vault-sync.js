@@ -5,9 +5,6 @@ export const vaultMessageTypes = {
 
 export const remoteSessionPollMs = 2500;
 export const remoteContentPollMs = 3000;
-export const sessionViewModes = ["editor", "history", "details", "tools"];
-export const sessionDetailTabs = ["details", "preview"];
-export const sessionFormats = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH", "CSV"];
 
 const deviceIdKey = "pastevault:device-id";
 
@@ -63,20 +60,15 @@ export function getDeviceId() {
 export function normalizeSessionState(value, vaultId) {
   if (!value || typeof value !== "object") return null;
   if (value.vaultId !== vaultId) return null;
-  const editorSettings = value.editorSettings && typeof value.editorSettings === "object" ? {
-    ...(sessionFormats.includes(value.editorSettings.format) ? { format: value.editorSettings.format } : {}),
-    ...(typeof value.editorSettings.sidebarCollapsed === "boolean" ? { sidebarCollapsed: value.editorSettings.sidebarCollapsed } : {}),
-    ...(typeof value.editorSettings.autosaveEnabled === "boolean" ? { autosaveEnabled: value.editorSettings.autosaveEnabled } : {})
-  } : {};
   return {
     vaultId,
     sessionId: typeof value.sessionId === "string" ? value.sessionId : "",
     deviceId: typeof value.deviceId === "string" ? value.deviceId : "",
     theme: value.theme === "dark" || value.theme === "light" ? value.theme : undefined,
-    viewMode: sessionViewModes.includes(value.viewMode) ? value.viewMode : undefined,
-    selectedTab: sessionDetailTabs.includes(value.selectedTab) ? value.selectedTab : undefined,
+    viewMode: typeof value.viewMode === "string" ? value.viewMode : undefined,
+    selectedTab: typeof value.selectedTab === "string" ? value.selectedTab : undefined,
     isLocked: typeof value.isLocked === "boolean" ? value.isLocked : undefined,
-    editorSettings,
+    editorSettings: value.editorSettings && typeof value.editorSettings === "object" ? value.editorSettings : {},
     updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString()
   };
 }

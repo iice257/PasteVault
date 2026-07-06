@@ -263,37 +263,4 @@ if (badSessionSettings.status !== 400) {
   throw new Error(`Expected invalid editor settings rejection, received ${badSessionSettings.status}.`);
 }
 
-const badSessionView = await invokeSession({
-  method: "PUT",
-  id,
-  body: JSON.stringify({ ...sessionState, viewMode: "unknown-panel" })
-});
-if (badSessionView.status !== 400) {
-  throw new Error(`Expected invalid session view rejection, received ${badSessionView.status}.`);
-}
-
-const badSessionTab = await invokeSession({
-  method: "PUT",
-  id,
-  body: JSON.stringify({ ...sessionState, selectedTab: "danger" })
-});
-if (badSessionTab.status !== 400) {
-  throw new Error(`Expected invalid session tab rejection, received ${badSessionTab.status}.`);
-}
-
-const badSessionFormat = await invokeSession({
-  method: "PUT",
-  id,
-  body: JSON.stringify({
-    ...sessionState,
-    editorSettings: {
-      ...sessionState.editorSettings,
-      format: "Ruby"
-    }
-  })
-});
-if (badSessionFormat.status !== 400) {
-  throw new Error(`Expected invalid session format rejection, received ${badSessionFormat.status}.`);
-}
-
 console.log("API checks passed.");

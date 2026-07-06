@@ -4,6 +4,7 @@ import {
   isIsoDateString,
   isJsonRequest,
   isPlainObject,
+  isShortText,
   isShortToken,
   json,
   kvCommand,
@@ -14,9 +15,6 @@ const maxBodyBytes = 16 * 1024;
 const sessionTtlMs = 12 * 60 * 60 * 1000;
 const memoryStore = new Map();
 const rateLimit = createRateLimiter((req) => (req.method === "GET" ? 120 : 80));
-const validViewModes = new Set(["editor", "history", "details", "tools"]);
-const validDetailTabs = new Set(["details", "preview"]);
-const validFormats = new Set(["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH", "CSV"]);
 
 function canUseMemoryStore() {
   return process.env.VERCEL !== "1";
@@ -67,8 +65,8 @@ function isValidSession(state, id) {
   if (state.vaultId !== id) return false;
   if (!isShortToken(state.sessionId) || !isShortToken(state.deviceId)) return false;
   if (state.theme !== undefined && state.theme !== "light" && state.theme !== "dark") return false;
-  if (state.viewMode !== undefined && !validViewModes.has(state.viewMode)) return false;
-  if (state.selectedTab !== undefined && !validDetailTabs.has(state.selectedTab)) return false;
+  if (state.viewMode !== undefined && !isShortText(state.viewMode, 40)) return false;
+  if (state.selectedTab !== undefined && !isShortText(state.selectedTab, 40)) return false;
   if (state.isLocked !== undefined && typeof state.isLocked !== "boolean") return false;
   if (state.editorSettings !== undefined && !isValidEditorSettings(state.editorSettings)) return false;
   if (!isIsoDateString(state.updatedAt)) return false;
@@ -78,7 +76,7 @@ function isValidSession(state, id) {
 function isValidEditorSettings(settings) {
   if (!isPlainObject(settings)) return false;
   return Object.entries(settings).every(([key, value]) => {
-    if (key === "format") return validFormats.has(value);
+    if (key === "format") return isShortText(value, 40);
     if (key === "sidebarCollapsed") return typeof value === "boolean";
     if (key === "autosaveEnabled") return typeof value === "boolean";
     return false;
