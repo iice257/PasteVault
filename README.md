@@ -1,65 +1,44 @@
-# PasteVault
+# PasteVault — stop texting yourself links
 
-A fast local-first clipboard for saving text, code, URLs, and JSON without sending messages to yourself. Cross-device sharing requires hosted storage.
+Paste once, open anywhere. A private clipboard for text, code, links and JSON that moves between your devices, encrypted before it leaves the browser.
 
-## What It Does
+![PasteVault](docs/media/hero.png)
 
-- Uses a clipboard id in the URL as the primary workspace context.
-- Opens at `/new` without creating an id; the first paste or valid import creates the clipboard.
-- Starts every new clipboard empty, with no seeded demo clips.
-- Keeps clips until you delete them; clipboard links do not expire by default.
-- Supports optional password-protected local clipboards with encrypted stored payloads.
-- Copies the latest or selected clip in one tap.
-- Reads from the system clipboard when the browser grants permission.
-- Shares a selected clip or draft through a clipboard link.
-- Imports text/code files and PasteVault exports with per-file validation and partial-batch warnings.
-- Exports full history as JSON.
+No account. Your clipboard is a link. Lock it with a password and even the server only ever sees ciphertext.
 
-## Run
+**[Open PasteVault →](https://pastevault-lime.vercel.app)** · React · Vite · Web Crypto · Upstash Redis
 
-Install dependencies and run Vite:
+---
 
-```powershell
+## What it does
+
+- **One link, one clipboard.** The first paste creates it; clips stay until you delete them
+- **Copy in one tap**, read straight from the system clipboard, share a single clip by link
+- **Import and export** text/code files and full JSON history, with per-file validation
+- **Installable** as a PWA
+
+## How the encryption works
+
+Encryption happens in the browser with **AES-256-GCM**, before anything is synced.
+
+- **Unlocked clipboards** are encrypted for sync with a key derived from the clipboard link id, so only someone with the link can read them.
+- **Password-protected clipboards** derive the key from your password with **PBKDF2 (210,000 iterations)** and stay encrypted on the device too. The password never leaves the device.
+- **Sync** stores the encrypted blob in Upstash Redis / Vercel KV. The API rejects anything that isn't an encrypted payload, and caps requests at 1 MB.
+
+The server can route your data but can't read it.
+
+## Run it
+
+```bash
 npm install
-npm start
-```
-
-Then open `http://localhost:4000`.
-
-For port 1200, run:
-
-```powershell
-npm run start:1200
-```
-
-Then open `http://localhost:1200`.
-
-```powershell
+npm start          # http://localhost:4000
 npm test
-npm run functional:check
-npm run visual:check
 ```
 
-## Hosted Sync
+For cross-device sync, set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_URL` + `KV_REST_API_TOKEN`). Without them it runs fully local.
 
-PasteVault works locally without accounts. To enable cross-device encrypted blob sync on Vercel, configure either Upstash Redis REST or Vercel KV-compatible REST variables:
+## Built with
 
-```powershell
-UPSTASH_REDIS_REST_URL=...
-UPSTASH_REDIS_REST_TOKEN=...
-```
+React, Vite, Tailwind CSS, Web Crypto API, Vercel Functions, Upstash Redis.
 
-or:
-
-```powershell
-KV_REST_API_URL=...
-KV_REST_API_TOKEN=...
-```
-
-The API only accepts encrypted clipboard payloads. Unprotected clipboards are encrypted with the clipboard link id; password-protected clipboards are encrypted with the user password before upload.
-
-## Important Limits
-
-This first version has no accounts. Clipboard ids isolate local browser workspaces, and protected clipboards encrypt their local payload before storage. Cross-device sync is available once the hosted KV/Redis REST environment variables are set.
-
-Very large clips are supported locally. Hosted sync currently rejects encrypted payload requests above 1 MB to prevent abuse.
+MIT © [Kingsley Aremu](https://github.com/iice257)
