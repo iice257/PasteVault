@@ -14,8 +14,14 @@
 - Add smoke test.
 - Add visual and functional Playwright checks.
 
+- v3: storage failure reasons in logs plus `GET /api/health`.
+- v3: conditional polling (`304`), instant catch-up on focus and reconnect, idle backoff.
+- v3: Pair device dialog with local QR, one-time 6-character codes, in-app camera scanner and typed fallback.
+- v3: dev server serves `/api` locally so sync and pairing work without Redis.
+
 ## Next
 
-- Add QR code generation without external services.
-- Provision hosted KV/Redis environment variables in Vercel.
+- Provision a working Upstash Redis database for production and verify `/api/health` reports `ok`.
 - Add conflict UI for simultaneous cross-device edits.
+- Small client-side encrypted images and files (5-10 MB cap).
+- Push-based sync (SSE or a realtime service) if polling latency becomes a problem.

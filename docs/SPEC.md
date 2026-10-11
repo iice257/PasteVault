@@ -18,7 +18,7 @@ PasteVault is a no-account, link-based online clipboard for moving text, code, c
 - User accounts, profiles, teams, or billing.
 - Plaintext server-side clipboard storage.
 - Social sharing feeds or collaboration comments.
-- File/image storage as a core v1 capability.
+- File/image storage as a core v1 capability (planned as small client-side encrypted files after v3).
 - Server-side search over clipboard content.
 
 ## Routing
@@ -131,9 +131,11 @@ Returns the encrypted clipboard record for a valid id.
 Responses:
 
 - `200` with encrypted record.
+- `304` with no body when the `X-PasteVault-Known-Version` header is at least the stored content version.
 - `400` for invalid id.
 - `404` when not found.
 - `429` when rate limited.
+- `503` when hosted storage is unavailable.
 
 ### `PUT /api/clip/:id`
 
@@ -146,6 +148,35 @@ Responses:
 - `413` when body exceeds the configured maximum.
 - `429` when rate limited.
 
+### `GET /api/health`
+
+Reports storage reachability without exposing connection details.
+
+- `200 { "ok": true, "storage": "ok", "latencyMs": n }` when Redis answers.
+- `200 { "ok": false, "storage": "not-configured" }` when no credentials are set.
+- `503 { "ok": false, "storage": "unauthorized" | "rejected" | "timeout" | "unreachable" }` when the call fails. The underlying status and body are logged server-side only.
+
+### `POST /api/code`
+
+Body `{ "clipboardId": "<id>" }`. Creates a single-use pairing code that resolves to that clipboard id.
+
+- `200 { "code": "ABC234", "expiresAt": "<iso>" }`. Codes are 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and expire after 600 seconds.
+- `400` for an invalid clipboard id, `415` for a non-JSON body, `429` when rate limited, `503` when storage is unavailable.
+
+### `GET /api/code/:code`
+
+Resolves and burns a pairing code (`GETDEL`), case-insensitively.
+
+- `200 { "clipboardId": "<id>" }`.
+- `400` for a malformed code, `404` when unknown, expired or already used, `429` when rate limited.
+
+## Pairing Flow
+
+1. On a clipboard, **Pair device** saves pending content, then requests a code from `POST /api/code`.
+2. The dialog shows a locally generated QR of `/clip/:id`, the code and a countdown. **New code** issues another.
+3. On the other device, **Join with a code** (landing page) or the **Join** tab accepts a typed code or a scanned QR. A scanned QR containing a clipboard link opens it directly; a code is resolved through `GET /api/code/:code`.
+4. Camera access uses `BarcodeDetector` when available and a lazy-loaded `jsQR` decoder otherwise. The camera stops when scanning ends, the tab changes or the dialog closes. Typing the code always works.
+
 ## Security Requirements
 
 - No account model or auth tokens.
@@ -157,6 +188,9 @@ Responses:
 - Clipboard content should never be rendered through unsafe HTML.
 - Markdown/HTML preview features, if added later, must sanitize output.
 - Error messages must not leak secrets or full payload data.
+- Pairing codes are single use, expire after 10 minutes, avoid look-alike characters and are rate limited per client.
+- A pairing code only reveals the clipboard id, which is already the capability for an unlocked clipboard. Password-protected clipboards still require the password.
+- The camera permission is limited to this origin (`Permissions-Policy: camera=(self)`); QR codes are generated locally with no third-party service.
 
 ## UI Requirements
 
@@ -238,6 +272,9 @@ npm test
 npm run api:check
 npm run functional:check
 npm run interaction:check
+npm run sync:check
+npm run pair:check
+npm run qr:check
 npm run visual:check
 npm audit --audit-level=moderate
 ```

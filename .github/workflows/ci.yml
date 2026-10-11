@@ -37,3 +37,6 @@ jobs:
 
       - name: API checks
         run: npm run api:check
+
+      - name: QR checks
+        run: npm run qr:check

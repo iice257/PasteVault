@@ -62,6 +62,25 @@ try {
   await reuse.getByRole("button", { name: "Stop camera" }).click();
   await reuse.getByLabel("Pairing code").waitFor();
 
+  // Browsers without BarcodeDetector load the jsQR fallback and still start the camera.
+  const legacy = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  legacy.on("pageerror", (error) => {
+    throw error;
+  });
+  await legacy.addInitScript(() => {
+    delete window.BarcodeDetector;
+  });
+  await legacy.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await legacy.getByRole("button", { name: /join with a code/i }).click();
+  const legacyDialog = legacy.getByRole("dialog", { name: "Pair a device" });
+  await legacyDialog.getByRole("button", { name: "Scan QR" }).click();
+  await legacyDialog.locator(".pv-pair-scanner video").waitFor();
+  await legacy.waitForTimeout(800);
+  if (await legacyDialog.locator(".pv-pair-error").count()) {
+    throw new Error("Camera fallback should not report an error.");
+  }
+  await legacyDialog.getByRole("button", { name: "Stop camera" }).click();
+
   // Escape closes the dialog.
   await deviceB.keyboard.press("Escape");
   await reuse.waitFor({ state: "detached" });
