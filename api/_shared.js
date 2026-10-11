@@ -84,9 +84,10 @@ export function isJsonRequest(req) {
   return String(req.headers["content-type"] ?? "").toLowerCase().includes("application/json");
 }
 
-export function storageError(message = "Storage temporarily unavailable.") {
+export function storageError(message = "Storage temporarily unavailable.", reason = "unavailable") {
   return Object.assign(new Error(message), {
     statusCode: 503,
+    reason,
     publicMessage: "Storage temporarily unavailable."
   });
 }
@@ -107,12 +108,18 @@ export async function kvCommand(command) {
       signal: controller.signal
     });
     if (!response.ok) {
-      throw storageError();
+      const detail = await response.text().catch(() => "");
+      console.error(`[pastevault] storage ${command[0]} failed: HTTP ${response.status} ${detail.slice(0, 200)}`);
+      throw storageError(undefined, response.status === 401 || response.status === 403 ? "unauthorized" : "rejected");
     }
     return response.json();
   } catch (error) {
     if (error.statusCode) throw error;
-    throw storageError(error.name === "AbortError" ? "Storage request timed out." : undefined);
+    console.error(`[pastevault] storage ${command[0]} failed: ${error.name} ${error.message}`);
+    throw storageError(
+      error.name === "AbortError" ? "Storage request timed out." : undefined,
+      error.name === "AbortError" ? "timeout" : "unreachable"
+    );
   } finally {
     clearTimeout(timeout);
   }

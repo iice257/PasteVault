@@ -297,3 +297,15 @@ if (badSessionFormat.status !== 400) {
 }
 
 console.log("API checks passed.");
+
+const { default: healthHandler } = await import("../api/health.js");
+const healthRes = createRes();
+await healthHandler({ method: "GET", headers: {}, query: {} }, healthRes);
+const health = JSON.parse(healthRes.body);
+if (typeof health.ok !== "boolean" || !health.storage) {
+  throw new Error("health endpoint must report ok and storage state");
+}
+if (JSON.stringify(health).match(/https?:|token/i)) {
+  throw new Error("health endpoint must not leak connection details");
+}
+console.log("api health check passed");
