@@ -54,7 +54,7 @@ await landingPage.close();
 
 for (const theme of ["light", "dark"]) {
   const page = await createPage(theme, { width: 1920, height: 1080 });
-  await page.goto(`${baseUrl}/clip/visual-check-board?visual=${theme}-${Date.now()}`, { waitUntil: "networkidle" });
+  await page.goto(`${baseUrl}/clip/visual-check-${theme}-${Date.now()}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: join(outputDir, `${theme}.png`), fullPage: false });
 
   const rootClass = await page.locator(".pv-dashboard").getAttribute("class");
@@ -127,7 +127,7 @@ for (const theme of ["light", "dark"]) {
 
 for (const theme of ["light", "dark"]) {
   const page = await createPage(theme, { width: 390, height: 844 });
-  await page.goto(`${baseUrl}/clip/visual-check-board?visual=${theme}-mobile-${Date.now()}`, { waitUntil: "networkidle" });
+  await page.goto(`${baseUrl}/clip/visual-check-${theme}-mobile-${Date.now()}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: join(outputDir, `${theme}-mobile.png`), fullPage: false });
 
   const rootClass = await page.locator(".pv-dashboard").getAttribute("class");
@@ -141,8 +141,8 @@ for (const theme of ["light", "dark"]) {
   }
 
   const mobileActions = await page.locator(".pv-mobile-actions button").count();
-  if (mobileActions !== 2) {
-    throw new Error(`Expected two mobile clipboard actions in ${theme} mode, found ${mobileActions}.`);
+  if (mobileActions !== 3) {
+    throw new Error(`Expected three mobile clipboard actions (copy link, pair, password) in ${theme} mode, found ${mobileActions}.`);
   }
   const mobileThemeToggle = await page.locator(".pv-mobile-hero-top").getByRole("button", { name: "Theme toggle" }).count();
   if (mobileThemeToggle !== 1) {

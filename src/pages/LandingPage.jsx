@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, Clipboard, DatabaseZap, KeyRound, Link2, Mouse } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clipboard, DatabaseZap, KeyRound, Link2, Mouse, QrCode } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
+import { PairDialog } from "../components/pastevault/PairDialog";
 import {
   appVersion,
-  clipboardIdPattern,
   createClip,
   createPlainRecord,
   createVaultId,
@@ -16,6 +16,7 @@ import {
   readImportFile,
   saveRecord
 } from "../features/clipboard/clipboard-store";
+import { parseClipboardTarget } from "../features/clipboard/pairing";
 
 function detectFormat(value) {
   const trimmed = value.trim();
@@ -24,34 +25,13 @@ function detectFormat(value) {
   return "Plain text";
 }
 
-function parseClipboardTarget(value) {
-  try {
-    const parsed = new URL(value);
-    const match = parsed.pathname.match(/^\/clip\/([^/]+)$/);
-    if (match) {
-      const id = decodeURIComponent(match[1]).trim();
-      return clipboardIdPattern.test(id) ? id : "";
-    }
-  } catch {
-    // Not a URL; explicit route-like input and id-like strings are handled below.
-  }
-
-  const pathMatch = value.match(/^\/?clip\/([a-zA-Z0-9_-]{3,80})$/);
-  if (pathMatch) return pathMatch[1];
-
-  if (/^(\d{5}|pv_[a-zA-Z0-9_-]{16,75}|clip_[a-zA-Z0-9_-]{3,75}|[a-f0-9]{8,16})$/i.test(value) && clipboardIdPattern.test(value)) {
-    return value;
-  }
-
-  return "";
-}
-
 export default function LandingPage() {
   const fileRef = useRef(null);
   const [entry, setEntry] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
   const [heroDragging, setHeroDragging] = useState(false);
+  const [pairOpen, setPairOpen] = useState(false);
 
   const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0) => {
     const clipboardId = createVaultId();
@@ -186,7 +166,13 @@ export default function LandingPage() {
       >
         <AppLogo />
         <h1 id="landing-title">The fastest way to move <span className="pv-landing-emphasis">stuff</span> between devices</h1>
-        <p>Paste once. Open anywhere.</p>
+        <p>
+          Paste once. Open anywhere.
+          <button className="pv-join-link" type="button" onClick={() => setPairOpen(true)}>
+            <QrCode size={16} />
+            Join with a code
+          </button>
+        </p>
         <form
           className="landing-input-shell pv-open-shell"
           onSubmit={(event) => {
@@ -278,6 +264,7 @@ export default function LandingPage() {
         </p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
       </footer>
+      <PairDialog open={pairOpen} onClose={() => setPairOpen(false)} />
     </div>
   );
 }

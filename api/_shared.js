@@ -1,6 +1,12 @@
 export const idPattern = /^[a-zA-Z0-9_-]{3,80}$/;
 export const storageTimeoutMs = 4500;
 
+// Pairing codes skip look-alike characters (0/O, 1/I/L) so they are easy to read and type.
+export const codeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const codeLength = 6;
+export const codeTtlSeconds = 600;
+export const memoryCodes = new Map();
+
 export function json(res, status, body, headers = {}) {
   res.statusCode = status;
   for (const [key, value] of Object.entries({

@@ -146,7 +146,10 @@ export async function fetchRemoteSessionState(vaultId) {
     headers: { Accept: "application/json" },
     cache: "no-store"
   });
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
   if (!response.ok) throw new Error(`Remote session fetch failed with ${response.status}`);
   return normalizeSessionState(await response.json(), vaultId);
 }

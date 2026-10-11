@@ -574,8 +574,11 @@ export async function fetchRemoteRecord(clipboardId, options = {}) {
     headers,
     cache: "no-store"
   });
-  if (response.status === 404) return null;
-  if (response.status === 304) return remoteNotModified;
+  if (response.status === 404 || response.status === 304) {
+    // Release the unread body so the connection can close.
+    await response.body?.cancel().catch(() => {});
+    return response.status === 404 ? null : remoteNotModified;
+  }
   if (!response.ok) throw new Error(`Remote fetch failed with ${response.status}`);
   return response.json();
 }

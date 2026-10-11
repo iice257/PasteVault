@@ -1,27 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ClipboardPaste,
-  ClipboardList,
   ClipboardCopy,
+  ClipboardList,
+  ClipboardPaste,
   Cloud,
   Download,
   FilePlus2,
   History,
   Link2,
   Lock,
-  PanelLeft,
   MoreHorizontal,
+  PanelLeft,
   Pencil,
   Pin,
+  QrCode,
   Search,
   Settings,
-  ShieldCheck,
   Share2,
+  ShieldCheck,
   Star,
-  Upload,
   Trash2,
-  Zap,
-  X
+  Upload,
+  X,
+  Zap
 } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
@@ -31,6 +32,7 @@ import { CodeBlockEditor } from "../components/pastevault/CodeBlockEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
 import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
+import { PairDialog } from "../components/pastevault/PairDialog";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
 import { RecentHistoryCard } from "../components/pastevault/RecentHistoryCard";
 import { ThemeToggle } from "../components/pastevault/ThemeToggle";
@@ -162,6 +164,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordAcknowledged, setPasswordAcknowledged] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
+  const [pairOpen, setPairOpen] = useState(false);
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
   const [cloudReady, setCloudReady] = useState(false);
@@ -996,6 +999,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     }
   }, [clipboardId, draftContent, handleSave, locked, showToast]);
 
+  // Pairing hands out a link to this clipboard, so make sure the latest content is synced first.
+  const prepareShare = useCallback(async () => {
+    if (locked || !draftContent.trim()) return true;
+    return Boolean(await handleSave({ silent: true, awaitRemote: true }));
+  }, [draftContent, handleSave, locked]);
+
   const handleCopyId = useCallback(async () => {
     try {
       await copyText(clipboardId);
@@ -1391,6 +1400,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         searchRef={activeSection === "history" ? searchRef : undefined}
         onSearchFocus={() => handleSectionChange("history")}
         onCopyLink={handleCopyLink}
+        onPair={() => setPairOpen(true)}
         onPassword={() => setPasswordOpen(true)}
         onPaste={handlePasteFromClipboard}
         onImport={() => fileRef.current?.click()}
@@ -1425,6 +1435,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           <MetadataRow compact bytes={stats.bytes} characters={stats.characters} lines={stats.lines} format={format} passwordLabel={protection ? "Password enabled" : "Password optional"} />
           <div className="pv-mobile-actions">
             <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
+            <ActionButton icon={QrCode} onClick={() => setPairOpen(true)}>Pair</ActionButton>
             <ActionButton icon={Lock} onClick={() => setPasswordOpen(true)}>Password</ActionButton>
           </div>
           <nav className="pv-mobile-section-tabs" aria-label="Clipboard sections">
@@ -1529,6 +1540,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                 onExport={() => exportClipboard(clipboardId, payload)}
                 onPassword={() => setPasswordOpen(true)}
                 onCopyLink={handleCopyLink}
+                onPair={() => setPairOpen(true)}
                 onCopyLatest={handleCopyLatest}
                 onNewClip={handleNewClip}
               />
@@ -1576,6 +1588,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         onEnable={handleSetPassword}
         onRemove={handleRemovePassword}
         onClose={() => setPasswordOpen(false)}
+      />
+      <PairDialog
+        open={pairOpen}
+        clipboardId={clipboardId}
+        prepareShare={prepareShare}
+        onClose={() => setPairOpen(false)}
       />
       <Toast message={toast} tone={toastTone} onClose={() => setToast("")} />
     </div>
@@ -1632,7 +1650,7 @@ function ClipboardIdentity({ clipboardId, name, editing, onEditingChange, onName
   );
 }
 
-function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
+function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPair, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
   const shortcutLabel = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "Cmd K" : "Ctrl K";
 
   return (
@@ -1666,6 +1684,12 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
               <Link2 size={16} />
               Copy link
             </DropdownMenuItem>
+            {onPair && (
+              <DropdownMenuItem onSelect={onPair}>
+                <QrCode size={16} />
+                Pair device
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={onPassword}>
               <Lock size={16} />
               Password
@@ -1923,7 +1947,7 @@ function HistoryTable({ clipboardId, clips, selectedId, isProtected = false, sea
   );
 }
 
-function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onCopyLatest, onNewClip }) {
+function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onPair, onCopyLatest, onNewClip }) {
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
 
   return (
@@ -1939,6 +1963,7 @@ function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, on
         <ActionButton icon={Download} onClick={onExport}>Export board</ActionButton>
         <ActionButton icon={Lock} onClick={onPassword}>Password</ActionButton>
         <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
+        <ActionButton icon={QrCode} onClick={onPair}>Pair device</ActionButton>
         <ActionButton icon={ClipboardCopy} onClick={onCopyLatest}>Copy latest</ActionButton>
         <ActionButton icon={FilePlus2} onClick={onNewClip}>New clip</ActionButton>
       </div>

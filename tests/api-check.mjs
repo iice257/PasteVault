@@ -321,3 +321,47 @@ console.log("api health check passed");
   }
 }
 console.log("api 304 check passed");
+
+{
+  const { default: codeCreate } = await import("../api/code.js");
+  const { default: codeResolve } = await import("../api/code/[code].js");
+  const run = async (fn, options) => {
+    const req = createReq(options);
+    const res = createRes();
+    await fn(req, res);
+    return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null };
+  };
+
+  const pairId = `pair-check-${Date.now()}`;
+  const created = await run(codeCreate, { method: "POST", id: pairId, ip: "10.0.0.1", body: JSON.stringify({ clipboardId: pairId }) });
+  if (created.status !== 200 || !/^[A-HJ-KM-NP-Z2-9]{6}$/.test(created.body.code)) {
+    throw new Error(`Expected a 6-character pairing code, received ${created.status} ${JSON.stringify(created.body)}.`);
+  }
+  const bad = await run(codeCreate, { method: "POST", id: "x", ip: "10.0.0.2", body: JSON.stringify({ clipboardId: "../etc" }) });
+  if (bad.status !== 400) throw new Error("Expected invalid clipboard id to be rejected for pairing.");
+  const wrongMethod = await run(codeCreate, { method: "GET", id: "x", ip: "10.0.0.3" });
+  if (wrongMethod.status !== 405) throw new Error("Expected GET /api/code to be rejected.");
+
+  const resolveReq = async (code, ip) => {
+    const req = createReq({ method: "GET", id: "", ip });
+    req.query = { code };
+    const res = createRes();
+    await codeResolve(req, res);
+    return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null };
+  };
+  const lower = await resolveReq(created.body.code.toLowerCase(), "10.0.0.4");
+  if (lower.status !== 200 || lower.body.clipboardId !== pairId) {
+    throw new Error(`Expected the code to resolve case-insensitively, received ${lower.status}.`);
+  }
+  const reused = await resolveReq(created.body.code, "10.0.0.4");
+  if (reused.status !== 404) throw new Error("Expected pairing codes to be single use.");
+  const malformed = await resolveReq("ab0O1I", "10.0.0.5");
+  if (malformed.status !== 400) throw new Error("Expected malformed pairing codes to be rejected.");
+
+  let limited = 0;
+  for (let i = 0; i < 25; i += 1) {
+    if ((await resolveReq("ZZZZZZ", "10.0.0.6")).status === 429) limited += 1;
+  }
+  if (!limited) throw new Error("Expected pairing code lookups to be rate limited.");
+}
+console.log("api pairing checks passed");
