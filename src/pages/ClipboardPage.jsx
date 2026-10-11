@@ -32,6 +32,15 @@ import { CodeBlockEditor } from "../components/pastevault/CodeBlockEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
 import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
+import { AttachmentPanel } from "../components/pastevault/AttachmentPanel";
+import { normalizeAttachments } from "../features/files/attachments.js";
+import {
+  checkAttachable,
+  deleteRemoteFile,
+  downloadAttachment,
+  saveBytes,
+  uploadAttachment
+} from "../features/files/file-transfer.js";
 import { PairDialog } from "../components/pastevault/PairDialog";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
 import { RecentHistoryCard } from "../components/pastevault/RecentHistoryCard";
@@ -165,6 +174,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordAcknowledged, setPasswordAcknowledged] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
   const [pairOpen, setPairOpen] = useState(false);
+  const [uploads, setUploads] = useState([]);
+  const latestRef = useRef({});
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
   const [cloudReady, setCloudReady] = useState(false);
@@ -809,7 +820,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [clips, publishSessionState]);
 
   const handleSave = useCallback(async (options = {}) => {
-    const validation = validateContent(draftContent, format);
+    // A clip that only carries files has no text to validate.
+    const filesOnly = !draftContent.trim() && (selectedClip?.attachments?.length ?? 0) > 0;
+    const validation = filesOnly ? "" : validateContent(draftContent, format);
     if (validation) {
       setError(validation);
       setSyncStatus("Error");
@@ -999,6 +1012,138 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     }
   }, [clipboardId, draftContent, handleSave, locked, showToast]);
 
+  // --- Encrypted files -------------------------------------------------------
+  // Always read the freshest state after awaits, because uploads take a while.
+  useEffect(() => {
+    latestRef.current = { clips, selectedClip, draftTitle, draftContent, format, hasUnsavedChanges };
+  }, [clips, selectedClip, draftTitle, draftContent, format, hasUnsavedChanges]);
+
+  const updateUpload = useCallback((key, patch) => {
+    setUploads((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  }, []);
+
+  // Applies a change to the selected clip's attachments without losing unsaved text in the editor.
+  const commitAttachments = useCallback(async (change) => {
+    const latest = latestRef.current;
+    const snapshot = {
+      clipId: latest.selectedClip?.id ?? null,
+      title: latest.draftTitle,
+      content: latest.draftContent,
+      format: latest.format,
+      dirty: latest.hasUnsavedChanges
+    };
+    let nextClips;
+    let nextSelectedId;
+    if (latest.selectedClip) {
+      const attachments = normalizeAttachments(change(latest.selectedClip.attachments ?? []));
+      nextClips = latest.clips.map((clip) => (
+        clip.id === latest.selectedClip.id ? { ...clip, attachments, updatedAt: nowIso() } : clip
+      ));
+      nextSelectedId = latest.selectedClip.id;
+    } else {
+      const attachments = normalizeAttachments(change([]));
+      if (!attachments.length) return true;
+      const clip = createClip({ title: attachments[0].name, content: "", format: "Plain text" });
+      nextClips = [{ ...clip, attachments }, ...latest.clips];
+      nextSelectedId = clip.id;
+    }
+    const saved = await replaceClips(nextClips, nextSelectedId, { persist: true, awaitRemote: true, silent: true });
+    if (saved && snapshot.dirty && snapshot.clipId === nextSelectedId) {
+      setDraftTitle(snapshot.title);
+      setDraftContent(snapshot.content);
+      setFormat(snapshot.format);
+    }
+    return saved;
+  }, [replaceClips]);
+
+  const attachFiles = useCallback(async (files) => {
+    if (locked || !files.length) return;
+    const latest = latestRef.current;
+    const pendingInClip = [...(latest.selectedClip?.attachments ?? [])];
+    const pendingInBoard = latest.clips.flatMap((clip) => clip.attachments ?? []);
+    const accepted = [];
+
+    for (const file of files) {
+      const problem = checkAttachable(file, pendingInClip, pendingInBoard);
+      if (problem) {
+        const key = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        setUploads((current) => [...current, { key, name: file.name || "Pasted file", error: problem }]);
+        continue;
+      }
+      pendingInClip.push({ size: file.size });
+      pendingInBoard.push({ size: file.size });
+      accepted.push(file);
+    }
+
+    const finished = [];
+    for (const file of accepted) {
+      const key = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setUploads((current) => [...current, { key, name: file.name || "Pasted file", stage: "encrypting", progress: 0 }]);
+      try {
+        const attachment = await uploadAttachment({
+          clipboardId,
+          file,
+          onStage: (stage, progress) => updateUpload(key, { stage, progress })
+        });
+        finished.push(attachment);
+        setUploads((current) => current.filter((item) => item.key !== key));
+      } catch (error) {
+        updateUpload(key, { error: error.message || "Could not attach this file.", stage: undefined });
+      }
+    }
+
+    if (!finished.length) return;
+    const saved = await commitAttachments((existing) => [...existing, ...finished]);
+    if (saved) {
+      showToast(finished.length === 1 ? "File attached" : `${finished.length} files attached`);
+    } else {
+      finished.forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
+      showToast("Could not save the attachment to this clipboard", "error");
+    }
+  }, [clipboardId, commitAttachments, locked, showToast, updateUpload]);
+
+  const removeAttachment = useCallback(async (attachment) => {
+    const saved = await commitAttachments((existing) => existing.filter((item) => item.id !== attachment.id));
+    if (saved) {
+      deleteRemoteFile(clipboardId, attachment.fileId);
+      showToast("File removed");
+    } else {
+      showToast("Could not remove the file", "error");
+    }
+  }, [clipboardId, commitAttachments, showToast]);
+
+  const downloadAttachmentFile = useCallback(async (attachment) => {
+    try {
+      const bytes = await downloadAttachment({ clipboardId, attachment });
+      saveBytes(bytes, attachment.name);
+    } catch (error) {
+      showToast(error.message || "Could not download this file", "error");
+    }
+  }, [clipboardId, showToast]);
+
+  // Paste first: a copied screenshot or file attaches from anywhere in the workspace.
+  const attachFilesRef = useRef(attachFiles);
+  useEffect(() => {
+    attachFilesRef.current = attachFiles;
+  }, [attachFiles]);
+  useEffect(() => {
+    if (locked) return undefined;
+    const handlePaste = (event) => {
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (!files.length) return;
+      const target = event.target;
+      const isEditor = target?.getAttribute?.("aria-label") === "Clipboard content";
+      const isField = ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName) || target?.isContentEditable;
+      if (isField && !isEditor) return;
+      // Real text on the clipboard still pastes as text.
+      if (isEditor && event.clipboardData.getData("text/plain")) return;
+      event.preventDefault();
+      void attachFilesRef.current(files);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [locked]);
+
   // Pairing hands out a link to this clipboard, so make sure the latest content is synced first.
   const prepareShare = useCallback(async () => {
     if (locked || !draftContent.trim()) return true;
@@ -1111,9 +1256,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       return;
     }
     const nextClips = clips.filter((clip) => clip.id !== selectedClip.id);
-    await replaceClips(nextClips, nextClips[0]?.id ?? null);
+    const removedFiles = selectedClip.attachments ?? [];
+    const deleted = await replaceClips(nextClips, nextClips[0]?.id ?? null);
+    if (deleted) removedFiles.forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
     showToast("Clip deleted");
-  }, [clips, replaceClips, selectedClip, showToast, updateDraftContent]);
+  }, [clipboardId, clips, replaceClips, selectedClip, showToast, updateDraftContent]);
 
   const handleClear = useCallback(() => {
     updateDraftContent("");
@@ -1507,6 +1654,16 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     onClear={handleClear}
                     onNewClip={handleNewClip}
                     onCopyLatest={handleCopyLatest}
+                  />
+                  <AttachmentPanel
+                    clipboardId={clipboardId}
+                    attachments={selectedClip?.attachments ?? []}
+                    uploads={uploads}
+                    onFiles={attachFiles}
+                    onOpen={downloadAttachmentFile}
+                    onDownload={downloadAttachmentFile}
+                    onRemove={removeAttachment}
+                    onDismissUpload={(key) => setUploads((current) => current.filter((item) => item.key !== key))}
                   />
                 </div>
 

@@ -3,6 +3,9 @@ import { maxAttachmentsPerClip, maxFileBytes } from "./limits.js";
 const attachmentIdPattern = /^att_[A-Za-z0-9_-]{8,40}$/;
 const fileIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+// Small preview image stored inside the encrypted clip so other devices show it without a download.
+const thumbPattern = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+export const maxThumbChars = 16000;
 
 export function createAttachmentId() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
@@ -51,8 +54,13 @@ export function normalizeAttachment(raw) {
   const expires = new Date(raw.expiresAt);
   if (Number.isNaN(expires.getTime())) return null;
 
+  const thumb = typeof raw.thumb === "string" && thumbPattern.test(raw.thumb) && raw.thumb.length <= maxThumbChars
+    ? raw.thumb
+    : undefined;
+
   return {
     id: raw.id,
+    ...(thumb ? { thumb } : {}),
     name: sanitizeFileName(raw.name),
     type: typeof raw.type === "string" ? raw.type.slice(0, 100) : "",
     size,

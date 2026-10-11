@@ -100,7 +100,7 @@ export const memoryAdapter = {
       bytes: null,
       expiresAt: Date.now() + pendingMs
     });
-    return { fileId, uploadUrl: `/api/file/dev.blob/${fileId}` };
+    return { fileId, uploadUrl: `/api/file/dev.blob/${fileId}`, mode: "raw" };
   },
 
   async putBlob(fileId, bytes) {
@@ -209,7 +209,7 @@ export const supabaseAdapter = {
       await supabase.from("pv_files").delete().eq("id", row.file_id);
       throw unavailable("signed upload", signed.error);
     }
-    return { fileId: row.file_id, uploadUrl: signed.data.signedUrl };
+    return { fileId: row.file_id, uploadUrl: signed.data.signedUrl, mode: "form" };
   },
 
   async confirm({ clipboardId, fileId }) {

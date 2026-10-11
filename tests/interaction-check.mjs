@@ -77,14 +77,14 @@ await page.getByRole("button", { name: "Preview" }).click();
 await page.locator(".details-panel .pv-inspector-preview").getByLabel("Clipboard content").waitFor();
 await page.getByLabel("Selected clip").getByRole("button", { name: "Details" }).click();
 
-await page.locator("input[type='file']").setInputFiles({
+await page.locator("input[aria-label='Import clipboard files']").setInputFiles({
   name: "interaction-notes.txt",
   mimeType: "text/plain",
   buffer: Buffer.from("imported from interaction check")
 });
 await page.getByRole("status").getByText(/Imported .*clip/).waitFor();
 
-await page.locator("input[type='file']").setInputFiles([
+await page.locator("input[aria-label='Import clipboard files']").setInputFiles([
   {
     name: "valid-partial-import.txt",
     mimeType: "text/plain",
@@ -100,7 +100,7 @@ await page.locator(".pv-toast").getByText(/Imported 1; 1 warning/i).waitFor();
 await page.getByText(/invalid-partial-import\.json contains invalid JSON/i).waitFor();
 
 const exportedClipTimestamp = new Date().toISOString();
-await page.locator("input[type='file']").setInputFiles([
+await page.locator("input[aria-label='Import clipboard files']").setInputFiles([
   {
     name: "bulk-notes.md",
     mimeType: "text/markdown",

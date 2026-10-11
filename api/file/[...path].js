@@ -83,7 +83,7 @@ export default async function handler(req, res) {
         return json(res, 413, { error: "Files can be up to 5 MB.", reason: "too_large" });
       }
       const ticket = await adapter.reserve({ clipboardId: body.clipboardId, size });
-      return json(res, 200, { fileId: ticket.fileId, uploadUrl: ticket.uploadUrl, maxBytes: maxCipherBytes });
+      return json(res, 200, { fileId: ticket.fileId, uploadUrl: ticket.uploadUrl, mode: ticket.mode, maxBytes: maxCipherBytes });
     }
 
     if (segments.length === 1 && first === "confirm") {

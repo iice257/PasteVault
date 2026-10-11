@@ -151,6 +151,11 @@ function defaultMime(kind) {
   return { image: "image/png", video: "video/mp4", audio: "audio/mpeg", pdf: "application/pdf" }[kind] ?? "application/octet-stream";
 }
 
+// Cheap guess from the file name alone, for places that have not decrypted anything yet.
+export function guessKind(name) {
+  return kindByExtension.get(fileExtension(name)) ?? "file";
+}
+
 export function themeForFile(name, kind = "file") {
   const category = categoryLookup.get(fileExtension(name));
   if (kind !== "file" && kind !== "text") return tileThemes[kind] ?? tileThemes.unknown;
