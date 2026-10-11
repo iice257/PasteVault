@@ -41,7 +41,7 @@ Files are carried, not opened, so only formats the browser can show safely get a
 | Image | png, jpg, webp, gif, avif, svg | Thumbnail and lightbox. SVG only ever renders through `<img>`, so scripts never run |
 | Video | mp4, webm, mov | Native player on click if the browser can play it, otherwise a tile |
 | Audio | mp3, wav, ogg, m4a, flac | Native audio player |
-| Text and code | txt, md, json, csv, log, source files | Read-only monospace preview of the first part, shown as plain text and never rendered as HTML or Markdown |
+| Text and code | txt, md, json, csv, log, source files | Syntax-highlighted read-only preview with line numbers. Language is auto-detected, can be changed by the user, and there is a Formatted view for Markdown, JSON and CSV (see below) |
 | PDF | pdf | Browser's built-in PDF viewer, opened on click |
 | Everything else | see tiles | Themed tile with an extension badge |
 
@@ -57,6 +57,13 @@ Themed tiles, by category and with light and dark variants:
 | Ebooks | teal | epub, mobi |
 | Executables and installers | red, with a caution label | exe, msi, apk, dmg |
 | Anything unknown | neutral grey | |
+
+### Text and code preview
+
+- **Auto-detect language** from the file extension first, then from a sample of the first 40 lines or 4 KB using cheap syntax signals (shebangs, `{`/`[` JSON shape, `<?xml`/`<html`, `def `/`import `, `SELECT`/`FROM`, `curl `, Markdown headings and fences, and so on). It reuses the app's existing format detector and highlighter, so there is no new dependency. A confidence score decides between a specific language and plain text, and accuracy is deliberately traded for speed.
+- **The user can override.** A language selector sits on the viewer (the same list the editor already uses) and the choice sticks for that attachment on that device.
+- **Source and Formatted views.** *Source* is highlighted text. *Formatted* is the visual view and is offered only where it makes sense: Markdown rendered with a safe renderer (raw HTML is escaped, links are inert until clicked and open with `rel="noopener noreferrer"`), JSON pretty-printed and collapsible, and CSV as a table. HTML, SVG and scripts are only ever shown as source, never rendered.
+- **Limits.** Only the first 200 KB is highlighted, with a "Show full file" action beyond that, so a large log never freezes the viewer. Detection and highlighting run on that slice only.
 
 Rules:
 - Kind is decided by extension **and** a magic-byte check on the decrypted bytes, never by the declared MIME type alone. A mismatch falls back to a tile.
@@ -142,7 +149,7 @@ An adapter interface (`reserve`, `confirm`, `signDownload`, `delete`, `sweep`) w
 | F1 Crypto and model | File encrypt and decrypt, `attachments` normalisation, export and import handling, unit tests | Round trip, wrong key and tamper tests pass |
 | F2 API | Ticket, confirm, download and delete routes, quotas, global budget, egress guard, rate limits, memory adapter, daily cron sweep | API checks cover limits, quotas, abuse paths and expiry |
 | F3 Client core | Paste, attach and drop, progress, encrypted upload, download and decrypt, attachment strip with generic tiles, error states, CSP | Paste on device A, byte-identical download on device B |
-| F4 Previews | Image lightbox, video and audio players, text preview, PDF viewer, magic-byte checks, themed tiles by category | Each preview kind and each tile category verified |
+| F4 Previews | Image lightbox, video and audio players, text and code viewer (auto-detect, override, formatted view), PDF viewer, magic-byte checks, themed tiles by category | Each preview kind and each tile category verified |
 | F5 Polish | Quota UI, product copy, caution labels, mobile pass, accessibility pass | Mobile and desktop checks pass |
 | F6 Release | Browser tests (two devices, password-protected, over limit, expiry), docs, changelog, live check | Verified on production and tagged v3.1.0 |
 
