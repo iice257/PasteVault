@@ -12,6 +12,7 @@ const apiRoutes = [
   { pattern: /^\/api\/session\/([^/?]+)$/, file: "/api/session/[id].js", param: "id" },
   { pattern: /^\/api\/code\/([^/?]+)$/, file: "/api/code/[code].js", param: "code" },
   { pattern: /^\/api\/code$/, file: "/api/code.js" },
+  { pattern: /^\/api\/file\/.+$/, file: "/api/file/[...path].js" },
   { pattern: /^\/api\/health$/, file: "/api/health.js" }
 ];
 
