@@ -1,3 +1,4 @@
+import { normalizeAttachments } from "../files/attachments.js";
 export const appVersion = 2;
 export const maxImportBytes = 5 * 1024 * 1024;
 export const maxImportFiles = 20;
@@ -97,6 +98,7 @@ export function createClip({ id, title, content, format, pinned = false, starred
     pinned,
     starred,
     tags: Array.isArray(tags) ? tags.filter((tag) => typeof tag === "string").slice(0, 8) : [],
+    attachments: [],
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -176,6 +178,7 @@ export function normalizeClip(clip) {
       .map((tag) => tag.trim().slice(0, 32))
       .filter(Boolean)
       .slice(0, 8) : [],
+    attachments: normalizeAttachments(clip.attachments),
     createdAt,
     updatedAt
   };
