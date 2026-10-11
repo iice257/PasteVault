@@ -5,6 +5,8 @@ export const vaultMessageTypes = {
 
 export const remoteSessionPollMs = 2500;
 export const remoteContentPollMs = 3000;
+export const remoteContentIdlePollMs = 10000;
+export const remoteContentIdleAfterPolls = 20;
 export const sessionViewModes = ["editor", "history", "details", "tools"];
 export const sessionDetailTabs = ["details", "preview"];
 export const sessionFormats = ["Plain text", "JSON", "JavaScript", "cURL", "SQL", "HTML", "Markdown", "BASH", "CSV"];

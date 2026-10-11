@@ -61,6 +61,7 @@ import {
   derivePasswordKey,
   exportClipboard,
   fetchRemoteRecord,
+  remoteNotModified,
   filterOptions,
   formatAge,
   formatBytes,
@@ -101,6 +102,8 @@ import {
   pushRemoteSessionState,
   readPreservedDraftState,
   readSessionState,
+  remoteContentIdleAfterPolls,
+  remoteContentIdlePollMs,
   remoteContentPollMs,
   remoteSessionPollMs,
   sessionStateKey,
@@ -675,13 +678,22 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   useEffect(() => {
     let active = true;
+    let unchangedPolls = 0;
+    let timer = 0;
+    let running = false;
+
     async function pollRemoteContent() {
-      if (!active || document.hidden) return;
+      if (!active || running || document.hidden) return;
+      running = true;
       try {
-        const remote = await fetchRemoteRecord(clipboardId);
+        const remote = await fetchRemoteRecord(clipboardId, { knownVersion: contentVersion });
         remoteContentFailuresRef.current = 0;
         if (!active || !remote) return;
-        if (recordContentVersion(remote) <= contentVersion) return;
+        if (remote === remoteNotModified || recordContentVersion(remote) <= contentVersion) {
+          unchangedPolls += 1;
+          return;
+        }
+        unchangedPolls = 0;
         const localRecord = await remoteRecordToLocalRecord(remote);
         if (!active) return;
         handleExternalSavedRecord(localRecord, "Synced from cloud");
@@ -691,21 +703,41 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           setSyncStatus("Saved locally - cloud unavailable");
         }
         // Content still remains local-first when hosted sync is unavailable.
+      } finally {
+        running = false;
       }
     }
 
-    let timer = 0;
     const schedule = () => {
-      const delay = remoteContentPollMs * (remoteContentFailuresRef.current + 1);
+      window.clearTimeout(timer);
+      const base = unchangedPolls >= remoteContentIdleAfterPolls ? remoteContentIdlePollMs : remoteContentPollMs;
+      const delay = base * (remoteContentFailuresRef.current + 1);
       timer = window.setTimeout(async () => {
         await pollRemoteContent();
         if (active) schedule();
       }, delay);
     };
+
+    // Catch up immediately when the user comes back to this device.
+    const refreshNow = () => {
+      if (!active || document.hidden) return;
+      unchangedPolls = 0;
+      remoteContentFailuresRef.current = 0;
+      void pollRemoteContent().finally(() => {
+        if (active) schedule();
+      });
+    };
+    document.addEventListener("visibilitychange", refreshNow);
+    window.addEventListener("focus", refreshNow);
+    window.addEventListener("online", refreshNow);
+
     schedule();
     return () => {
       active = false;
       window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refreshNow);
+      window.removeEventListener("focus", refreshNow);
+      window.removeEventListener("online", refreshNow);
     };
   }, [clipboardId, contentVersion, handleExternalSavedRecord, remoteRecordToLocalRecord]);
 

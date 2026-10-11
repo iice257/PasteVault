@@ -309,3 +309,15 @@ if (JSON.stringify(health).match(/https?:|token/i)) {
   throw new Error("health endpoint must not leak connection details");
 }
 console.log("api health check passed");
+
+{
+  const unchanged = await invoke({ method: "GET", id, headers: { "x-pastevault-known-version": "99" } });
+  if (unchanged.status !== 304) {
+    throw new Error(`Expected 304 when client already has the latest version, received ${unchanged.status}.`);
+  }
+  const stale = await invoke({ method: "GET", id, headers: { "x-pastevault-known-version": "0" } });
+  if (stale.status !== 200 || !stale.body.encryptedPayload) {
+    throw new Error(`Expected full record without a usable known version, received ${stale.status}.`);
+  }
+}
+console.log("api 304 check passed");

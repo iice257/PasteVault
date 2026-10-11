@@ -134,7 +134,14 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     try {
       const record = await getClip(id);
-      return record ? json(res, 200, record) : json(res, 404, { error: "Clipboard not found." });
+      if (!record) return json(res, 404, { error: "Clipboard not found." });
+      const knownVersion = Number(req.headers["x-pastevault-known-version"]);
+      if (Number.isFinite(knownVersion) && knownVersion > 0 && recordContentVersion(record) <= knownVersion) {
+        res.statusCode = 304;
+        res.setHeader("Cache-Control", "no-store");
+        return res.end();
+      }
+      return json(res, 200, record);
     } catch (error) {
       return json(res, error.statusCode || 503, { error: error.publicMessage || "Storage temporarily unavailable." });
     }

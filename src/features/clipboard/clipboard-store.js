@@ -561,13 +561,21 @@ export async function decryptLinkSyncRecord(record) {
   return decryptValue(record.encryptedPayload, key);
 }
 
-export async function fetchRemoteRecord(clipboardId) {
+export const remoteNotModified = Object.freeze({ notModified: true });
+
+export async function fetchRemoteRecord(clipboardId, options = {}) {
+  const headers = { Accept: "application/json" };
+  const knownVersion = Number(options.knownVersion);
+  if (Number.isFinite(knownVersion) && knownVersion > 0) {
+    headers["X-PasteVault-Known-Version"] = String(Math.floor(knownVersion));
+  }
   const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers,
     cache: "no-store"
   });
   if (response.status === 404) return null;
+  if (response.status === 304) return remoteNotModified;
   if (!response.ok) throw new Error(`Remote fetch failed with ${response.status}`);
   return response.json();
 }
