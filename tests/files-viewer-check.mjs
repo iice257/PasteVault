@@ -53,6 +53,15 @@ try {
     await row(page, sample.name).getByText(/days left/).waitFor({ timeout: 15000 });
   }
 
+  // Closing the viewer returns focus to the file that opened it.
+  await open(page, "config.json");
+  await close(page);
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.getAttribute("aria-label")),
+    "Open config.json",
+    "focus returns to the opener"
+  );
+
   // Image: shown from the decrypted bytes, with a thumbnail tile in the list.
   assert.ok(await row(page, "shot.png").locator(".pv-file-tile img").count(), "image attachments get a thumbnail");
   await open(page, "shot.png");
@@ -107,9 +116,15 @@ try {
   await viewer(page).getByText(/never run or previewed/).waitFor();
   await close(page);
 
+  // Tools shows how much of the clipboard's file allowance is used.
+  await page.getByRole("button", { name: /^Tools$/ }).first().click();
+  await page.getByText("Encrypted files", { exact: true }).waitFor();
+  await page.getByText(/8 of 10 files/).waitFor();
+
   // Mobile: the viewer fills the screen with no sideways scroll.
   const mobile = await newPage({ width: 390, height: 844 });
   await mobile.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
+  await mobile.getByRole("button", { name: "Editor", exact: true }).click();
   await row(mobile, "config.json").waitFor({ timeout: 20000 });
   await open(mobile, "config.json");
   await viewer(mobile).locator(".pv-viewer-source").waitFor();

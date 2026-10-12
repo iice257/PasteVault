@@ -34,7 +34,8 @@ import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
 import { AttachmentPanel } from "../components/pastevault/AttachmentPanel";
 import { FileViewer } from "../components/pastevault/FileViewer";
-import { normalizeAttachments } from "../features/files/attachments.js";
+import { isExpired, normalizeAttachments } from "../features/files/attachments.js";
+import { maxClipboardFileBytes, maxClipboardFiles } from "../features/files/limits.js";
 import {
   checkAttachable,
   deleteRemoteFile,
@@ -177,6 +178,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [pairOpen, setPairOpen] = useState(false);
   const [uploads, setUploads] = useState([]);
   const [viewing, setViewing] = useState(null);
+  const fileUsage = useMemo(() => {
+    const live = clips.flatMap((clip) => clip.attachments ?? []).filter((attachment) => !isExpired(attachment));
+    return { count: live.length, bytes: live.reduce((total, attachment) => total + attachment.size, 0) };
+  }, [clips]);
   const latestRef = useRef({});
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
@@ -1694,6 +1699,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
               <ToolsPanel
                 clipboardId={clipboardName}
                 storageUsage={storageUsage}
+                fileUsage={fileUsage}
                 onPaste={handlePasteFromClipboard}
                 onImport={() => fileRef.current?.click()}
                 onExport={() => exportClipboard(clipboardId, payload)}
@@ -2110,7 +2116,7 @@ function HistoryTable({ clipboardId, clips, selectedId, isProtected = false, sea
   );
 }
 
-function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onPair, onCopyLatest, onNewClip }) {
+function ToolsPanel({ clipboardId, storageUsage, fileUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onPair, onCopyLatest, onNewClip }) {
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
 
   return (
@@ -2135,6 +2141,12 @@ function ToolsPanel({ clipboardId, storageUsage, onPaste, onImport, onExport, on
         <strong>{formatBytes(storageUsage)} / {formatBytes(storageBudgetBytes)}</strong>
         <i><b style={{ width: `${storagePercent}%` }} /></i>
         <p>Local-first storage. Encrypted hosted sync works only when storage is configured.</p>
+      </div>
+      <div className="pv-tools-storage pv-tools-files">
+        <span>Encrypted files</span>
+        <strong>{formatBytes(fileUsage.bytes)} / {formatBytes(maxClipboardFileBytes)}</strong>
+        <i><b style={{ width: `${Math.min(100, Math.round((fileUsage.bytes / maxClipboardFileBytes) * 100))}%` }} /></i>
+        <p>{fileUsage.count} of {maxClipboardFiles} files. Each file is encrypted on your device, up to 5 MB, and deleted after 7 days.</p>
       </div>
     </section>
   );

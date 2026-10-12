@@ -291,3 +291,7 @@
     animation: none;
   }
 }
+
+.pv-tools-files i b {
+  background: linear-gradient(90deg, #3b7bf6, #8159f5);
+}

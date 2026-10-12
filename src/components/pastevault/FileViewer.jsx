@@ -237,8 +237,13 @@ export function FileViewer({ attachment, clipboardId, onClose }) {
     }
   };
 
+  // Focus moves into the dialog, and returns to the file that opened it on close.
   useEffect(() => {
+    const opener = document.activeElement;
     dialogRef.current?.querySelector("button")?.focus();
+    return () => {
+      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+    };
   }, []);
 
   const playable = info && ["image", "video", "audio"].includes(info.kind) && !mediaFailed;
