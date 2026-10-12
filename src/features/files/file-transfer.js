@@ -1,6 +1,7 @@
 import { createAttachmentId, sanitizeFileName } from "./attachments.js";
 import { decryptFile, encryptFile, FileCryptoError } from "./file-crypto.js";
 import { maxAttachmentsPerClip, maxClipboardFileBytes, maxClipboardFiles, maxFileBytes } from "./limits.js";
+import { makeThumbnail } from "./thumbnail.js";
 
 export class TransferError extends Error {
   constructor(message, code) {
@@ -114,9 +115,11 @@ export async function uploadAttachment({ clipboardId, file, onStage = () => {} }
   await putWithProgress(ticket.uploadUrl, sealed.ciphertext, ticket.mode, (fraction) => onStage("uploading", fraction));
   onStage("finishing", 1);
   const confirmed = await postJson("/api/file/confirm", { clipboardId, fileId: ticket.fileId });
+  const thumb = await makeThumbnail(file);
 
   return {
     id,
+    ...(thumb ? { thumb } : {}),
     name: pastedFileName(file),
     type: file.type || "",
     size: bytes.length,

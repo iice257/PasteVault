@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import "@fontsource-variable/inter";
 import "./styles.css";
 import "./files.css";
+import "./viewer.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

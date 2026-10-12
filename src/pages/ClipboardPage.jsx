@@ -33,6 +33,7 @@ import { FileImportDropzone } from "../components/pastevault/FileImportDropzone"
 import { MetadataRow } from "../components/pastevault/MetadataRow";
 import { OverflowMenu } from "../components/pastevault/OverflowMenu";
 import { AttachmentPanel } from "../components/pastevault/AttachmentPanel";
+import { FileViewer } from "../components/pastevault/FileViewer";
 import { normalizeAttachments } from "../features/files/attachments.js";
 import {
   checkAttachable,
@@ -175,6 +176,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
   const [pairOpen, setPairOpen] = useState(false);
   const [uploads, setUploads] = useState([]);
+  const [viewing, setViewing] = useState(null);
   const latestRef = useRef({});
   const [cryptoKey, setCryptoKey] = useState(null);
   const [syncStatus, setSyncStatus] = useState(initialState.freshLocal ? "Local ready" : "All changes saved");
@@ -1660,7 +1662,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     attachments={selectedClip?.attachments ?? []}
                     uploads={uploads}
                     onFiles={attachFiles}
-                    onOpen={downloadAttachmentFile}
+                    onOpen={setViewing}
                     onDownload={downloadAttachmentFile}
                     onRemove={removeAttachment}
                     onDismissUpload={(key) => setUploads((current) => current.filter((item) => item.key !== key))}
@@ -1730,6 +1732,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         <BottomPasteBar value={draftContent} onChange={updateDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
         {error && <p className="pv-inline-error">{error}</p>}
       </main>
+
+      {viewing && (
+        <FileViewer key={viewing.id} attachment={viewing} clipboardId={clipboardId} onClose={() => setViewing(null)} />
+      )}
 
       <PasswordModal
         open={passwordOpen}
