@@ -1025,6 +1025,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     latestRef.current = { clips, selectedClip, draftTitle, draftContent, format, hasUnsavedChanges };
   }, [clips, selectedClip, draftTitle, draftContent, format, hasUnsavedChanges]);
 
+  // Uploads outlive renders (autosave may bump the version meanwhile), so commit through the latest save function.
+  const replaceClipsRef = useRef(null);
+  useEffect(() => {
+    replaceClipsRef.current = replaceClips;
+  }, [replaceClips]);
+
   const updateUpload = useCallback((key, patch) => {
     setUploads((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }, []);
@@ -1054,14 +1060,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       nextClips = [{ ...clip, attachments }, ...latest.clips];
       nextSelectedId = clip.id;
     }
-    const saved = await replaceClips(nextClips, nextSelectedId, { persist: true, awaitRemote: true, silent: true });
+    const saved = await replaceClipsRef.current(nextClips, nextSelectedId, { persist: true, awaitRemote: true, silent: true });
     if (saved && snapshot.dirty && snapshot.clipId === nextSelectedId) {
       setDraftTitle(snapshot.title);
       setDraftContent(snapshot.content);
       setFormat(snapshot.format);
     }
     return saved;
-  }, [replaceClips]);
+  }, []);
 
   const attachFiles = useCallback(async (files) => {
     if (locked || !files.length) return;
