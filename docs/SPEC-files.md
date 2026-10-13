@@ -129,7 +129,7 @@ An adapter interface (`reserve`, `confirm`, `signDownload`, `delete`, `sweep`) w
 - Only ciphertext is stored, and the server never trusts declared types or names.
 - Filenames are sanitised for display and download and never used as paths.
 - Downloads and previews use `blob:` URLs created after decryption. Nothing is rendered as markup.
-- CSP additions, and nothing else loosened: the Supabase host in `connect-src`, and `blob:` in `img-src`, `media-src` and `frame-src` (the last for the PDF viewer).
+- CSP additions, and nothing else loosened: the Supabase host in `connect-src`, and `blob:` in `img-src`, `media-src` and `frame-src` (the last for the PDF viewer). Verified in Edge: a `blob:` PDF in an iframe renders under `object-src 'none'` with no CSP violation, so that directive stays closed. The viewer also offers an "Open in a new tab" link for browsers that block embedded PDFs.
 - Ticket, confirm and download routes are rate limited per client, and signed URLs are short lived.
 
 ## UI
