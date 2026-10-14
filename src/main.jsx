@@ -5,6 +5,7 @@ import "@fontsource-variable/inter";
 import "./styles.css";
 import "./files.css";
 import "./viewer.css";
+import "./landing.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

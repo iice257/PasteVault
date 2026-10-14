@@ -1,0 +1,855 @@
+/* Landing page. One poster hero, then a quiet scroll. Motion is driven by three CSS variables
+   (--fx-x, --fx-y, --fx-scroll) that landing-fx.js eases every frame; everything else is CSS. */
+
+.vault-landing.pv-landing {
+  --fx-x: 0;
+  --fx-y: 0;
+  --fx-scroll: 0;
+  --lp-ink: #07080a;
+  --lp-muted: #667085;
+  --lp-hair: rgba(15, 23, 42, 0.1);
+  --lp-teal: #18c7c0;
+  --lp-teal-deep: #0a8c87;
+  --lp-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #ffffff;
+  color: var(--lp-ink);
+}
+
+.pv-landing.theme-dark {
+  --ink: #07080a;
+  --muted: #667085;
+  --line: rgba(15, 23, 42, 0.11);
+  --card: rgba(255, 255, 255, 0.92);
+  color: #07080a;
+}
+
+.pv-landing.theme-dark .pv-action:not(.pv-action-primary),
+.pv-landing.theme-dark .pv-icon-button {
+  background: rgba(255, 255, 255, 0.82);
+  color: #07080a;
+}
+
+/* Backdrop: the raster drifts against the cursor and sinks as the page scrolls. */
+.pv-landing::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  display: block;
+  height: 100svh;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.68)),
+    url("/pastevault-bg.png");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: translate3d(calc(var(--fx-x) * -9px), calc(var(--fx-y) * -6px + var(--fx-scroll) * 72px), 0) scale(1.03);
+  opacity: calc(1 - var(--fx-scroll) * 0.55);
+  will-change: transform;
+}
+
+/* A soft teal light that trails the cursor across the first screen. */
+.pv-landing::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 100svh;
+  pointer-events: none;
+  background: radial-gradient(
+    560px circle at calc(50% + var(--fx-x) * 50%) calc(50% + var(--fx-y) * 50%),
+    rgba(24, 199, 192, 0.15),
+    rgba(24, 199, 192, 0) 68%
+  );
+  opacity: calc(1 - var(--fx-scroll) * 1.2);
+}
+
+/* Hero */
+.pv-landing-core {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  align-content: start;
+  width: min(1040px, calc(100vw - 36px));
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: clamp(150px, 17vh, 190px) 0 96px;
+  text-align: center;
+  transform: translate3d(0, calc(var(--fx-scroll) * -36px), 0);
+  opacity: calc(1 - var(--fx-scroll) * 0.85);
+}
+
+.pv-landing-core .pv-logo {
+  margin-bottom: 52px;
+}
+
+.pv-landing-core h1 {
+  max-width: 1160px;
+  margin: 0;
+  color: #020305;
+  font-size: clamp(58px, 5.8vw, 92px);
+  font-weight: 930;
+  line-height: 1.12;
+  letter-spacing: -0.055em;
+}
+
+.pv-landing-emphasis {
+  display: inline-block;
+  padding: 0 0.04em 0.02em;
+  color: inherit;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.08em;
+  text-decoration-color: rgba(24, 199, 192, 0.72);
+  text-underline-offset: 0.1em;
+}
+
+/* The word that swaps. All words share one grid cell; the box eases to the current width. */
+.pv-word {
+  position: relative;
+  display: inline-grid;
+  margin: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: width 560ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.pv-word::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0.17em;
+  left: 0;
+  height: 0.075em;
+  border-radius: 99px;
+  background: rgba(24, 199, 192, 0.76);
+  transition: height 220ms ease, background-color 220ms ease;
+}
+
+.pv-word:hover::after {
+  height: 0.11em;
+  background: var(--lp-teal);
+}
+
+.pv-word-item {
+  grid-area: 1 / 1;
+  justify-self: start;
+  padding: 0 0.05em 0.02em 0.04em;
+  opacity: 0;
+  transform: translateY(0.4em);
+  filter: blur(6px);
+  pointer-events: none;
+  transition: opacity 340ms ease, transform 560ms cubic-bezier(0.22, 0.8, 0.2, 1), filter 340ms ease;
+}
+
+.pv-word-item.is-current {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition-delay: 90ms;
+}
+
+.pv-word-item.is-prev {
+  transform: translateY(-0.4em);
+}
+
+.pv-landing-core p {
+  margin: 24px 0 34px;
+  color: #657082;
+  font-size: clamp(20px, 1.55vw, 25px);
+  line-height: 1.5;
+}
+
+/* The paste field */
+.landing-input-shell,
+.pv-open-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  width: min(870px, calc(100vw - 80px));
+  min-height: 88px;
+  border: 1px solid rgba(15, 23, 42, 0.11);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 12px 14px 12px 34px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 24px 68px rgba(28, 38, 58, 0.16);
+  transition: box-shadow 320ms ease, border-color 320ms ease;
+}
+
+/* Spotlight edge: a teal glint that follows the cursor around the border. */
+.pv-open-shell::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: radial-gradient(260px circle at var(--sx, 50%) var(--sy, 50%), var(--lp-teal), rgba(24, 199, 192, 0) 62%);
+  opacity: 0;
+  transition: opacity 320ms ease;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.pv-open-shell:hover::before,
+.pv-open-shell:focus-within::before,
+.pv-landing-core[data-dragging="true"] .pv-open-shell::before {
+  opacity: 1;
+}
+
+.pv-open-shell:focus-within {
+  box-shadow: 0 0 0 5px rgba(24, 199, 192, 0.14), 0 24px 68px rgba(28, 38, 58, 0.16);
+}
+
+.pv-open-shell > svg {
+  color: #6b7687;
+  transition: color 240ms ease, transform 360ms var(--lp-ease);
+}
+
+.pv-open-shell:focus-within > svg {
+  color: var(--lp-teal-deep);
+  transform: rotate(-8deg) scale(1.06);
+}
+
+.pv-open-shell input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 20px;
+}
+
+.pv-open-shell .pv-action {
+  min-width: 236px;
+  min-height: 64px;
+  border-radius: 999px;
+  font-size: 18px;
+  transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0);
+  transition: transform 260ms var(--lp-ease), box-shadow 160ms ease, background 160ms ease;
+}
+
+.pv-open-shell .pv-action:hover {
+  transform: translate3d(var(--mag-x, 0px), calc(var(--mag-y, 0px) - 1px), 0);
+}
+
+.pv-open-shell .pv-action:active {
+  transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0) scale(0.98);
+}
+
+.pv-open-shell .pv-action svg {
+  transition: transform 260ms var(--lp-ease);
+}
+
+.pv-open-shell .pv-action:hover svg {
+  transform: translateX(4px);
+}
+
+.pv-landing-core .pv-inline-error {
+  width: min(760px, calc(100vw - 64px));
+  margin: 14px 0 0;
+  color: #a11b1b;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* Drop target: a quiet pill. The detail line only appears when you reach for it. */
+.pv-landing-core .pv-landing-dropzone {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  margin-top: 26px;
+  border: 1px solid var(--lp-hair);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0 20px 0 15px;
+  color: #344054;
+  box-shadow: 0 10px 28px rgba(28, 38, 58, 0.07);
+  backdrop-filter: blur(10px);
+  transition: border-color 220ms ease, background-color 220ms ease, color 220ms ease, transform 320ms var(--lp-ease), box-shadow 220ms ease;
+}
+
+.pv-landing-dropzone > svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--lp-teal-deep);
+  transition: transform 420ms var(--lp-ease);
+}
+
+.pv-landing-dropzone > span {
+  display: inline-flex;
+}
+
+.pv-landing-dropzone strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.pv-landing-dropzone em {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  width: max-content;
+  max-width: min(88vw, 520px);
+  color: var(--lp-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, -4px, 0);
+  transition: opacity 240ms ease, transform 320ms var(--lp-ease);
+}
+
+.pv-landing-dropzone:hover,
+.pv-landing-dropzone:focus-visible {
+  border-color: rgba(24, 199, 192, 0.6);
+  background: rgba(255, 255, 255, 0.92);
+  transform: translateY(-1px);
+}
+
+.pv-landing-dropzone:hover > svg,
+.pv-landing-dropzone:focus-visible > svg {
+  transform: rotate(90deg);
+}
+
+.pv-landing-dropzone:hover em,
+.pv-landing-dropzone:focus-visible em,
+.pv-landing-dropzone.is-dragging em {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+}
+
+.pv-landing-core[data-dragging="true"] .pv-open-shell {
+  border-color: rgba(24, 199, 192, 0.55);
+}
+
+.pv-landing-core .pv-landing-dropzone.is-dragging {
+  border-color: var(--lp-teal);
+  background: rgba(231, 252, 251, 0.94);
+  color: #075f5b;
+  transform: translateY(-2px) scale(1.03);
+}
+
+.pv-landing-core .pv-landing-dropzone.is-disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+/* Scroll cue: a label and a line that keeps drawing downwards. */
+.pv-scroll-cue {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  translate: -50% 0;
+  color: var(--lp-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  transition: color 200ms ease;
+}
+
+.pv-scroll-cue:hover {
+  color: var(--lp-ink);
+}
+
+.pv-scroll-cue i {
+  width: 1px;
+  height: 30px;
+  background: linear-gradient(var(--lp-teal), rgba(24, 199, 192, 0));
+  transform-origin: top;
+  animation: pv-cue 2.4s var(--lp-ease) infinite;
+}
+
+@keyframes pv-cue {
+  0% { transform: scaleY(0); opacity: 1; }
+  55% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1); opacity: 0; }
+}
+
+@keyframes pv-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pv-landing-core > * {
+    animation: pv-rise 900ms var(--lp-ease) backwards;
+    animation-delay: calc(var(--i, 0) * 85ms + 60ms);
+  }
+}
+
+/* Sections */
+.pv-landing-section,
+.pv-landing-footer {
+  position: relative;
+  z-index: 4;
+  width: min(1120px, calc(100vw - 44px));
+  margin: 0 auto;
+  color: var(--lp-ink);
+}
+
+.pv-landing-section {
+  padding: clamp(72px, 9vw, 120px) 0;
+}
+
+.pv-landing-section h2 {
+  margin: 0;
+  color: #050608;
+  font-size: clamp(34px, 4vw, 58px);
+  font-weight: 920;
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.pv-landing-section p {
+  margin: 0;
+  color: var(--lp-muted);
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.pv-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--lp-teal-deep);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.pv-eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lp-teal);
+}
+
+/* Reveals */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition: opacity 700ms ease, transform 860ms var(--lp-ease);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+
+[data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* How it works: headline pinned on the left, three steps drawing in on the right. */
+.pv-landing-feature {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr);
+  gap: clamp(36px, 7vw, 104px);
+  align-items: start;
+}
+
+.pv-landing-feature-copy {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 22px;
+  justify-items: start;
+}
+
+.pv-landing-flow {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-landing-flow li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  column-gap: 18px;
+  row-gap: 8px;
+  padding: 32px 0 36px;
+}
+
+.pv-landing-flow li::before,
+.pv-landing-flow li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1100ms var(--lp-ease);
+  transition-delay: calc(var(--i, 0) * 90ms + 160ms);
+}
+
+.pv-landing-flow li::before {
+  right: 0;
+  background: var(--lp-hair);
+}
+
+.pv-landing-flow li::after {
+  width: 64px;
+  height: 2px;
+  background: var(--lp-teal);
+  transition-delay: calc(var(--i, 0) * 90ms + 420ms);
+}
+
+.pv-landing-flow li.is-in::before,
+.pv-landing-flow li.is-in::after {
+  transform: scaleX(1);
+}
+
+.pv-landing-flow small {
+  grid-row: span 2;
+  padding-top: 7px;
+  color: var(--lp-teal-deep);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.pv-landing-flow strong {
+  color: #050608;
+  font-size: 28px;
+  font-weight: 880;
+  letter-spacing: -0.035em;
+  transition: transform 420ms var(--lp-ease);
+}
+
+.pv-landing-flow p {
+  max-width: 44ch;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.pv-landing-flow li:hover strong {
+  transform: translateX(6px);
+}
+
+/* Two plain columns, split by a hairline */
+.pv-landing-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding-top: 0;
+}
+
+.pv-landing-split article {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding: 44px clamp(0px, 3vw, 44px) 12px 0;
+}
+
+.pv-landing-split article + article {
+  border-left: 1px solid var(--lp-hair);
+  padding-right: 0;
+  padding-left: clamp(24px, 5vw, 64px);
+}
+
+.pv-landing-split svg {
+  width: 26px;
+  height: 26px;
+  color: var(--lp-teal-deep);
+  transition: transform 520ms var(--lp-ease);
+}
+
+.pv-landing-split article:hover svg {
+  transform: translateY(-3px) rotate(-6deg);
+}
+
+.pv-landing-split h2 {
+  font-size: clamp(28px, 2.9vw, 40px);
+}
+
+.pv-landing-split p {
+  max-width: 40ch;
+}
+
+/* Proof: one sentence, then the things it is made of, set as running text */
+.pv-landing-proof {
+  display: grid;
+  gap: 40px;
+  justify-items: center;
+  text-align: center;
+}
+
+.pv-landing-proof h2 {
+  max-width: 16ch;
+}
+
+.pv-landing-proof ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 0;
+  max-width: 880px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-landing-proof li {
+  display: inline-flex;
+  align-items: center;
+  color: #4b5565;
+  font-size: clamp(18px, 1.7vw, 22px);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.pv-landing-proof li:not(:last-child)::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin: 0 18px;
+  border-radius: 50%;
+  background: var(--lp-teal);
+  opacity: 0.8;
+}
+
+.pv-landing-proof li span {
+  background: linear-gradient(var(--lp-teal), var(--lp-teal)) 0 100% / 0 2px no-repeat;
+  padding-bottom: 3px;
+  transition: background-size 420ms var(--lp-ease), color 240ms ease;
+}
+
+.pv-landing-proof li:hover span {
+  background-size: 100% 2px;
+  color: var(--lp-ink);
+}
+
+/* Footer */
+.pv-landing-footer {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding: clamp(56px, 8vw, 96px) 0 44px;
+  border-top: 1px solid var(--lp-hair);
+  text-align: center;
+}
+
+.pv-wordmark {
+  display: flex;
+  justify-content: center;
+  color: var(--lp-ink);
+  font-size: clamp(54px, 13.4vw, 176px);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.065em;
+  user-select: none;
+}
+
+.pv-wordmark span {
+  display: inline-block;
+  font-variation-settings: "wght" 520;
+  color: color-mix(in srgb, var(--lp-ink) calc(var(--heat, 0) * 100%), #cfd5df);
+  transition: color 180ms linear;
+}
+
+.pv-landing-footer p {
+  max-width: 860px;
+  margin: 0 0 6px;
+  color: var(--lp-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.pv-landing-footer .pv-action-primary {
+  min-height: 58px;
+  border-radius: 999px;
+  padding: 0 28px;
+  font-size: 17px;
+  transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0);
+  transition: transform 260ms var(--lp-ease), box-shadow 160ms ease;
+}
+
+.pv-landing-footer .pv-action-primary:hover {
+  transform: translate3d(var(--mag-x, 0px), calc(var(--mag-y, 0px) - 1px), 0);
+}
+
+.pv-landing-credit {
+  margin-top: 28px;
+  color: var(--lp-muted);
+  font-size: 13px;
+}
+
+.pv-landing-credit a {
+  color: var(--lp-ink);
+  font-weight: 700;
+  background: linear-gradient(var(--lp-teal), var(--lp-teal)) 0 100% / 100% 1px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 240ms ease;
+}
+
+.pv-landing-credit a:hover {
+  background-size: 100% 3px;
+}
+
+/* Tablets and phones */
+@media (max-width: 900px) {
+  .pv-landing-core {
+    padding: 95px 0 88px;
+  }
+
+  .pv-landing-core .pv-logo {
+    margin-bottom: 42px;
+  }
+
+  .pv-landing-core h1 {
+    font-size: clamp(44px, 13vw, 70px);
+    line-height: 1.05;
+  }
+
+  .pv-landing-core p {
+    margin: 24px 0 34px;
+    font-size: 18px;
+  }
+
+  .pv-open-shell {
+    grid-template-columns: 1fr;
+    width: calc(100vw - 38px);
+    border-radius: 32px;
+    padding: 18px;
+  }
+
+  .pv-open-shell > svg {
+    display: none;
+  }
+
+  .pv-open-shell input {
+    min-height: 52px;
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .pv-open-shell .pv-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pv-landing-core .pv-landing-dropzone {
+    margin-top: 20px;
+  }
+
+  .pv-landing-feature {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .pv-landing-feature-copy {
+    position: static;
+  }
+
+  .pv-landing-split {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-landing-split article {
+    padding: 36px 0 8px;
+  }
+
+  .pv-landing-split article + article {
+    border-top: 1px solid var(--lp-hair);
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .pv-landing-flow li {
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .pv-landing-flow strong {
+    font-size: 24px;
+  }
+
+  .pv-landing-proof ul {
+    gap: 10px 22px;
+  }
+
+  .pv-landing-proof li:not(:last-child)::after {
+    display: none;
+  }
+
+  .pv-scroll-cue {
+    display: none;
+  }
+}
+
+/* No hover on touch: the drop hint would never show, and a cue would crowd short screens. */
+@media (hover: none) {
+  .pv-landing-dropzone em {
+    display: none;
+  }
+}
+
+@media (max-height: 780px) {
+  .pv-scroll-cue {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-landing::before,
+  .pv-landing::after,
+  .pv-landing-core {
+    transform: none;
+    opacity: 1;
+  }
+
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .pv-landing-flow li::before,
+  .pv-landing-flow li::after {
+    transform: none;
+    transition: none;
+  }
+
+  .pv-scroll-cue i {
+    animation: none;
+  }
+}

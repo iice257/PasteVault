@@ -1,9 +1,11 @@
-import { useCallback, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, Clipboard, DatabaseZap, KeyRound, Link2, Mouse, QrCode } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Clipboard, DatabaseZap, KeyRound, QrCode } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
 import { PairDialog } from "../components/pastevault/PairDialog";
+import { RotatingWord } from "../components/pastevault/landing/RotatingWord";
+import { Wordmark } from "../components/pastevault/landing/Wordmark";
 import {
   appVersion,
   createClip,
@@ -17,6 +19,7 @@ import {
   saveRecord
 } from "../features/clipboard/clipboard-store";
 import { parseClipboardTarget } from "../features/clipboard/pairing";
+import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
 
 function detectFormat(value) {
   const trimmed = value.trim();
@@ -25,13 +28,36 @@ function detectFormat(value) {
   return "Plain text";
 }
 
+const steps = [
+  ["01", "Paste", "Text, code, JSON, links. Or drop a file and it is encrypted before it leaves your browser."],
+  ["02", "Vault", "It lands on a clipboard link of its own, with an optional password."],
+  ["03", "Open", "Scan the QR or type the code on another device. It is there in seconds."]
+];
+
+const proof = ["Encrypted files", "QR pairing", "One-time codes", "JSON formatting", "Code previews", "Deep links", "Keyboard save"];
+
 export default function LandingPage() {
+  const rootRef = useRef(null);
+  const shellRef = useRef(null);
+  const footerRef = useRef(null);
   const fileRef = useRef(null);
   const [entry, setEntry] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
   const [heroDragging, setHeroDragging] = useState(false);
   const [pairOpen, setPairOpen] = useState(false);
+
+  useLandingPointerFx(rootRef);
+  useRevealOnScroll(rootRef);
+
+  useEffect(() => {
+    const cleanups = [
+      attachSpotlight(shellRef.current),
+      attachMagnet(shellRef.current?.querySelector(".pv-action"), { radius: 110 }),
+      attachMagnet(footerRef.current?.querySelector(".pv-action"), { radius: 110 })
+    ];
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, []);
 
   const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0) => {
     const clipboardId = createVaultId();
@@ -94,6 +120,22 @@ export default function LandingPage() {
     createClipboardFromText(value);
   }, [createClipboardFromText, entry, openEmptyWorkspace]);
 
+  // Paste works anywhere on the page, not just inside the field.
+  useEffect(() => {
+    const onPaste = (event) => {
+      if (event.defaultPrevented || pairOpen) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable], [role=dialog]")) return;
+      const text = event.clipboardData?.getData("text") ?? "";
+      if (!text.trim()) return;
+      event.preventDefault();
+      setEntry(text);
+      openClipboard(text);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [openClipboard, pairOpen]);
+
   const handleFiles = useCallback(async (files) => {
     setError("");
     setImporting(true);
@@ -142,10 +184,11 @@ export default function LandingPage() {
   }, [createClipboard]);
 
   return (
-    <div className="vault-landing pv-landing">
+    <div className="vault-landing pv-landing" ref={rootRef}>
       <main
         className="pv-landing-core"
         aria-labelledby="landing-title"
+        data-dragging={heroDragging ? "true" : undefined}
         onDragEnter={(event) => {
           event.preventDefault();
           if (!importing) setHeroDragging(true);
@@ -164,9 +207,11 @@ export default function LandingPage() {
           if (files.length) handleFiles(files);
         }}
       >
-        <AppLogo />
-        <h1 id="landing-title">The fastest way to move <span className="pv-landing-emphasis">stuff</span> between devices</h1>
-        <p>
+        <AppLogo style={{ "--i": 0 }} />
+        <h1 id="landing-title" style={{ "--i": 1 }}>
+          The fastest way to move <RotatingWord /> between devices
+        </h1>
+        <p style={{ "--i": 2 }}>
           Paste once. Open anywhere.
           <button className="pv-join-link" type="button" onClick={() => setPairOpen(true)}>
             <QrCode size={16} />
@@ -174,7 +219,9 @@ export default function LandingPage() {
           </button>
         </p>
         <form
+          ref={shellRef}
           className="landing-input-shell pv-open-shell"
+          style={{ "--i": 3 }}
           onSubmit={(event) => {
             event.preventDefault();
             openClipboard();
@@ -212,57 +259,52 @@ export default function LandingPage() {
           onDragComplete={() => setHeroDragging(false)}
         />
         <a className="pv-scroll-cue" href="#how-it-works" aria-label="Scroll to learn how PasteVault works">
-          <Mouse size={18} />
-          Scroll for the quick tour
+          <span>Scroll for the quick tour</span>
+          <i aria-hidden="true" />
         </a>
       </main>
       <section className="pv-landing-section pv-landing-feature" id="how-it-works">
-        <div className="pv-landing-feature-copy">
-          <span><Link2 size={18} /> Link-first clipboard</span>
+        <div className="pv-landing-feature-copy" data-reveal>
+          <span className="pv-eyebrow">Link-first clipboard</span>
           <h2>Paste something. Get a clipboard URL. Move on.</h2>
         </div>
-        <div className="pv-landing-flow" aria-label="PasteVault workflow">
-          {[
-            ["01", "Paste", "Drop text, JSON, commands, links, or files."],
-            ["02", "Vault", "Save locally first with optional password protection."],
-            ["03", "Open", "Copy the link and keep moving across devices."]
-          ].map(([step, title, copy]) => (
-            <article key={step}>
+        <ol className="pv-landing-flow" aria-label="PasteVault workflow">
+          {steps.map(([step, title, copy], index) => (
+            <li key={step} data-reveal style={{ "--i": index }}>
               <small>{step}</small>
               <strong>{title}</strong>
               <p>{copy}</p>
-            </article>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
       <section className="pv-landing-section pv-landing-split">
-        <article>
+        <article data-reveal>
           <KeyRound size={26} />
           <h2>Password when it matters</h2>
-          <p>Set a password per clipboard id, remove it later, and keep the no-account flow intact.</p>
+          <p>Set one per clipboard, remove it later. There is still no account to make.</p>
         </article>
-        <article>
+        <article data-reveal style={{ "--i": 1 }}>
           <DatabaseZap size={26} />
           <h2>History without friction</h2>
-          <p>Save clips locally, search by title/content/tag, import files, export boards, and keep recent work close.</p>
+          <p>Every clip is kept and searchable by title, content or tag. Import files, export whole boards.</p>
         </article>
       </section>
       <section className="pv-landing-section pv-landing-proof">
-        <h2>Built for the dev tab you keep open all day.</h2>
-        <div>
-          {["JSON formatting", "Copy latest", "File import", "Deep links", "Theme toggle", "Keyboard save"].map((item) => (
-            <span key={item}><CheckCircle2 size={16} /> {item}</span>
+        <h2 data-reveal>Built for the dev tab you keep open all day.</h2>
+        <ul>
+          {proof.map((item, index) => (
+            <li key={item} data-reveal style={{ "--i": index }}><span>{item}</span></li>
           ))}
-        </div>
+        </ul>
       </section>
-      <footer className="pv-landing-footer">
-        <AppLogo compact />
-        <strong>PasteVault</strong>
-        <p>
-          <span>No account. Local-first clips.</span>
-          <span>Share links once hosted sync is ready. Optional password.</span>
-        </p>
+      <footer className="pv-landing-footer" ref={footerRef}>
+        <Wordmark />
+        <p>No account. Encrypted in your browser. Optional password.</p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
+        <small className="pv-landing-credit">
+          Made by <a href="https://kingsleyaremu.vercel.app" target="_blank" rel="noreferrer">Ice</a>
+        </small>
       </footer>
       <PairDialog open={pairOpen} onClose={() => setPairOpen(false)} />
     </div>
