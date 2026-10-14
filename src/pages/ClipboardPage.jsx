@@ -21,8 +21,7 @@ import {
   Star,
   Trash2,
   Upload,
-  X,
-  Zap
+  X
 } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
@@ -1957,17 +1956,15 @@ function DashboardRail({ active, collapsed, onCollapsedChange, onSectionChange, 
           <span>Storage</span>
           <strong>{storageLabel}</strong>
           <i><b style={{ width: `${storagePercent}%` }} /></i>
-          <em><Zap size={15} /> Local-first</em>
         </div>
         <button className="pv-account-panel" type="button" onClick={onStorageInfo} aria-label="Local storage and hosted sync status">
           <span className="pv-account-avatar" aria-hidden="true">
             <Cloud size={22} />
           </span>
           <span className="pv-account-copy">
-            <strong>No account storage</strong>
-            <small>Local now; encrypted hosted sync when configured</small>
+            <strong>Local-first</strong>
+            <small>Encrypted sync when configured</small>
           </span>
-          <Cloud size={17} />
         </button>
       </SidebarFooter>
     </Sidebar>
@@ -2128,7 +2125,7 @@ function ToolsPanel({ clipboardId, storageUsage, fileUsage, onPaste, onImport, o
   return (
     <section className="pv-tools-panel pv-section-panel" aria-label="Clipboard tools">
       <header>
-        <span>Clipboard {clipboardId}</span>
+        <span>{clipboardId}</span>
         <h1>Tools</h1>
         <p>Secondary actions live here so the editor can stay focused and visible.</p>
       </header>

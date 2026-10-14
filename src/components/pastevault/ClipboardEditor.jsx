@@ -69,7 +69,7 @@ export function ClipboardEditor({
     <section className="pv-workbench vault-clipboard-card editor-card">
       <header className="pv-workbench-head vault-card-head">
         <div>
-          <h1>Clipboard {clipboardId}</h1>
+          <h1>{clipboardId}</h1>
           <MetadataRow bytes={stats.bytes} characters={stats.characters} lines={stats.lines} format={format} passwordLabel={passwordLabel} />
         </div>
         <div className="pv-workbench-status">

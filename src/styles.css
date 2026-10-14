@@ -540,6 +540,12 @@ a {
   white-space: nowrap;
 }
 
+.pv-account-copy small {
+  overflow: visible;
+  white-space: normal;
+  line-height: 1.35;
+}
+
 .pv-account-copy strong {
   font-size: 13px;
   font-weight: 850;
@@ -3875,6 +3881,9 @@ a {
 }
 
 .pv-options-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: auto;
   min-width: 112px;
   gap: 8px;
@@ -4301,4 +4310,15 @@ a {
     border-left: 0;
     padding: 2px 0;
   }
+}
+
+/* The gutter and the code share one top inset so line numbers stay on their lines at every width. */
+.pv-code-surface {
+  --code-pad-top: 24px;
+}
+
+.pv-line-numbers,
+.pv-code-highlight,
+.pv-code-surface textarea {
+  padding-top: var(--code-pad-top);
 }
