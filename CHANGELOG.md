@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.1.0 — encrypted files and images
+
+**Files**
+- Paste, attach or drop files into a clipboard. Each file is encrypted in the browser with its own AES-GCM key; the key and metadata live inside the already-encrypted clip, so the server only ever stores ciphertext.
+- Up to 5 MB per file, 10 files and 25 MB per clipboard, kept for 7 days and then deleted. Storage is a private Supabase bucket reached through short-lived signed URLs, with atomic quota accounting and a daily sweep.
+- The Tools panel shows how much of the clipboard's file allowance is used.
+
+**Previews**
+- Images (with thumbnails that sync inside the encrypted clip), video and audio, and PDF in the browser's own viewer.
+- Text and code with a line-number gutter, language auto-detected from the first few lines or the file extension, a language override that is remembered, and a Formatted view (Markdown, pretty JSON, CSV table).
+- Everything else gets a themed tile by file type; executables are labelled and never run.
+
+**Fixes**
+- Attaching a file while autosave ran could be reported as a conflict and delete the upload. Attachments now commit through the latest save.
+
+**Security**
+- CSP gains the Supabase host in `connect-src` and `blob:` for images, media and frames, and nothing else is loosened. Embedded Markdown is rendered with HTML disabled plus an allowlist sanitizer.
+
 ## v3.0.0 — pairing and near-realtime sync
 
 **Pair a device**
