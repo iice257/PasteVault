@@ -15,6 +15,7 @@ No account. Your clipboard is a link. Lock it with a password and even the serve
 - **One link, one clipboard.** The first paste creates it; clips stay until you delete them
 - **Pair a device in seconds.** Show a QR code and a one-time 6-character code, then scan or type it on the other device
 - **Near-realtime sync.** Changes appear on your other devices within seconds, and instantly when you switch back to the tab
+- **Encrypted files and images.** Paste, attach or drop a file (up to 5 MB, kept 7 days). It is encrypted on your device before upload, and previews decrypt locally: images, video, audio, PDF, and text/code with auto-detected language and a formatted view
 - **Copy in one tap**, read straight from the system clipboard, share a single clip by link
 - **Import and export** text/code files and full JSON history, with per-file validation
 - **Installable** as a PWA

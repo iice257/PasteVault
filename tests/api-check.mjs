@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import handler from "../api/clip/[id].js";
 import sessionHandler from "../api/session/[id].js";
@@ -365,3 +366,125 @@ console.log("api 304 check passed");
   if (!limited) throw new Error("Expected pairing code lookups to be rate limited.");
 }
 console.log("api pairing checks passed");
+
+{
+  const { default: fileHandler } = await import("../api/file/[...path].js");
+  const { memoryAdapter } = await import("../api/_files.js");
+
+  async function call({ method = "GET", path, body, ip = "10.1.0.1", headers = {} }) {
+    const req = createReq({ method, id: "", body, ip, headers });
+    req.url = path;
+    req.query = {};
+    const res = createRes();
+    await fileHandler(req, res);
+    const isJson = typeof res.body === "string" && res.body.startsWith("{");
+    return { status: res.statusCode, body: isJson ? JSON.parse(res.body) : null, raw: res.body, headers: res.headers };
+  }
+  const post = (path, payload, ip, headers) => call({ method: "POST", path, body: JSON.stringify(payload), ip, headers });
+  const cipherSize = (plain) => plain + 16;
+
+  const clip = `files-check-${Date.now()}`;
+  const bytes = Buffer.from("ciphertext-bytes-for-testing-only");
+
+  // ticket -> upload -> confirm -> download -> delete
+  const ticket = await post("/api/file/ticket", { clipboardId: clip, size: bytes.length });
+  assert.equal(ticket.status, 200);
+  assert.match(ticket.body.fileId, /^[0-9a-f-]{36}$/);
+  assert.ok(ticket.body.uploadUrl.startsWith("/api/file/dev.blob/"));
+
+  const notUploaded = await post("/api/file/confirm", { clipboardId: clip, fileId: ticket.body.fileId });
+  assert.equal(notUploaded.status, 409, "confirm before upload is refused");
+  assert.equal(notUploaded.body.reason, "not_uploaded");
+
+  const wrongSize = await call({ method: "PUT", path: ticket.body.uploadUrl, body: Buffer.from("short") });
+  assert.equal(wrongSize.status, 422, "upload must match the reserved size");
+  const uploaded = await call({ method: "PUT", path: ticket.body.uploadUrl, body: bytes });
+  assert.equal(uploaded.status, 200);
+
+  const confirmed = await post("/api/file/confirm", { clipboardId: clip, fileId: ticket.body.fileId });
+  assert.equal(confirmed.status, 200);
+  const days = (new Date(confirmed.body.expiresAt).getTime() - Date.now()) / 86_400_000;
+  assert.ok(days > 6.9 && days <= 7.01, "files are kept for 7 days");
+
+  const download = await call({ path: `/api/file/${clip}/${ticket.body.fileId}` });
+  assert.equal(download.status, 200);
+  const blob = await call({ path: download.body.url });
+  assert.equal(blob.status, 200);
+  assert.deepEqual(Buffer.from(blob.raw), bytes, "downloaded bytes match what was uploaded");
+  assert.equal(blob.headers["content-type"], "application/octet-stream");
+
+  assert.equal((await call({ path: `/api/file/other-clip/${ticket.body.fileId}` })).status, 404, "another clipboard cannot download it");
+  assert.equal((await call({ path: `/api/file/${clip}/not-a-uuid` })).status, 400);
+  assert.equal((await call({ path: `/api/file/bad%20id!/${ticket.body.fileId}` })).status, 400);
+
+  // input validation
+  assert.equal((await post("/api/file/ticket", { clipboardId: "../x", size: 100 }, "10.1.0.2")).status, 400);
+  assert.equal((await post("/api/file/ticket", { clipboardId: clip, size: 5 }, "10.1.0.2")).status, 400, "smaller than a GCM tag");
+  assert.equal((await post("/api/file/ticket", { clipboardId: clip, size: 1.5 }, "10.1.0.2")).status, 400);
+  assert.equal((await post("/api/file/ticket", { clipboardId: clip, size: cipherSize(5 * 1024 * 1024) + 1 }, "10.1.0.2")).status, 413, "over 5 MB");
+  assert.equal((await call({ method: "POST", path: "/api/file/ticket", body: "{}", ip: "10.1.0.2", headers: { "content-type": "text/plain" } })).status, 415);
+  assert.equal((await call({ path: "/api/file/ticket", ip: "10.1.0.2" })).status, 405);
+  assert.equal((await call({ path: "/api/file/nope/x/y", ip: "10.1.0.2" })).status, 404);
+
+  // delete
+  assert.equal((await call({ method: "DELETE", path: `/api/file/${clip}/${ticket.body.fileId}` })).status, 200);
+  assert.equal((await call({ path: `/api/file/${clip}/${ticket.body.fileId}` })).status, 404, "deleted files are gone");
+
+  // per-clipboard byte quota: four 5 MB files fit, the fifth does not
+  const quotaClip = `files-quota-${Date.now()}`;
+  for (let index = 0; index < 4; index += 1) {
+    assert.equal((await post("/api/file/ticket", { clipboardId: quotaClip, size: cipherSize(5 * 1024 * 1024) }, "10.1.0.3")).status, 200);
+  }
+  const overQuota = await post("/api/file/ticket", { clipboardId: quotaClip, size: cipherSize(5 * 1024 * 1024) }, "10.1.0.3");
+  assert.equal(overQuota.status, 422);
+  assert.equal(overQuota.body.reason, "clipboard_quota");
+
+  // per-clipboard file count
+  const countClip = `files-count-${Date.now()}`;
+  for (let index = 0; index < 10; index += 1) {
+    assert.equal((await post("/api/file/ticket", { clipboardId: countClip, size: 100 }, "10.1.0.4")).status, 200);
+  }
+  const overCount = await post("/api/file/ticket", { clipboardId: countClip, size: 100 }, "10.1.0.4");
+  assert.equal(overCount.status, 422);
+  assert.equal(overCount.body.reason, "clipboard_files");
+
+  // global storage budget and egress budget
+  process.env.PV_FILES_GLOBAL_BUDGET_BYTES = "1";
+  const full = await post("/api/file/ticket", { clipboardId: `files-budget-${Date.now()}`, size: 100 }, "10.1.0.5");
+  assert.equal(full.status, 503);
+  assert.equal(full.body.reason, "global_budget");
+  delete process.env.PV_FILES_GLOBAL_BUDGET_BYTES;
+
+  const egressClip = `files-egress-${Date.now()}`;
+  const egressTicket = await post("/api/file/ticket", { clipboardId: egressClip, size: bytes.length }, "10.1.0.6");
+  await call({ method: "PUT", path: egressTicket.body.uploadUrl, body: bytes, ip: "10.1.0.6" });
+  await post("/api/file/confirm", { clipboardId: egressClip, fileId: egressTicket.body.fileId }, "10.1.0.6");
+  process.env.PV_FILES_EGRESS_BUDGET_BYTES = "1";
+  const paused = await call({ path: `/api/file/${egressClip}/${egressTicket.body.fileId}`, ip: "10.1.0.6" });
+  assert.equal(paused.status, 503);
+  assert.equal(paused.body.reason, "egress_budget");
+  delete process.env.PV_FILES_EGRESS_BUDGET_BYTES;
+
+  // expiry and sweep
+  assert.equal((await call({ path: `/api/file/${egressClip}/${egressTicket.body.fileId}`, ip: "10.1.0.6" })).status, 200);
+  memoryAdapter.expireNow(egressTicket.body.fileId);
+  assert.equal((await call({ path: `/api/file/${egressClip}/${egressTicket.body.fileId}`, ip: "10.1.0.6" })).status, 410, "expired files report 410");
+  const swept = await call({ path: "/api/file/sweep", ip: "10.1.0.7" });
+  assert.equal(swept.status, 200);
+  assert.ok(swept.body.removed >= 1, "sweep removes expired files");
+
+  // the cron route needs the secret when one is configured
+  process.env.CRON_SECRET = "test-secret";
+  assert.equal((await call({ path: "/api/file/sweep", ip: "10.1.0.8" })).status, 401);
+  assert.equal((await call({ path: "/api/file/sweep", ip: "10.1.0.8", headers: { authorization: "Bearer wrong" } })).status, 401);
+  assert.equal((await call({ path: "/api/file/sweep", ip: "10.1.0.8", headers: { authorization: "Bearer test-secret" } })).status, 200);
+  delete process.env.CRON_SECRET;
+
+  // production never falls back to the memory adapter
+  process.env.VERCEL = "1";
+  const unconfigured = await post("/api/file/ticket", { clipboardId: clip, size: 100 }, "10.1.0.9");
+  assert.equal(unconfigured.status, 503);
+  assert.equal(unconfigured.body.reason, "not_configured");
+  delete process.env.VERCEL;
+}
+console.log("api file checks passed");

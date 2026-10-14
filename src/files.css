@@ -1,0 +1,297 @@
+/* Encrypted files: panel, rows, themed tiles and viewer. */
+
+.pv-files-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  padding: 18px 20px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.pv-files-panel.is-dragging {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 9%, var(--card));
+}
+
+.pv-files-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pv-files-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.pv-files-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pv-files-attach {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: transparent;
+  padding: 0 13px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.pv-files-attach:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.pv-files-attach:focus-visible,
+.pv-file-open:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.pv-files-empty {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  border: 1.5px dashed var(--line);
+  border-radius: 16px;
+  padding: 26px 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pv-files-empty strong {
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.pv-files-panel kbd {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  color: var(--ink);
+}
+
+.pv-files-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.pv-files-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: 14px;
+  padding: 8px 10px 8px 8px;
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+}
+
+.pv-file-row.has-error {
+  border-color: rgba(239, 67, 56, 0.4);
+}
+
+.pv-file-row.is-expired {
+  opacity: 0.6;
+}
+
+.pv-file-open {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pv-file-open:disabled {
+  cursor: default;
+}
+
+.pv-file-body {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 3px;
+}
+
+.pv-file-body strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-file-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.pv-file-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d92d20;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.pv-file-body progress {
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  accent-color: var(--teal);
+}
+
+.pv-file-body progress::-webkit-progress-bar {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.pv-file-body progress::-webkit-progress-value {
+  background: var(--teal);
+  transition: width 120ms linear;
+}
+
+.pv-file-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.pv-file-actions .pv-icon-button,
+.pv-file-row > .pv-icon-button {
+  width: 34px;
+  height: 34px;
+}
+
+.pv-file-spin {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  color: var(--muted);
+  animation: pv-file-spin 900ms linear infinite;
+}
+
+@keyframes pv-file-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Themed tiles: colour tells you the kind of file at a glance. */
+.pv-file-tile {
+  --tone: #8a94a6;
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tone) 38%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  color: var(--tone);
+}
+
+.pv-file-tile b {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.pv-file-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pv-file-tile[data-tone="blue"] { --tone: #3b7bf6; }
+.pv-file-tile[data-tone="green"] { --tone: #2fa354; }
+.pv-file-tile[data-tone="orange"] { --tone: #ef7d1a; }
+.pv-file-tile[data-tone="amber"] { --tone: #d99a06; }
+.pv-file-tile[data-tone="purple"] { --tone: #8159f5; }
+.pv-file-tile[data-tone="teal"] { --tone: #14a8a2; }
+.pv-file-tile[data-tone="red"] { --tone: #e5484d; }
+.pv-file-tile[data-tone="rose"] { --tone: #e5484d; }
+.pv-file-tile[data-tone="pink"] { --tone: #e0589a; }
+.pv-file-tile[data-tone="indigo"] { --tone: #5468e8; }
+.pv-file-tile[data-tone="violet"] { --tone: #9566ee; }
+.pv-file-tile[data-tone="slate"] { --tone: #64748b; }
+
+.pv-file-caution {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #e5484d;
+  box-shadow: 0 0 0 2px var(--card);
+}
+
+@media (max-width: 520px) {
+  .pv-files-panel {
+    padding: 16px 14px;
+    border-radius: 18px;
+  }
+
+  .pv-files-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pv-files-attach {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-file-spin {
+    animation: none;
+  }
+}
+
+.pv-tools-files i b {
+  background: linear-gradient(90deg, #3b7bf6, #8159f5);
+}
