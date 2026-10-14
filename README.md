@@ -6,7 +6,7 @@ Paste once, open anywhere. A private clipboard for text, code, links and JSON th
 
 No account. Your clipboard is a link. Lock it with a password and even the server only ever sees ciphertext.
 
-**[Open PasteVault →](https://pastevault-lime.vercel.app)** · React · Vite · Web Crypto · Upstash Redis
+**[Open PasteVault →](https://thepastevault.vercel.app)** · React · Vite · Web Crypto · Upstash Redis
 
 ---
 

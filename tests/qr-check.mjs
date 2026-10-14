@@ -3,8 +3,8 @@ import jsQR from "jsqr";
 
 // Proves the QR we render is readable by the jsQR fallback scanner.
 const payloads = [
-  "https://pastevault-lime.vercel.app/clip/pair-check-1791734618691",
-  "https://pastevault-lime.vercel.app/clip/pv_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+  "https://thepastevault.vercel.app/clip/pair-check-1791734618691",
+  "https://thepastevault.vercel.app/clip/pv_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
   "ABC234"
 ];
 
