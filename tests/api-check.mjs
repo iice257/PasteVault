@@ -415,6 +415,12 @@ console.log("api pairing checks passed");
 
   assert.equal((await call({ path: `/api/file/other-clip/${ticket.body.fileId}` })).status, 404, "another clipboard cannot download it");
   assert.equal((await call({ path: `/api/file/${clip}/not-a-uuid` })).status, 400);
+  // The query form is what the app uses, because Vercel only routes single-segment paths here.
+  const viaQuery = await call({ path: `/api/file/item?clipboardId=${clip}&fileId=${ticket.body.fileId}` });
+  assert.equal(viaQuery.status, 200, "item route returns a download URL");
+  assert.equal((await call({ path: `/api/file/item?clipboardId=other-clip&fileId=${ticket.body.fileId}` })).status, 404);
+  assert.equal((await call({ path: "/api/file/item?clipboardId=dev.blob&fileId=x" })).status, 400, "item route cannot reach the dev blob route");
+  assert.equal((await call({ path: "/api/file/item" })).status, 400, "item route needs both ids");
   assert.equal((await call({ path: `/api/file/bad%20id!/${ticket.body.fileId}` })).status, 400);
 
   // input validation

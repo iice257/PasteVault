@@ -50,12 +50,19 @@ function sweepAuthorised(req) {
 // One function serves every file route so we stay well under the Hobby plan's function limit.
 //   POST   /api/file/ticket              reserve space and get an upload URL
 //   POST   /api/file/confirm             mark an upload ready
-//   GET    /api/file/:clipboardId/:fileId  get a short-lived download URL
-//   DELETE /api/file/:clipboardId/:fileId  remove a file
+//   GET    /api/file/item?clipboardId=&fileId=  get a short-lived download URL
+//   DELETE /api/file/item?clipboardId=&fileId=  remove a file
+//   (the same two routes also answer at /api/file/:clipboardId/:fileId; Vercel only routes
+//   single-segment paths to this catch-all, so the app uses the query form)
 //   GET    /api/file/sweep               daily cron: delete expired files (also keeps Supabase awake)
 //   PUT|GET /api/file/dev.blob/:fileId   memory adapter only (dev server and tests)
 export default async function handler(req, res) {
-  const segments = segmentsOf(req);
+  let segments = segmentsOf(req);
+  const isItem = segments.length === 1 && segments[0] === "item";
+  if (isItem) {
+    const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+    segments = [query.get("clipboardId") ?? "", query.get("fileId") ?? ""];
+  }
   const limit = rateLimit(req);
   if (limit.limited) {
     return json(res, 429, { error: "Too many requests." }, { "Retry-After": "60" });
@@ -102,7 +109,7 @@ export default async function handler(req, res) {
       return json(res, 200, await adapter.sweep());
     }
 
-    if (segments.length === 2 && first === "dev.blob") {
+    if (!isItem && segments.length === 2 && first === "dev.blob") {
       if (adapter !== memoryAdapter) return json(res, 404, { error: "Not found." });
       if (!uuidPattern.test(second)) return json(res, 400, { error: "Invalid file id." });
       if (req.method === "PUT") {

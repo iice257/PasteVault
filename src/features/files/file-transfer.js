@@ -22,6 +22,9 @@ const reasonMessages = {
   not_found: "This file is no longer available."
 };
 
+// Single-segment path: Vercel routes these to the catch-all function reliably.
+const itemUrl = (clipboardId, fileId) => `/api/file/item?clipboardId=${encodeURIComponent(clipboardId)}&fileId=${encodeURIComponent(fileId)}`;
+
 async function readError(response, fallback) {
   let reason = "";
   let message = "";
@@ -134,7 +137,7 @@ export async function uploadAttachment({ clipboardId, file, onStage = () => {} }
 export async function downloadAttachment({ clipboardId, attachment }) {
   let response;
   try {
-    response = await fetch(`/api/file/${encodeURIComponent(clipboardId)}/${attachment.fileId}`, { cache: "no-store" });
+    response = await fetch(itemUrl(clipboardId, attachment.fileId), { cache: "no-store" });
   } catch {
     throw new TransferError("Could not reach the server. Check your connection.", "network");
   }
@@ -159,7 +162,7 @@ export async function downloadAttachment({ clipboardId, attachment }) {
 
 export async function deleteRemoteFile(clipboardId, fileId) {
   try {
-    await fetch(`/api/file/${encodeURIComponent(clipboardId)}/${fileId}`, { method: "DELETE" });
+    await fetch(itemUrl(clipboardId, fileId), { method: "DELETE" });
   } catch {
     // Best effort. Anything left behind expires automatically after 7 days.
   }
