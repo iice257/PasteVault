@@ -8,7 +8,7 @@
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   --ink: #07080a;
-  --muted: #667085;
+  --muted: #586277;
   --line: rgba(15, 23, 42, 0.11);
   --soft-line: rgba(15, 23, 42, 0.07);
   --card: rgba(255, 255, 255, 0.92);
@@ -55,6 +55,13 @@ a {
 :where(button, a, input, textarea, [role="menuitem"]):focus-visible {
   outline: 3px solid rgba(24, 199, 192, 0.28);
   outline-offset: 4px;
+}
+
+/* Dark surfaces need a brighter, crisper ring than the soft teal halo used on light. */
+.theme-dark :where(button, a, input, textarea, [role="menuitem"], [role="button"], [role="checkbox"]):focus-visible {
+  outline: 2px solid #5eead4;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(94, 234, 212, 0.18);
 }
 
 .theme-light,
@@ -707,7 +714,6 @@ a {
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
-.pv-autosave-toggle[aria-pressed="true"],
 .pv-autosave-strip button[aria-pressed="true"] {
   border-color: rgba(20, 184, 166, 0.3);
   background: #ecfeff;
@@ -715,15 +721,67 @@ a {
 }
 
 .pv-sync-pill {
-  color: #1f9d55;
+  color: #1a7f45;
   border-color: rgba(34, 197, 94, 0.18);
   background: rgba(240, 253, 244, 0.9);
+  box-shadow: none;
+}
+
+.pv-sync-pill.is-pending,
+.pv-sync-pill.is-idle {
+  color: #566074;
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.pv-sync-pill.is-pending .pv-sync-label svg {
+  animation: pv-spin 900ms linear infinite;
 }
 
 .pv-sync-pill.is-conflict {
   color: #b42318;
   border-color: rgba(244, 63, 94, 0.25);
   background: #fff1f2;
+}
+
+.pv-sync-pill {
+  gap: 4px;
+  padding: 0 3px 0 12px;
+}
+
+.pv-sync-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-sync-pill .pv-autosave-toggle {
+  min-width: 30px;
+  min-height: 30px;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.pv-autosave-toggle {
+  min-width: 36px;
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #566074;
+  cursor: pointer;
+}
+
+.pv-autosave-toggle:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.pv-autosave-toggle[aria-pressed="true"] {
+  color: #0b8f94;
+}
+
+.pv-autosave-toggle[aria-pressed="false"] {
+  color: #8a94a6;
 }
 
 .pv-unsaved-actions {
@@ -744,7 +802,6 @@ a {
   color: rgba(255, 255, 255, 0.78);
 }
 
-.theme-dark .pv-autosave-toggle[aria-pressed="true"],
 .theme-dark .pv-autosave-strip button[aria-pressed="true"] {
   border-color: rgba(45, 212, 191, 0.32);
   background: rgba(20, 184, 166, 0.18);
@@ -754,6 +811,29 @@ a {
 .theme-dark .pv-sync-pill {
   color: #86efac;
   border-color: rgba(34, 197, 94, 0.2);
+}
+
+.theme-dark .pv-sync-pill.is-pending,
+.theme-dark .pv-sync-pill.is-idle {
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.theme-dark .pv-autosave-toggle {
+  border-color: transparent;
+  background: transparent;
+}
+
+.theme-dark .pv-autosave-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-dark .pv-autosave-toggle[aria-pressed="true"] {
+  color: #5eead4;
+}
+
+.theme-dark .pv-autosave-toggle[aria-pressed="false"] {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .theme-dark .pv-sync-pill.is-conflict {
@@ -1708,15 +1788,40 @@ a {
   z-index: 120;
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-width: 322px;
+  gap: 12px;
+  min-width: 0;
+  max-width: min(420px, calc(100vw - 32px));
   border: 1px solid rgba(15, 23, 42, 0.09);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 12px 14px 12px 16px;
   color: #101218;
+  font-size: 14px;
   box-shadow: var(--card-shadow);
   backdrop-filter: blur(18px);
+}
+
+.pv-toast strong {
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.theme-dark .pv-toast {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(24, 29, 39, 0.94);
+  color: #f3f5f9;
+}
+
+.theme-dark .pv-toast > svg {
+  color: #5eead4;
+}
+
+.theme-dark .pv-toast-error > svg {
+  color: #fda4af;
+}
+
+.theme-dark .pv-toast button {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .pv-toast > svg {
@@ -1727,21 +1832,16 @@ a {
   color: #ef4338;
 }
 
-.pv-toast div {
-  display: grid;
-  gap: 3px;
-}
-
-.pv-toast span {
-  color: #667085;
-  font-size: 13px;
-}
-
 .pv-toast button {
-  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: #667085;
+  color: #566074;
 }
 
 @media (min-width: 1501px) {
@@ -1856,31 +1956,6 @@ a {
     min-height: 100dvh;
     padding: 0 24px 24px;
     overflow: hidden;
-  }
-
-  .pv-dashboard-stage::before {
-    content: "9:41";
-    position: relative;
-    z-index: 20;
-    display: block;
-    padding: 38px 0 0 34px;
-    color: #050608;
-    font-size: 29px;
-    font-weight: 900;
-  }
-
-  .pv-dashboard-stage::after {
-    content: "";
-    position: absolute;
-    top: 43px;
-    right: 54px;
-    z-index: 20;
-    width: 76px;
-    height: 22px;
-    background:
-      linear-gradient(90deg, #050608 0 6px, transparent 6px 10px, #050608 10px 18px, transparent 18px 24px, #050608 24px 34px, transparent 34px 42px, #050608 42px 76px);
-    border-radius: 6px;
-    opacity: 0.9;
   }
 
   .pv-mobile-hero {
@@ -2113,7 +2188,7 @@ a {
     right: 16px;
     bottom: 110px;
     left: 16px;
-    min-width: 0;
+    max-width: none;
   }
 
   .pv-history-mode .pv-history-page {
@@ -2721,7 +2796,7 @@ a {
   --pv-panel: #ffffff;
   --pv-panel-2: #fbfcfd;
   --pv-border: #e5e8ee;
-  --pv-muted: #667085;
+  --pv-muted: #586277;
   --pv-strong: #090b10;
   background: var(--pv-app-bg);
 }
@@ -3412,9 +3487,11 @@ a {
   }
 
   .pv-workbench-status {
-    display: grid;
-    justify-items: end;
-    gap: 9px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
   }
 
   .pv-sync-pill-row {
@@ -4321,4 +4398,221 @@ a {
 .pv-code-highlight,
 .pv-code-surface textarea {
   padding-top: var(--code-pad-top);
+}
+
+/* Mobile workspace header: name, status and one row of actions before the content. */
+@media (max-width: 700px) {
+  .pv-mobile-hero {
+    gap: 10px;
+    padding-top: 14px;
+  }
+
+  .pv-mobile-hero h1,
+  .pv-clipboard-name-row h1,
+  .pv-clipboard-name-row input {
+    margin-bottom: 4px;
+    font-size: clamp(24px, 7vw, 30px);
+    line-height: 1.1;
+  }
+
+  .pv-mobile-meta {
+    font-size: 14px;
+  }
+
+  .pv-mobile-actions {
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .pv-mobile-actions .pv-action {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .pv-mobile-actions .pv-action svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.pv-meta-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #0b8f94;
+  cursor: pointer;
+}
+
+.pv-meta-toggle[aria-pressed="false"] {
+  color: #8a94a6;
+}
+
+.theme-dark .pv-meta-toggle {
+  color: #5eead4;
+}
+
+.theme-dark .pv-meta-toggle[aria-pressed="false"] {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Keyboard shortcuts dialog */
+.pv-shortcuts-modal {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--card);
+  padding: 28px;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.pv-shortcuts-modal h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.pv-shortcut-list {
+  display: grid;
+  margin: 0;
+}
+
+.pv-shortcut-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.pv-shortcut-list dt {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.pv-shortcut-list dd {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin: 0;
+}
+
+.pv-shortcut-list kbd {
+  min-width: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  padding: 3px 7px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  text-align: center;
+}
+
+/* History bulk actions */
+.pv-history-page .pv-mini-select[aria-pressed="true"] {
+  border-color: rgba(20, 184, 166, 0.45);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pv-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -8px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  padding: 8px 10px 8px 16px;
+}
+
+.pv-bulk-bar strong {
+  margin-right: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-bulk-spacer {
+  flex: 1 1 auto;
+}
+
+.pv-bulk-bar button {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.pv-bulk-bar button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.pv-bulk-bar button:disabled {
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pv-bulk-bar button.is-danger {
+  color: #b42318;
+}
+
+.theme-dark .pv-bulk-bar button.is-danger {
+  color: #fda4af;
+}
+
+.pv-history-card.is-selecting {
+  cursor: pointer;
+}
+
+.pv-history-card.is-checked {
+  border-color: rgba(24, 199, 192, 0.82);
+  background: linear-gradient(135deg, rgba(24, 199, 192, 0.13), rgba(255, 255, 255, 0.86));
+}
+
+.pv-history-check {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  border-radius: 7px;
+  background: var(--card);
+  color: #fff;
+}
+
+.pv-history-card.is-checked .pv-history-check {
+  border-color: var(--teal);
+  background: var(--teal);
 }

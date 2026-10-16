@@ -1,12 +1,23 @@
-import { CheckCircle2, FileText, Hash, Lock, Shield, Type } from "lucide-react";
+import { CheckCircle2, FileText, Hash, Lock, Shield, ToggleLeft, ToggleRight, Type } from "lucide-react";
 import { formatBytes } from "../../features/clipboard/clipboard-store";
 
-export function MetadataRow({ bytes, format, passwordLabel = "Password optional", compact = false }) {
+export function MetadataRow({ bytes, format, passwordLabel = "Password optional", compact = false, status, autosave }) {
   if (compact) {
     return (
       <div className="pv-mobile-meta">
-        <span><CheckCircle2 size={14} />Saved</span>
-        <i />
+        {status && <span className={`is-${status.tone}`} role="status"><CheckCircle2 size={14} />{status.label}</span>}
+        {autosave && (
+          <button
+            className="pv-meta-toggle"
+            type="button"
+            onClick={autosave.onToggle}
+            aria-pressed={autosave.enabled}
+            aria-label={`Autosave ${autosave.enabled ? "on" : "off"}`}
+          >
+            {autosave.enabled ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+          </button>
+        )}
+        {status && <i />}
         <span><Shield size={16} />{passwordLabel}</span>
       </div>
     );
@@ -14,8 +25,6 @@ export function MetadataRow({ bytes, format, passwordLabel = "Password optional"
 
   return (
     <div className="pv-meta-row">
-      <span><CheckCircle2 size={14} />Saved</span>
-      <i />
       <span className="pv-chip pv-chip-json">{format}</span>
       <i />
       <span>{formatBytes(bytes)}</span>
@@ -34,7 +43,6 @@ export function EditorStatusBar({ bytes, characters, lines, onFormat }) {
       <i />
       <span><FileText size={16} />{formatBytes(bytes)}</span>
       <button type="button" onClick={onFormat}>Format</button>
-      <strong><CheckCircle2 size={18} />Auto-saved</strong>
     </div>
   );
 }

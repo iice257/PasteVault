@@ -46,7 +46,7 @@ await page.keyboard.press("Escape");
 
 await page.locator(".pv-bottom-paste input").fill("{\"mobile\":\"composer save\"}");
 await page.locator(".pv-bottom-paste").getByRole("button", { name: "Save" }).click();
-await page.getByRole("status").getByText("Clip saved successfully").waitFor();
+await page.getByRole("status").getByText("Clip saved").waitFor();
 
 await page.getByRole("button", { name: "History" }).click();
 await page.locator(".pv-history-table-card").waitFor();

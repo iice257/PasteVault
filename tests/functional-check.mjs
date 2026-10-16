@@ -54,7 +54,7 @@ if (await page.locator(".pv-history-row").count()) {
 }
 await page.getByLabel("Clipboard content").fill(largeText);
 await page.keyboard.press("Control+S");
-await page.getByRole("status").getByText("Clip saved successfully").waitFor();
+await page.getByRole("status").getByText("Clip saved").waitFor();
 await page.getByRole("button", { name: "History" }).click();
 await page.getByPlaceholder("Search history").fill(largeMarker);
 await page.locator(".pv-history-row").first().waitFor();

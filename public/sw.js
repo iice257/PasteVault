@@ -1,5 +1,5 @@
-const cacheName = "pastevault-app-v1";
-const appShell = ["/", "/favicon.svg", "/pastevault-logo.png"];
+const cacheName = "pastevault-app-v2";
+const appShell = ["/", "/favicon.svg", "/pastevault-logo.webp"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

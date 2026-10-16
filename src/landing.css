@@ -45,13 +45,26 @@
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.68)),
-    url("/pastevault-bg.png");
+    url("/pastevault-bg.webp");
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
   transform: translate3d(calc(var(--fx-x) * -9px), calc(var(--fx-y) * -6px + var(--fx-scroll) * 72px), 0) scale(1.03);
   opacity: calc(1 - var(--fx-scroll) * 0.55);
   will-change: transform;
+}
+
+/* On narrower desktops the headline reaches the baked-in cards, so calm the middle of the image. */
+@media (min-width: 701px) and (max-width: 1500px) {
+  .pv-landing::before {
+    background:
+      radial-gradient(ellipse 58% 52% at 50% 50%, rgba(250, 252, 253, 0.9), rgba(250, 252, 253, 0.55) 62%, rgba(250, 252, 253, 0) 100%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.68)),
+      url("/pastevault-bg.webp");
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
 }
 
 /* A soft teal light that trails the cursor across the first screen. */
@@ -852,4 +865,13 @@
   .pv-scroll-cue i {
     animation: none;
   }
+}
+
+.pv-landing-core .pv-inline-status {
+  width: min(760px, calc(100vw - 64px));
+  margin: 14px 0 0;
+  color: var(--lp-muted, #566074);
+  font-size: 14px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
 }

@@ -19,6 +19,7 @@
     "qr:check": "node ./tests/qr-check.mjs",
     "files:check": "node ./tests/files-check.mjs && node ./tests/text-preview-check.mjs",
     "files:flow": "node ./tests/files-flow-check.mjs",
+    "offline:check": "node ./tests/offline-check.mjs",
     "files:viewer": "node ./tests/files-viewer-check.mjs",
     "mobile:check": "node ./tests/mobile-check.mjs",
     "api:check": "node ./tests/api-check.mjs",

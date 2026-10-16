@@ -1,4 +1,4 @@
-import { Braces, FileText, Lock, Pin, Star, Terminal } from "lucide-react";
+import { Braces, Check, FileText, Lock, Pin, Star, Terminal } from "lucide-react";
 import { formatAge, formatBytes, textBytes } from "../../features/clipboard/clipboard-store";
 import { cn } from "../../lib/utils";
 
@@ -15,7 +15,7 @@ function labelFor(format) {
   return format;
 }
 
-export function RecentHistoryCard({ clip, selected, onOpen, onTogglePin, onToggleStar }) {
+export function RecentHistoryCard({ clip, selected, onOpen, onTogglePin, onToggleStar, selectMode = false, checked = false }) {
   const handleKeyDown = (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -25,13 +25,15 @@ export function RecentHistoryCard({ clip, selected, onOpen, onTogglePin, onToggl
 
   return (
     <article
-      className={cn("pv-history-card", selected && "is-selected")}
-      role="button"
+      className={cn("pv-history-card", selected && "is-selected", selectMode && "is-selecting", checked && "is-checked")}
+      role={selectMode ? "checkbox" : "button"}
+      aria-checked={selectMode ? checked : undefined}
       tabIndex={0}
-      aria-label={`Open ${clip.title}`}
+      aria-label={selectMode ? `Select ${clip.title}` : `Open ${clip.title}`}
       onClick={onOpen}
       onKeyDown={handleKeyDown}
     >
+      {selectMode && <span className="pv-history-check" aria-hidden="true">{checked && <Check size={14} strokeWidth={3} />}</span>}
       <div className="pv-history-icon">
         {renderHistoryIcon(clip.format, clip.title)}
       </div>

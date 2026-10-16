@@ -106,7 +106,15 @@ export default async function handler(req, res) {
     if (segments.length === 1 && first === "sweep") {
       if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." }, { Allow: "GET" });
       if (!sweepAuthorised(req)) return json(res, 401, { error: "Unauthorized." });
-      return json(res, 200, await adapter.sweep());
+      // One structured line per run, so a silent failure or a stuck backlog shows up in the log drain.
+      try {
+        const result = await adapter.sweep();
+        console.info(JSON.stringify({ event: "pastevault.sweep", ok: true, removed: result.removed, at: new Date().toISOString() }));
+        return json(res, 200, result);
+      } catch (sweepError) {
+        console.error(JSON.stringify({ event: "pastevault.sweep", ok: false, error: String(sweepError?.message ?? sweepError), at: new Date().toISOString() }));
+        throw sweepError;
+      }
     }
 
     if (!isItem && segments.length === 2 && first === "dev.blob") {

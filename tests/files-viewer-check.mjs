@@ -119,7 +119,7 @@ try {
   // Tools shows how much of the clipboard's file allowance is used.
   await page.getByRole("button", { name: /^Tools$/ }).first().click();
   await page.getByText("Encrypted files", { exact: true }).waitFor();
-  await page.getByText(/8 of 10 files/).waitFor();
+  await page.getByText(/8 of 10 files. Each file/).waitFor();
 
   // Mobile: the viewer fills the screen with no sideways scroll.
   const mobile = await newPage({ width: 390, height: 844 });

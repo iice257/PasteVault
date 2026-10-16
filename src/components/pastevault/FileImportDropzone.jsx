@@ -2,7 +2,13 @@ import { useState } from "react";
 import { FileUp, LoaderCircle, Plus } from "lucide-react";
 import { cn } from "../../lib/utils";
 
+const textAccept = ".txt,.text,.json,.md,.env,.bash,.sh,.csv,.js,.jsx,.ts,.tsx,.py,.sql,.html,.css,.xml,.yaml,.yml,.log,text/*,application/json";
+const textHint = "Text, code, JSON, Markdown, CSV and PasteVault exports; up to 5MB each";
+
 export function FileImportDropzone({
+  accept = textAccept,
+  hint = textHint,
+  busyLabel = "Importing files...",
   inputRef,
   onFiles,
   compact = false,
@@ -31,7 +37,7 @@ export function FileImportDropzone({
         type="file"
         multiple
         aria-label="Import clipboard files"
-        accept=".txt,.text,.json,.md,.env,.bash,.sh,.csv,.js,.jsx,.ts,.tsx,.py,.sql,.html,.css,.xml,.yaml,.yml,.log,text/*,application/json"
+        accept={accept || undefined}
         disabled={disabled}
         onChange={(event) => {
           submitFiles(event.target.files);
@@ -77,8 +83,8 @@ export function FileImportDropzone({
       >
         <Icon className={disabled ? "pv-spin" : ""} size={compact ? 22 : 30} />
         <span>
-          <strong>{disabled ? "Importing files..." : dragging ? "Release to import" : "Drop files or browse"}</strong>
-          <em>Text, code, JSON, Markdown, CSV and PasteVault exports; up to 5MB each</em>
+          <strong>{disabled ? busyLabel : dragging ? "Release to import" : "Drop files or browse"}</strong>
+          <em>{hint}</em>
         </span>
       </button>
     </>

@@ -47,7 +47,7 @@ await page.locator(".section-title-row .select-trigger").click();
 await page.getByRole("menuitem", { name: "Plain text" }).click();
 await page.getByLabel("Clipboard content").fill("interaction button test");
 await page.locator(".vault-card-actions").getByRole("button", { name: "Save" }).click();
-await page.getByRole("status").getByText("Clip saved successfully").waitFor();
+await page.getByRole("status").getByText("Clip saved").waitFor();
 
 await page.locator(".vault-card-actions").getByRole("button", { name: "More actions" }).click();
 await page.getByRole("menuitem", { name: "New clip" }).click();
@@ -59,7 +59,7 @@ await page.getByLabel("Clipboard content").fill("{\"from\":\"dropdown\"}");
 await page.locator(".section-title-row .select-trigger").click();
 await page.getByRole("menuitem", { name: "JSON" }).click();
 await page.locator(".vault-card-actions").getByRole("button", { name: "Save" }).click();
-await page.getByRole("status").getByText("Clip saved successfully").waitFor();
+await page.getByRole("status").getByText("Clip saved").waitFor();
 
 await page.getByLabel("Workspace navigation").getByRole("button", { name: "History" }).click();
 await page.locator(".history-toolbar .sort-trigger").click();
@@ -154,6 +154,25 @@ if (!historyCardCount) {
   const persisted = await page.evaluate((key) => window.localStorage.getItem(key), storageKey);
   throw new Error(`History route rendered without cards. Persisted board: ${persisted ?? "missing"}`);
 }
+
+// History bulk actions: select, pin and delete several clips at once.
+await page.goto(`${baseUrl}/clip/${boardId}?view=history`, { waitUntil: "networkidle" });
+const cardsBefore = await page.locator(".pv-history-page .pv-history-card").count();
+await page.getByRole("button", { name: "Select", exact: true }).click();
+await page.getByRole("toolbar", { name: "Bulk actions" }).getByText("Choose clips").waitFor();
+await page.getByRole("button", { name: "Select all" }).click();
+await page.getByText(`${cardsBefore} selected`).waitFor();
+await page.getByRole("toolbar", { name: "Bulk actions" }).getByRole("button", { name: "Delete", exact: true }).click();
+await page.getByRole("button", { name: /^Delete \d+ clips?\?$/ }).click();
+await page.getByText("No clips match this view.").waitFor();
+
+// The ? key opens the shortcuts list, Escape closes it.
+await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
+await page.locator("body").click({ position: { x: 5, y: 5 } });
+await page.keyboard.press("?");
+await page.getByRole("dialog", { name: "Keyboard shortcuts" }).waitFor();
+await page.keyboard.press("Escape");
+await page.getByRole("dialog", { name: "Keyboard shortcuts" }).waitFor({ state: "detached" });
 
 await context.close();
 await browser.close();

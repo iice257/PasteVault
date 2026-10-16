@@ -1,0 +1,636 @@
+/*
+  Mobile app shell (phones and small tablets in portrait).
+  This is the single source of truth for the workspace below 760px. It loads last, so it
+  replaces the older layered overrides instead of adding another one on top of them.
+
+  Layout: a slim top bar, the clip name and status, a sticky section switcher, then the
+  work surface edge to edge. No phone mock-up chrome, no desktop card in a card.
+*/
+@media (max-width: 760px) {
+  .pv-dashboard {
+    --m-gutter: 14px;
+    --m-radius: 18px;
+    --m-line: rgba(15, 23, 42, 0.1);
+    --m-surface: #ffffff;
+    min-height: 100dvh;
+    overflow: visible;
+    background: #f6f7f9;
+  }
+
+  .pv-dashboard.theme-dark {
+    --m-line: rgba(255, 255, 255, 0.12);
+    --m-surface: #0d1118;
+    background: #07090d;
+  }
+
+  .pv-dashboard-header {
+    display: none;
+  }
+
+  .pv-dashboard-stage {
+    display: block;
+    min-height: 100dvh;
+    padding: 0 0 calc(92px + env(safe-area-inset-bottom));
+    overflow: visible;
+  }
+
+  /* The old mock-up painted a fake clock and battery here. */
+  .pv-dashboard-stage::before,
+  .pv-dashboard-stage::after {
+    content: none;
+    display: none;
+  }
+
+  /* ---------- Header ---------- */
+  .pv-mobile-hero {
+    display: grid;
+    justify-items: stretch;
+    gap: 10px;
+    padding: calc(10px + env(safe-area-inset-top)) var(--m-gutter) 0;
+    text-align: left;
+  }
+
+  .pv-mobile-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .pv-mobile-hero .pv-logo {
+    margin: 0;
+    font-size: 21px;
+  }
+
+  .pv-mobile-hero .pv-logo span {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+
+  .pv-clipboard-identity {
+    display: grid;
+    justify-items: start;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .pv-clipboard-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pv-mobile-hero h1,
+  .pv-clipboard-name-row h1,
+  .pv-clipboard-name-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 24px;
+    font-weight: 820;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .pv-clipboard-name-row button {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .pv-clipboard-id-pill {
+    max-width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pv-mobile-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px 10px;
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .pv-mobile-meta i {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+  }
+
+  /* Quick actions sit in the top bar as icon buttons; the text stays for screen readers. */
+  .pv-mobile-hero .pv-logo {
+    flex: 0 0 auto;
+  }
+
+  .pv-mobile-actions {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+    margin: 0 0 0 auto;
+    padding: 0;
+  }
+
+  .pv-mobile-actions .pv-action span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pv-mobile-actions .pv-action {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    gap: 0;
+    border-radius: 999px;
+    padding: 0;
+    background: var(--m-surface);
+    font-size: 0;
+    box-shadow: none;
+  }
+
+  .pv-mobile-actions .pv-action svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ---------- Section switcher: sticks under the notch while the page scrolls ---------- */
+  .pv-mobile-section-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px;
+    width: calc(100% + var(--m-gutter) * 2);
+    margin: 4px calc(var(--m-gutter) * -1) 0;
+    border: 0;
+    border-bottom: 1px solid var(--m-line);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--m-surface) 88%, transparent);
+    padding: calc(6px + env(safe-area-inset-top)) var(--m-gutter) 6px;
+    box-shadow: none;
+    backdrop-filter: blur(14px);
+  }
+
+  .pv-mobile-section-tabs button {
+    min-height: 38px;
+    border-radius: 10px;
+    padding: 0 4px;
+    font-size: 14px;
+  }
+
+  /* ---------- Work surfaces run edge to edge ---------- */
+  .pv-dashboard-grid {
+    display: block;
+    padding: 12px var(--m-gutter) 0;
+  }
+
+  .pv-workbench,
+  .vault-clipboard-card,
+  .editor-card {
+    width: 100%;
+    margin: 0;
+    border-radius: var(--m-radius);
+    padding: 10px 10px 8px;
+    box-shadow: none;
+  }
+
+  .pv-workbench-head {
+    display: none;
+  }
+
+  .pv-code-editor {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pv-code-toolbar,
+  .section-title-row {
+    position: static;
+    inset: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .pv-code-toolbar .pv-language-trigger {
+    min-width: 0;
+    height: 38px;
+    margin-right: auto;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  /* Copy and Format stay reachable; they just need a real touch target. */
+  .pv-code-toolbar > button[aria-label="Copy editor content"] {
+    display: grid;
+  }
+
+  .pv-code-toolbar > button:not(.pv-language-trigger) {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .code-box,
+  .pv-code-surface {
+    grid-template-columns: 38px minmax(0, 1fr);
+    height: clamp(240px, 38dvh, 420px);
+    min-height: 0;
+    border-radius: 14px;
+  }
+
+  .pv-line-numbers,
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    margin-top: 0;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .pv-line-numbers {
+    padding: 14px 8px 0 0;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow: hidden;
+  }
+
+  .pv-code-highlight,
+  .pv-code-surface textarea {
+    padding: 14px 12px;
+  }
+
+  .pv-editor-status {
+    min-height: 34px;
+    padding: 0 4px;
+    font-size: 12px;
+  }
+
+  .pv-title-input {
+    margin-top: 0;
+  }
+
+  /* ---------- Files ---------- */
+  .pv-files {
+    margin-top: 12px;
+    border-radius: var(--m-radius);
+    padding: 14px;
+  }
+
+  /* ---------- History, details and tools use the full width ---------- */
+  .pv-main-column,
+  .pv-mobile-section {
+    width: 100%;
+    max-width: none;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .pv-history-page,
+  .history-panel {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .pv-history-page h1 {
+    font-size: 24px;
+    font-weight: 820;
+    letter-spacing: -0.035em;
+  }
+
+  .pv-history-controls {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .pv-history-page > header > h1 {
+    margin: 0;
+  }
+
+  .pv-history-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pv-history-controls > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .pv-history-page > header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .pv-history-page > header > .pv-history-controls {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .pv-history-page > header > .pv-mini-select {
+    grid-row: 1;
+    grid-column: 2;
+    width: auto;
+    min-height: 38px;
+    padding: 0 16px;
+  }
+
+  .pv-history-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  /* ---------- Details ---------- */
+  .pv-section-panel.pv-clip-details {
+    display: grid;
+    gap: 0;
+    width: 100%;
+    margin: 0;
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-radius);
+    background: var(--m-surface);
+    padding: 12px 16px 16px;
+    box-shadow: none;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-tabs > div {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ink) 7%, transparent);
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-tabs > div button {
+    width: auto;
+    height: auto;
+    min-height: 34px;
+    white-space: nowrap;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: none;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-tabs > div button.is-active {
+    background: var(--m-surface);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-tabs > button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-title {
+    display: none !important;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-detail-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin: 0;
+    padding: 0 0 16px;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-detail-list div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-detail-list div:nth-last-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-detail-list dt {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .pv-section-panel.pv-clip-details .pv-detail-list dd {
+    margin: 0;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 12px;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--m-line);
+    border-radius: 0;
+    background: transparent;
+    padding: 14px 0;
+    box-shadow: none;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card h3 {
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1;
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card > strong {
+    display: none;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card p {
+    grid-column: 1;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card .pv-action {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: auto;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 6px 0 0;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--m-line);
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-actions .pv-action {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+  }
+
+  /* ---------- Tools ---------- */
+  .pv-tools-panel.pv-section-panel {
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .pv-tools-panel > header {
+    display: grid;
+    gap: 2px;
+    padding: 4px 2px 0;
+  }
+
+  .pv-tools-panel > header span {
+    display: none;
+  }
+
+  .pv-tools-panel > header h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -0.035em;
+  }
+
+  .pv-tools-panel > header p {
+    display: none;
+  }
+
+  .pv-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .pv-tools-grid .pv-action {
+    width: 100%;
+    min-height: 56px;
+    justify-content: center;
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  .pv-tools-grid .pv-action:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .pv-tools-storage {
+    margin: 0;
+    border-radius: 16px;
+    padding: 14px 16px;
+  }
+
+  .pv-tools-storage strong {
+    font-size: 18px;
+  }
+
+  .pv-tools-storage p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* ---------- Composer ---------- */
+  .pv-bottom-paste {
+    position: sticky;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    min-height: 56px;
+    margin: 12px var(--m-gutter) 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .pv-mobile-hero h1,
+  .pv-clipboard-name-row h1,
+  .pv-clipboard-name-row input {
+    font-size: 22px;
+  }
+}

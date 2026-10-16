@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, ClipboardCopy, RotateCcw, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCopy, LoaderCircle, RotateCcw, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { describeSaveStatus } from "../../features/clipboard/save-status";
 import { ActionButton } from "./ActionButton";
 import { CodeBlockEditor } from "./CodeBlockEditor";
 import { MetadataRow } from "./MetadataRow";
@@ -28,42 +29,30 @@ export function ClipboardEditor({
   onDelete,
   onClear,
   onNewClip,
-  onCopyLatest,
-  mobile = false
+  onCopyLatest
 }) {
   const AutosaveIcon = autosaveEnabled ? ToggleRight : ToggleLeft;
-  const StatusIcon = conflict ? AlertTriangle : CheckCircle2;
-
-  if (mobile) {
-    return (
-      <section className="pv-mobile-editor-card editor-card">
-        <div className="section-title-row">
-          <span className="pv-chip pv-chip-json">{format}</span>
-          <OverflowMenu onRename={onRename} onDuplicate={onDuplicate} onExport={onExport} onDelete={onDelete} onClear={onClear} onNewClip={onNewClip} onCopyLatest={onCopyLatest} />
-        </div>
-        <div className="pv-autosave-strip">
-          <button type="button" onClick={onAutosaveToggle} aria-pressed={autosaveEnabled}>
-            <AutosaveIcon size={16} />
-            Autosave {autosaveEnabled ? "on" : "off"}
-          </button>
-          {!autosaveEnabled && (
-            <button type="button" onClick={onReloadLatest}>
-              <RotateCcw size={16} />
-              Reload latest
-            </button>
-          )}
-        </div>
-        <CodeBlockEditor
-          value={content}
-          onChange={onContentChange}
-          format={format}
-          onFormatChange={onFormatChange}
-          onCopy={onCopy}
-          onFormat={onFormat}
-        />
-      </section>
-    );
-  }
+  const status = describeSaveStatus(syncStatus, { autosaveEnabled, conflict: Boolean(conflict) });
+  const StatusIcon = status.tone === "conflict" ? AlertTriangle : status.tone === "pending" ? LoaderCircle : CheckCircle2;
+  // One status for the whole editor: what happened to the last change, plus the autosave switch.
+  const statusPill = (
+    <div className={`pv-sync-pill is-${status.tone}`}>
+      <span className="pv-sync-label" role="status" title={syncStatus}>
+        <StatusIcon size={15} aria-hidden="true" />
+        {status.label}
+      </span>
+      <button
+        className="pv-autosave-toggle"
+        type="button"
+        onClick={onAutosaveToggle}
+        aria-pressed={autosaveEnabled}
+        aria-label={`Autosave ${autosaveEnabled ? "on" : "off"}`}
+        title={autosaveEnabled ? "Autosave is on. Click to turn it off." : "Autosave is off. Click to turn it on."}
+      >
+        <AutosaveIcon size={20} />
+      </button>
+    </div>
+  );
 
   return (
     <section className="pv-workbench vault-clipboard-card editor-card">
@@ -74,18 +63,11 @@ export function ClipboardEditor({
         </div>
         <div className="pv-workbench-status">
           <div className="pv-sync-pill-row">
-            <button className="pv-autosave-toggle" type="button" onClick={onAutosaveToggle} aria-pressed={autosaveEnabled}>
-              <AutosaveIcon size={16} />
-              Autosave {autosaveEnabled ? "on" : "off"}
-            </button>
             {(!autosaveEnabled || conflict) && (
               <ActionButton icon={RotateCcw} compact onClick={onReloadLatest}>Reload latest</ActionButton>
             )}
             {conflict && <ActionButton icon={AlertTriangle} compact onClick={onForceSave}>Force save</ActionButton>}
-            <span className={conflict ? "pv-sync-pill is-conflict" : "pv-sync-pill"}>
-              <StatusIcon size={16} />
-              {syncStatus}
-            </span>
+            {statusPill}
           </div>
           <div className="pv-workbench-actions vault-card-actions">
             <ActionButton icon={Save} variant="primary" compact onClick={onSave}>Save</ActionButton>

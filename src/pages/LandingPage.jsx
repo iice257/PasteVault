@@ -19,6 +19,8 @@ import {
   saveRecord
 } from "../features/clipboard/clipboard-store";
 import { parseClipboardTarget } from "../features/clipboard/pairing";
+import { checkAttachable, uploadAttachment } from "../features/files/file-transfer";
+import { maxFileBytes } from "../features/files/limits";
 import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
 
 function detectFormat(value) {
@@ -44,6 +46,7 @@ export default function LandingPage() {
   const [entry, setEntry] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [status, setStatus] = useState("");
   const [heroDragging, setHeroDragging] = useState(false);
   const [pairOpen, setPairOpen] = useState(false);
 
@@ -59,8 +62,7 @@ export default function LandingPage() {
     return () => cleanups.forEach((cleanup) => cleanup());
   }, []);
 
-  const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0) => {
-    const clipboardId = createVaultId();
+  const createClipboard = useCallback((clips, selectedId = clips[0]?.id ?? null, importWarnings = 0, clipboardId = createVaultId()) => {
     const timestamp = nowIso();
 
     try {
@@ -120,27 +122,15 @@ export default function LandingPage() {
     createClipboardFromText(value);
   }, [createClipboardFromText, entry, openEmptyWorkspace]);
 
-  // Paste works anywhere on the page, not just inside the field.
-  useEffect(() => {
-    const onPaste = (event) => {
-      if (event.defaultPrevented || pairOpen) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable], [role=dialog]")) return;
-      const text = event.clipboardData?.getData("text") ?? "";
-      if (!text.trim()) return;
-      event.preventDefault();
-      setEntry(text);
-      openClipboard(text);
-    };
-    document.addEventListener("paste", onPaste);
-    return () => document.removeEventListener("paste", onPaste);
-  }, [openClipboard, pairOpen]);
-
+  // Text files become clips. Anything else (images, PDFs, archives) is encrypted in the browser,
+  // uploaded, and attached to a clip, the same path the editor uses.
   const handleFiles = useCallback(async (files) => {
     setError("");
+    setStatus("");
     setImporting(true);
     const accepted = files.slice(0, maxImportFiles);
     const failures = [];
+    const binaryFiles = [];
     let totalBytes = 0;
     let clips = [];
     let selectedId = null;
@@ -171,17 +161,83 @@ export default function LandingPage() {
           }
         }
       } catch (fileError) {
-        failures.push(fileError.message);
+        // Only files the text importer rejects as non-text become encrypted attachments;
+        // broken or empty text files still report their own error.
+        if (fileError.notText && file.size > 0 && file.size <= maxFileBytes) binaryFiles.push(file);
+        else failures.push(fileError.message);
       }
     }
 
+    const clipboardId = createVaultId();
+    const attachments = [];
+    for (const [index, file] of binaryFiles.entries()) {
+      const problem = checkAttachable(file, attachments, attachments);
+      if (problem) {
+        failures.push(problem);
+        continue;
+      }
+      const label = binaryFiles.length > 1 ? ` (${index + 1} of ${binaryFiles.length})` : "";
+      try {
+        setStatus(`Encrypting ${file.name || "file"}${label}...`);
+        attachments.push(await uploadAttachment({
+          clipboardId,
+          file,
+          onStage: (stage, fraction) => {
+            if (stage === "uploading") setStatus(`Uploading ${file.name || "file"}${label} ${Math.round(fraction * 100)}%`);
+          }
+        }));
+      } catch (uploadError) {
+        failures.push(`${file.name || "File"}: ${uploadError.message || "could not be uploaded."}`);
+      }
+    }
+
+    setStatus("");
     setImporting(false);
+    if (attachments.length) {
+      const fileClip = createClip({
+        title: attachments.length === 1 ? attachments[0].name : `${attachments.length} files`,
+        content: "",
+        format: "Plain text",
+        pinned: !clips.length
+      });
+      clips = [{ ...fileClip, attachments }, ...clips];
+      selectedId = fileClip.id;
+    }
     if (!clips.length) {
       setError(failures.join(" ") || "No importable files were selected.");
       return;
     }
-    createClipboard(clips, selectedId, failures.length);
+    createClipboard(clips, selectedId, failures.length, clipboardId);
   }, [createClipboard]);
+
+  // Paste works anywhere on the page, not just inside the field. Copied images and files attach.
+  const handleFilesRef = useRef(handleFiles);
+  const importingRef = useRef(false);
+  useEffect(() => {
+    handleFilesRef.current = handleFiles;
+    importingRef.current = importing;
+  }, [handleFiles, importing]);
+  useEffect(() => {
+    const onPaste = (event) => {
+      if (event.defaultPrevented || pairOpen) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable], [role=dialog]")) return;
+      const text = event.clipboardData?.getData("text") ?? "";
+      if (text.trim()) {
+        event.preventDefault();
+        setEntry(text);
+        openClipboard(text);
+        return;
+      }
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (files.length) {
+        event.preventDefault();
+        if (!importingRef.current) void handleFilesRef.current(files);
+      }
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [openClipboard, pairOpen]);
 
   return (
     <div className="vault-landing pv-landing" ref={rootRef}>
@@ -240,6 +296,12 @@ export default function LandingPage() {
                 event.preventDefault();
                 setEntry(pasted);
                 window.setTimeout(() => openClipboard(pasted), 0);
+                return;
+              }
+              const pastedFiles = Array.from(event.clipboardData.files ?? []);
+              if (pastedFiles.length) {
+                event.preventDefault();
+                void handleFiles(pastedFiles);
               }
             }}
           />
@@ -249,10 +311,14 @@ export default function LandingPage() {
           </ActionButton>
         </form>
         {error && <p className="pv-inline-error" role="alert">{error}</p>}
+        {status && !error && <p className="pv-inline-status" role="status">{status}</p>}
         <FileImportDropzone
           inputRef={fileRef}
           onFiles={handleFiles}
           disabled={importing}
+          accept=""
+          hint="Images, PDFs, text and code. Files are encrypted before upload. Up to 5 MB each."
+          busyLabel={status ? "Encrypting..." : "Importing files..."}
           className="pv-landing-dropzone"
           active={heroDragging}
           plusIcon

@@ -82,6 +82,31 @@ try {
   await row(deviceA, "big.bin").getByRole("button", { name: /Dismiss big\.bin/ }).click();
   await row(deviceA, "big.bin").waitFor({ state: "detached" });
 
+  // A failed upload offers Retry on the row, and it works once the network is back.
+  await deviceA.route("**/api/file/ticket", (route) => route.abort());
+  await panel(deviceA).getByLabel("Attach files").setInputFiles({ name: "retry.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(900, 5) });
+  await row(deviceA, "retry.pdf").getByText(/Could not reach the server/).waitFor();
+  await deviceA.unroute("**/api/file/ticket");
+  await row(deviceA, "retry.pdf").getByRole("button", { name: "Retry retry.pdf" }).click();
+  await row(deviceA, "retry.pdf").getByText(/days left/).waitFor({ timeout: 15000 });
+
+  // Two files attached back to back both survive (their saves are queued, not overwritten).
+  await panel(deviceA).getByLabel("Attach files").setInputFiles({ name: "quick-one.png", mimeType: "image/png", buffer: png });
+  await panel(deviceA).getByLabel("Attach files").setInputFiles({ name: "quick-two.png", mimeType: "image/png", buffer: png });
+  await row(deviceA, "quick-one.png").getByText(/days left/).waitFor({ timeout: 15000 });
+  await row(deviceA, "quick-two.png").getByText(/days left/).waitFor({ timeout: 15000 });
+
+  // Quota sits next to Attach, and Download all bundles the clip's files into one zip.
+  await panel(deviceA).getByText(/\d+ of 10 files/).waitFor();
+  const [archive] = await Promise.all([
+    deviceA.waitForEvent("download"),
+    panel(deviceA).getByRole("button", { name: "Download all" }).click()
+  ]);
+  assert.match(archive.suggestedFilename(), /\.zip$/);
+  const zipBytes = await readFile(await archive.path());
+  assert.equal(zipBytes.subarray(0, 4).toString("latin1"), "PK\u0003\u0004", "download all is a zip");
+  assert.ok(zipBytes.includes(Buffer.from("shot.png")) && zipBytes.includes(Buffer.from("terms.docx")), "zip holds every file");
+
   // Device B receives the files and downloads byte-identical content.
   const deviceB = await newPage({ width: 390, height: 844 });
   await deviceB.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
@@ -108,6 +133,28 @@ try {
   await row(deviceA, "terms.docx").getByRole("button", { name: "Remove terms.docx" }).click();
   await row(deviceA, "terms.docx").waitFor({ state: "detached" });
   await row(deviceB, "terms.docx").waitFor({ state: "detached", timeout: 20000 });
+
+  // The landing page attaches files too: pick a PDF-like file, land in an editor with it encrypted.
+  const landing = await newPage();
+  await landing.goto(baseUrl, { waitUntil: "networkidle" });
+  await landing.getByLabel("Import clipboard files", { exact: true }).first().setInputFiles({
+    name: "scan.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(2000, 3)])
+  });
+  await landing.waitForURL(/\/clip\/\d+/, { timeout: 20000 });
+  await row(landing, "scan.pdf").getByText(/days left/).waitFor({ timeout: 15000 });
+
+  // Pasting a screenshot anywhere on the landing page does the same.
+  const pasteLanding = await newPage();
+  await pasteLanding.goto(baseUrl, { waitUntil: "networkidle" });
+  await pasteLanding.evaluate((bytes) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array(bytes)], "image.png", { type: "image/png" }));
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, [...png]);
+  await pasteLanding.waitForURL(/\/clip\/\d+/, { timeout: 20000 });
+  await row(pasteLanding, "Pasted image").getByText(/days left/).waitFor({ timeout: 15000 });
 
   console.log("File flow checks passed.");
 } finally {

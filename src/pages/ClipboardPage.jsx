@@ -7,6 +7,7 @@ import {
   Download,
   FilePlus2,
   History,
+  Keyboard,
   Link2,
   Lock,
   MoreHorizontal,
@@ -35,6 +36,8 @@ import { AttachmentPanel } from "../components/pastevault/AttachmentPanel";
 import { FileViewer } from "../components/pastevault/FileViewer";
 import { isExpired, normalizeAttachments } from "../features/files/attachments.js";
 import { maxClipboardFileBytes, maxClipboardFiles } from "../features/files/limits.js";
+import { createZip } from "../features/files/zip.js";
+import { describeSaveStatus } from "../features/clipboard/save-status";
 import {
   checkAttachable,
   deleteRemoteFile,
@@ -44,6 +47,7 @@ import {
 } from "../features/files/file-transfer.js";
 import { PairDialog } from "../components/pastevault/PairDialog";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
+import { ShortcutsDialog } from "../components/pastevault/ShortcutsDialog";
 import { RecentHistoryCard } from "../components/pastevault/RecentHistoryCard";
 import { ThemeToggle } from "../components/pastevault/ThemeToggle";
 import { Toast } from "../components/pastevault/Toast";
@@ -176,6 +180,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [passwordOpen, setPasswordOpen] = useState(Boolean(initialSettings));
   const [pairOpen, setPairOpen] = useState(false);
   const [uploads, setUploads] = useState([]);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const fileUsage = useMemo(() => {
     const live = clips.flatMap((clip) => clip.attachments ?? []).filter((attachment) => !isExpired(attachment));
@@ -189,6 +194,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const [storageUsage, setStorageUsage] = useState(() => storageUsageBytes());
   const [contentVersion, setContentVersion] = useState(() => initialState.contentVersion ?? 1);
   const [draftBaseVersion, setDraftBaseVersion] = useState(() => initialState.contentVersion ?? 1);
+  // Saves run one at a time, each starting from the version the previous one produced.
+  const baseVersionRef = useRef(initialState.contentVersion ?? 1);
+  const saveChainRef = useRef(Promise.resolve());
+  useEffect(() => {
+    baseVersionRef.current = draftBaseVersion;
+  }, [draftBaseVersion]);
   const [lastSavedAt, setLastSavedAt] = useState(() => initialState.lastSavedAt ?? initialState.localUpdatedAt ?? nowIso());
   const [autosaveEnabled, setAutosaveEnabled] = useState(() => normalizeVaultSettings(initialState.settings).autosaveEnabled);
   const [lastEditedAt, setLastEditedAt] = useState("");
@@ -378,11 +389,13 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     setSyncStatus("Offline, saved locally");
   }, [preserveCurrentDraft, showToast]);
 
-  const persistPayload = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey, options = {}) => {
+  const persistPayloadNow = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey, options = {}) => {
     try {
       const currentRecord = loadRecord(clipboardId);
       const currentVersion = recordContentVersion(currentRecord);
-      const baseVersion = Number(options.baseVersion ?? draftBaseVersion) || 1;
+      const requestedBase = Number(options.baseVersion ?? draftBaseVersion) || 1;
+      // A save queued behind another carries a stale base; the ref has the version the last save wrote.
+      const baseVersion = options.force ? requestedBase : Math.max(requestedBase, baseVersionRef.current);
 
       if (!options.force && currentVersion > baseVersion) {
         const conflict = {
@@ -461,6 +474,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       }
 
       saveRecord(clipboardId, savedRecord);
+      baseVersionRef.current = nextVersion;
       setContentVersion(nextVersion);
       setDraftBaseVersion(nextVersion);
       setLastSavedAt(timestamp);
@@ -510,6 +524,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       return false;
     }
   }, [autosaveEnabled, clipboardId, cryptoKey, draftBaseVersion, handleRemoteSaveError, preserveCurrentDraft, protection, showToast]);
+
+  const persistPayload = useCallback((...args) => {
+    const run = saveChainRef.current.then(() => persistPayloadNow(...args));
+    saveChainRef.current = run.catch(() => {});
+    return run;
+  }, [persistPayloadNow]);
 
   const replaceClips = useCallback(async (nextClips, nextSelectedId, options = {}) => {
     const safeSelectedId = nextClips.some((clip) => clip.id === nextSelectedId) ? nextSelectedId : nextClips[0]?.id ?? null;
@@ -849,7 +869,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     if (!didSave) return false;
     setError("");
     if (!options.silent) {
-      showToast("Clip saved successfully");
+      showToast("Clip saved");
     }
     return true;
   }, [clips, draftContent, draftTitle, format, replaceClips, selectedClip, showToast]);
@@ -987,6 +1007,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         event.preventDefault();
         searchRef.current?.focus();
       }
+      if (event.key === "?" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target;
+        const typing = target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable], [role=dialog]");
+        if (!typing) {
+          event.preventDefault();
+          setShortcutsOpen(true);
+        }
+      }
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
@@ -1035,7 +1063,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, []);
 
   // Applies a change to the selected clip's attachments without losing unsaved text in the editor.
-  const commitAttachments = useCallback(async (change) => {
+  // Commits run one at a time, each on top of the one before, so two uploads finishing together keep both files.
+  const commitAttachmentsNow = useCallback(async (change) => {
     const latest = latestRef.current;
     const snapshot = {
       clipId: latest.selectedClip?.id ?? null,
@@ -1060,6 +1089,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       nextSelectedId = clip.id;
     }
     const saved = await replaceClipsRef.current(nextClips, nextSelectedId, { persist: true, awaitRemote: true, silent: true });
+    if (saved) {
+      // React has not re-rendered yet; give the next queued commit the clips this one just wrote.
+      latestRef.current = {
+        ...latestRef.current,
+        clips: nextClips,
+        selectedClip: nextClips.find((clip) => clip.id === nextSelectedId) ?? null
+      };
+    }
     if (saved && snapshot.dirty && snapshot.clipId === nextSelectedId) {
       setDraftTitle(snapshot.title);
       setDraftContent(snapshot.content);
@@ -1067,6 +1104,13 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     }
     return saved;
   }, []);
+
+  const attachChainRef = useRef(Promise.resolve());
+  const commitAttachments = useCallback((change) => {
+    const run = attachChainRef.current.then(() => commitAttachmentsNow(change));
+    attachChainRef.current = run.catch(() => {});
+    return run;
+  }, [commitAttachmentsNow]);
 
   const attachFiles = useCallback(async (files) => {
     if (locked || !files.length) return;
@@ -1100,7 +1144,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         finished.push(attachment);
         setUploads((current) => current.filter((item) => item.key !== key));
       } catch (error) {
-        updateUpload(key, { error: error.message || "Could not attach this file.", stage: undefined });
+        // Only transfer failures are worth retrying; the file is kept on the row for that.
+        updateUpload(key, { error: error.message || "Could not attach this file.", stage: undefined, file });
       }
     }
 
@@ -1113,6 +1158,30 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       showToast("Could not save the attachment to this clipboard", "error");
     }
   }, [clipboardId, commitAttachments, locked, showToast, updateUpload]);
+
+  const retryUpload = useCallback((upload) => {
+    setUploads((current) => current.filter((item) => item.key !== upload.key));
+    if (upload.file) void attachFiles([upload.file]);
+  }, [attachFiles]);
+
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const downloadAllAttachments = useCallback(async () => {
+    const list = (latestRef.current.selectedClip?.attachments ?? []).filter((attachment) => !isExpired(attachment));
+    if (list.length < 2) return;
+    setDownloadingAll(true);
+    try {
+      const entries = [];
+      for (const attachment of list) {
+        entries.push({ name: attachment.name, bytes: await downloadAttachment({ clipboardId, attachment }) });
+      }
+      saveBytes(createZip(entries), `PasteVault files ${clipboardId}.zip`, "application/zip");
+      showToast(`${entries.length} files saved`);
+    } catch (error) {
+      showToast(error.message || "Could not download these files", "error");
+    } finally {
+      setDownloadingAll(false);
+    }
+  }, [clipboardId, showToast]);
 
   const removeAttachment = useCallback(async (attachment) => {
     const saved = await commitAttachments((existing) => existing.filter((item) => item.id !== attachment.id));
@@ -1353,6 +1422,35 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     showToast(flag === "pinned" ? "Pinned state updated" : "Favorite state updated");
   }, [clips, replaceClips, selectedClip, showToast]);
 
+  const handleBulkPin = useCallback(async (ids) => {
+    const targets = clips.filter((clip) => ids.has(clip.id));
+    if (!targets.length) return;
+    const pin = targets.some((clip) => !clip.pinned);
+    const saved = await replaceClips(
+      clips.map((clip) => (ids.has(clip.id) ? { ...clip, pinned: pin, updatedAt: nowIso() } : clip)),
+      selectedId
+    );
+    if (saved) showToast(`${targets.length} ${targets.length === 1 ? "clip" : "clips"} ${pin ? "pinned" : "unpinned"}`);
+  }, [clips, replaceClips, selectedId, showToast]);
+
+  const handleBulkExport = useCallback((ids) => {
+    const targets = clips.filter((clip) => ids.has(clip.id));
+    if (!targets.length) return;
+    exportClipboard(clipboardId, { clips: targets, selectedId: targets[0].id });
+    showToast(`${targets.length} ${targets.length === 1 ? "clip" : "clips"} exported`);
+  }, [clipboardId, clips, showToast]);
+
+  const handleBulkDelete = useCallback(async (ids) => {
+    const removed = clips.filter((clip) => ids.has(clip.id));
+    if (!removed.length) return;
+    const nextClips = clips.filter((clip) => !ids.has(clip.id));
+    const nextSelectedId = ids.has(selectedId) ? nextClips[0]?.id ?? null : selectedId;
+    const deleted = await replaceClips(nextClips, nextSelectedId);
+    if (!deleted) return;
+    removed.flatMap((clip) => clip.attachments ?? []).forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
+    showToast(`${removed.length} ${removed.length === 1 ? "clip" : "clips"} deleted`);
+  }, [clipboardId, clips, replaceClips, selectedId, showToast]);
+
   const handleUnlock = useCallback(async () => {
     if (!protection) return;
     try {
@@ -1566,6 +1664,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         onExport={() => exportClipboard(clipboardId, payload)}
         onCopyLatest={handleCopyLatest}
         onNewClip={handleNewClip}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
       <DashboardRail
         active={activeSection}
@@ -1581,7 +1680,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         <section className="pv-mobile-hero" aria-label="Clipboard summary">
           <div className="pv-mobile-hero-top">
             <AppLogo />
-            <ThemeToggle theme={theme} toggleTheme={handleThemeToggle} />
+            <div className="pv-mobile-actions">
+              <ActionButton icon={Link2} title="Copy link" onClick={handleCopyLink}>Copy link</ActionButton>
+              <ActionButton icon={QrCode} title="Pair another device" onClick={() => setPairOpen(true)}>Pair</ActionButton>
+              <ActionButton icon={Lock} title="Password" onClick={() => setPasswordOpen(true)}>Password</ActionButton>
+              <ThemeToggle theme={theme} toggleTheme={handleThemeToggle} />
+            </div>
           </div>
           <ClipboardIdentity
             clipboardId={clipboardId}
@@ -1591,12 +1695,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
             onNameChange={setClipboardName}
             onCopyId={handleCopyId}
           />
-          <MetadataRow compact bytes={stats.bytes} characters={stats.characters} lines={stats.lines} format={format} passwordLabel={protection ? "Password enabled" : "Password optional"} />
-          <div className="pv-mobile-actions">
-            <ActionButton icon={Link2} onClick={handleCopyLink}>Copy link</ActionButton>
-            <ActionButton icon={QrCode} onClick={() => setPairOpen(true)}>Pair</ActionButton>
-            <ActionButton icon={Lock} onClick={() => setPasswordOpen(true)}>Password</ActionButton>
-          </div>
+          <MetadataRow compact autosave={{ enabled: autosaveEnabled, onToggle: handleAutosaveToggle }} status={describeSaveStatus(syncStatus, { autosaveEnabled, conflict: Boolean(saveConflict) })} bytes={stats.bytes} characters={stats.characters} lines={stats.lines} format={format} passwordLabel={protection ? "Password enabled" : "Password optional"} />
           <nav className="pv-mobile-section-tabs" aria-label="Clipboard sections">
             {[
               ["editor", "Editor"],
@@ -1636,6 +1735,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                   onOpen={selectClip}
                   onTogglePin={(clip) => handleToggleFlag("pinned", clip)}
                   onToggleStar={(clip) => handleToggleFlag("starred", clip)}
+                  onBulkPin={handleBulkPin}
+                  onBulkExport={handleBulkExport}
+                  onBulkDelete={handleBulkDelete}
                 />
               </div>
             ) : (
@@ -1676,6 +1778,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     onDownload={downloadAttachmentFile}
                     onRemove={removeAttachment}
                     onDismissUpload={(key) => setUploads((current) => current.filter((item) => item.key !== key))}
+                    onRetryUpload={retryUpload}
+                    allAttachments={clips.flatMap((clip) => clip.attachments ?? []).filter((attachment) => !isExpired(attachment))}
+                    onDownloadAll={downloadAllAttachments}
+                    downloadingAll={downloadingAll}
                   />
                 </div>
 
@@ -1747,6 +1853,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       {viewing && (
         <FileViewer key={viewing.id} attachment={viewing} clipboardId={clipboardId} onClose={() => setViewing(null)} />
       )}
+
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <PasswordModal
         open={passwordOpen}
@@ -1824,7 +1932,7 @@ function ClipboardIdentity({ clipboardId, name, editing, onEditingChange, onName
   );
 }
 
-function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPair, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip }) {
+function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onSearchFocus, onCopyLink, onPair, onPassword, onPaste, onImport, onExport, onCopyLatest, onNewClip, onShortcuts }) {
   const shortcutLabel = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "Cmd K" : "Ctrl K";
 
   return (
@@ -1891,6 +1999,12 @@ function DashboardHeader({ theme, toggleTheme, search, setSearch, searchRef, onS
                 Export board
               </DropdownMenuItem>
               </>
+            )}
+            {onShortcuts && (
+              <DropdownMenuItem onSelect={onShortcuts}>
+                <Keyboard size={16} />
+                Keyboard shortcuts
+              </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -2228,20 +2342,78 @@ function TagEditor({ clip, clips, replaceClips }) {
   );
 }
 
-function HistorySection({ clips, selectedId, search, setSearch, searchRef, sort, setSort, filter, setFilter, onOpen, onTogglePin, onToggleStar }) {
+function HistorySection({ clips, selectedId, search, setSearch, searchRef, sort, setSort, filter, setFilter, onOpen, onTogglePin, onToggleStar, onBulkPin, onBulkExport, onBulkDelete }) {
+  const [selectMode, setSelectMode] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
+  const [confirming, setConfirming] = useState(false);
+  // Only count clips that are still on screen, so a filter or delete never leaves ghosts selected.
+  const visibleIds = new Set(clips.map((clip) => clip.id));
+  const pickedIds = new Set([...picked].filter((id) => visibleIds.has(id)));
+
+  const leave = () => {
+    setSelectMode(false);
+    setPicked(new Set());
+    setConfirming(false);
+  };
+  const toggle = (id) => {
+    setConfirming(false);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const allPicked = clips.length > 0 && pickedIds.size === clips.length;
+
   return (
     <section className="pv-history-page history-panel">
       <header>
         <h1>Recent history</h1>
         <HistoryControls search={search} setSearch={setSearch} searchRef={searchRef} sort={sort} setSort={setSort} filter={filter} setFilter={setFilter} />
+        {onBulkDelete && clips.length > 0 && (
+          <button className="pv-mini-select" type="button" aria-pressed={selectMode} onClick={() => (selectMode ? leave() : setSelectMode(true))}>
+            {selectMode ? "Done" : "Select"}
+          </button>
+        )}
       </header>
+      {selectMode && (
+        <div className="pv-bulk-bar" role="toolbar" aria-label="Bulk actions">
+          <strong aria-live="polite">{pickedIds.size ? `${pickedIds.size} selected` : "Choose clips"}</strong>
+          <button type="button" onClick={() => setPicked(allPicked ? new Set() : new Set(clips.map((clip) => clip.id)))}>
+            {allPicked ? "Clear" : "Select all"}
+          </button>
+          <span className="pv-bulk-spacer" />
+          <button type="button" disabled={!pickedIds.size} onClick={() => onBulkPin(pickedIds)}>Pin</button>
+          <button type="button" disabled={!pickedIds.size} onClick={() => onBulkExport(pickedIds)}>Export</button>
+          {confirming ? (
+            <>
+              <button
+                className="is-danger"
+                type="button"
+                onClick={async () => {
+                  await onBulkDelete(pickedIds);
+                  leave();
+                }}
+              >
+                Delete {pickedIds.size} {pickedIds.size === 1 ? "clip" : "clips"}?
+              </button>
+              <button type="button" onClick={() => setConfirming(false)}>Keep</button>
+            </>
+          ) : (
+            <button className="is-danger" type="button" disabled={!pickedIds.size} onClick={() => setConfirming(true)}>Delete</button>
+          )}
+        </div>
+      )}
       <div className="pv-history-grid">
         {clips.map((clip) => (
           <RecentHistoryCard
             key={clip.id}
             clip={clip}
-            selected={clip.id === selectedId}
-            onOpen={() => onOpen(clip.id)}
+            selected={!selectMode && clip.id === selectedId}
+            selectMode={selectMode}
+            checked={pickedIds.has(clip.id)}
+            onOpen={() => (selectMode ? toggle(clip.id) : onOpen(clip.id))}
             onTogglePin={() => onTogglePin(clip)}
             onToggleStar={() => onToggleStar(clip)}
           />

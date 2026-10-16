@@ -6,6 +6,7 @@ import "./styles.css";
 import "./files.css";
 import "./viewer.css";
 import "./landing.css";
+import "./mobile.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

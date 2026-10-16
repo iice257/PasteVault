@@ -32,7 +32,7 @@ if (landingRegions !== 2) {
 }
 
 const landingBackground = await landingPage.locator(".vault-landing").evaluate((element) => getComputedStyle(element, "::before").backgroundImage);
-if (!landingBackground.includes("pastevault-bg.png")) {
+if (!landingBackground.includes("pastevault-bg.webp")) {
   throw new Error(`Expected supplied landing background image behind the hero, found ${landingBackground}.`);
 }
 
@@ -141,9 +141,15 @@ for (const theme of ["light", "dark"]) {
   }
 
   const mobileActions = await page.locator(".pv-mobile-actions button").count();
-  if (mobileActions !== 3) {
-    throw new Error(`Expected three mobile clipboard actions (copy link, pair, password) in ${theme} mode, found ${mobileActions}.`);
+  if (mobileActions !== 4) {
+    throw new Error(`Expected four top-bar actions (copy link, pair, password, theme) in ${theme} mode, found ${mobileActions}.`);
   }
+  const fakeStatusBar = await page.locator(".pv-dashboard-stage").evaluate((element) => getComputedStyle(element, "::before").content);
+  if (fakeStatusBar !== "none" && fakeStatusBar !== "normal") {
+    throw new Error(`Mobile mock-up status bar (clock and battery) is back in ${theme} mode: ${fakeStatusBar}.`);
+  }
+  const scrollsHorizontally = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  if (scrollsHorizontally) throw new Error(`Mobile dashboard scrolls sideways in ${theme} mode.`);
   const mobileThemeToggle = await page.locator(".pv-mobile-hero-top").getByRole("button", { name: "Theme toggle" }).count();
   if (mobileThemeToggle !== 1) {
     throw new Error(`Expected top-right mobile theme toggle in ${theme} mode, found ${mobileThemeToggle}.`);

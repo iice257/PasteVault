@@ -10,6 +10,7 @@ import {
 } from "../src/features/files/attachments.js";
 import { classifyFile, looksLikeText } from "../src/features/files/file-kinds.js";
 import { maxFileBytes } from "../src/features/files/limits.js";
+import { createZip, crc32, uniqueNames } from "../src/features/files/zip.js";
 import { normalizeClip } from "../src/features/clipboard/clipboard-store.js";
 
 const bytes = (...values) => new Uint8Array(values);
@@ -146,6 +147,21 @@ const text = (value) => new TextEncoder().encode(value);
   const clip = normalizeClip({ id: "clip_abc123", content: "hello", format: "Plain text", attachments: [good, { junk: true }] });
   assert.equal(clip.attachments.length, 1, "clips keep valid attachments and drop invalid ones");
   assert.deepEqual(normalizeClip({ id: "clip_abc124", content: "x", format: "Plain text" }).attachments, [], "older clips get an empty list");
+}
+
+// --- zip ---------------------------------------------------------------------
+{
+  assert.equal(crc32(text("123456789")), 0xcbf43926, "crc32 check value");
+  assert.deepEqual(uniqueNames(["a.png", "a.png", "b", "b", "a.png"]), ["a.png", "a (2).png", "b", "b (2)", "a (3).png"]);
+  const a = text("first file");
+  const b = bytes(0, 1, 2, 3, 255);
+  const zip = createZip([{ name: "a.txt", bytes: a }, { name: "b.bin", bytes: b }]);
+  const view = new DataView(zip.buffer);
+  assert.equal(view.getUint32(zip.length - 22, true), 0x06054b50, "ends with an end-of-directory record");
+  assert.equal(view.getUint16(zip.length - 22 + 10, true), 2, "two entries");
+  assert.equal(view.getUint32(0, true), 0x04034b50, "starts with a local header");
+  assert.equal(view.getUint32(14, true), crc32(a), "first entry stores its crc");
+  assert.equal(new TextDecoder().decode(zip.subarray(30, 30 + 5)), "a.txt");
 }
 
 console.log("File checks passed.");

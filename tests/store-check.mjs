@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   clipIdPattern,
   formatDate,
@@ -66,6 +67,20 @@ if (!validateContent("{", "JSON").startsWith("Invalid JSON")) {
 
 if (formatDate("not-a-date") !== "Unknown date") {
   throw new Error("Invalid dates should render with a stable fallback.");
+}
+
+// --- save status ----------------------------------------------------------------
+{
+  const { describeSaveStatus } = await import("../src/features/clipboard/save-status.js");
+  assert.equal(describeSaveStatus("Hosted sync saved").label, "Saved");
+  assert.equal(describeSaveStatus("Saved locally").label, "Saved");
+  assert.equal(describeSaveStatus("Autosave on").label, "Saved");
+  assert.equal(describeSaveStatus("Saving...").label, "Saving");
+  assert.equal(describeSaveStatus("Unsaved changes").tone, "pending");
+  assert.equal(describeSaveStatus("Offline, saved locally").label, "Saved on this device");
+  assert.equal(describeSaveStatus("Conflict: remote version changed").tone, "conflict");
+  assert.equal(describeSaveStatus("Saved", { conflict: true }).label, "Needs review");
+  assert.equal(describeSaveStatus("Autosave off", { autosaveEnabled: false }).label, "Autosave off");
 }
 
 console.log("Store checks passed.");

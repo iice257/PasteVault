@@ -395,6 +395,13 @@ function looksBinary(text) {
   return controlCharacters / sample.length > 0.02;
 }
 
+// notText marks files that are not text at all, so callers can offer them as encrypted attachments instead.
+function importError(message, notText = false) {
+  const error = new Error(message);
+  error.notText = notText;
+  return error;
+}
+
 export async function readImportFile(file) {
   if (!file || typeof file.name !== "string") {
     throw new Error("The selected item is not a readable file.");
@@ -409,7 +416,7 @@ export async function readImportFile(file) {
   const extension = importExtension(file.name);
   const textMime = !file.type || file.type.startsWith("text/") || file.type === "application/json";
   if (!importExtensions.has(extension) && !textMime) {
-    throw new Error(`${file.name} is not a supported text file.`);
+    throw importError(`${file.name} is not a supported text file.`, true);
   }
 
   let text;
@@ -423,7 +430,7 @@ export async function readImportFile(file) {
     throw new Error(`${file.name} contains no text.`);
   }
   if (looksBinary(text)) {
-    throw new Error(`${file.name} appears to be binary, not text.`);
+    throw importError(`${file.name} appears to be binary, not text.`, true);
   }
 
   const exportedBoard = parseClipboardExport(text);
@@ -586,7 +593,23 @@ export async function fetchRemoteRecord(clipboardId, options = {}) {
   return response.json();
 }
 
-export async function pushRemoteRecord(clipboardId, record, options = {}) {
+// Saves for one clipboard go out one at a time and in order. Two quick saves (an autosave, then a
+// file attach) would otherwise race: the second carries the first's version as its base and gets a 409
+// if it arrives before the first has landed.
+const pushQueues = new Map();
+
+export function pushRemoteRecord(clipboardId, record, options = {}) {
+  const previous = pushQueues.get(clipboardId) ?? Promise.resolve();
+  const run = previous.then(() => sendRemoteRecord(clipboardId, record, options));
+  const tail = run.catch(() => {});
+  pushQueues.set(clipboardId, tail);
+  tail.then(() => {
+    if (pushQueues.get(clipboardId) === tail) pushQueues.delete(clipboardId);
+  });
+  return run;
+}
+
+async function sendRemoteRecord(clipboardId, record, options = {}) {
   const baseVersion = Number(options.baseVersion ?? recordContentVersion(record) - 1);
   const headers = { "Content-Type": "application/json" };
   if (Number.isFinite(baseVersion) && baseVersion >= 0) {
@@ -599,7 +622,9 @@ export async function pushRemoteRecord(clipboardId, record, options = {}) {
   const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
     method: "PUT",
     headers,
-    body: JSON.stringify(record)
+    body: JSON.stringify(record),
+    // A hung request must not hold up every later save queued behind it.
+    signal: AbortSignal.timeout(30000)
   });
   if (!response.ok) {
     const error = new Error(`Remote save failed with ${response.status}`);

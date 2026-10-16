@@ -58,10 +58,10 @@ assertIncludes("App", app, [
   "theme-dark",
   "theme-light",
   "Password optional",
-  "Clipboard {clipboardId}",
+  "Clipboard ${clipboardTitle(id)}",
   "Selected clip",
   "Copy link",
-  "No account storage",
+  "No account. Encrypted in your browser.",
   "password cannot be recovered"
 ]);
 assertIncludes("CSS", css, [
@@ -88,7 +88,7 @@ assertIncludes("Manifest", manifest, [
   '"/favicon.svg"'
 ]);
 assertIncludes("Service worker", serviceWorker, [
-  "pastevault-app-v1",
+  "pastevault-app-v2",
   'request.mode === "navigate"',
   'url.pathname.startsWith("/api/")'
 ]);

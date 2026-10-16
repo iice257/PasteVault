@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Download, LoaderCircle, Paperclip, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
+import { Archive, Download, LoaderCircle, Paperclip, RotateCw, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
 import { fileExtension, isExpired, timeLeftLabel } from "../../features/files/attachments.js";
 import { guessKind, themeForFile } from "../../features/files/file-kinds.js";
 import { formatBytes } from "../../features/clipboard/clipboard-store";
+import { maxClipboardFileBytes, maxClipboardFiles } from "../../features/files/limits.js";
 import { cn } from "../../lib/utils";
 
 const stageLabels = {
@@ -35,13 +36,20 @@ export function AttachmentPanel({
   onOpen,
   onDownload,
   onRemove,
-  onDismissUpload
+  onDismissUpload,
+  onRetryUpload,
+  allAttachments = attachments,
+  onDownloadAll,
+  downloadingAll = false
 }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [touch] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches);
   const hasItems = attachments.length > 0 || uploads.length > 0;
   const busy = uploads.some((upload) => !upload.error);
+  const usedBytes = allAttachments.reduce((total, attachment) => total + attachment.size, 0);
+  const nearLimit = allAttachments.length >= maxClipboardFiles * 0.8 || usedBytes >= maxClipboardFileBytes * 0.8;
+  const downloadable = attachments.filter((attachment) => !isExpired(attachment));
 
   const submit = (fileList) => {
     const files = Array.from(fileList ?? []);
@@ -79,11 +87,25 @@ export function AttachmentPanel({
         <div>
           <h3><ShieldCheck size={17} />Files</h3>
           <p>Encrypted before it leaves your device. Up to 5 MB, kept for 7 days.</p>
+          {allAttachments.length > 0 && (
+            <p className={cn("pv-files-quota", nearLimit && "is-near")} aria-live="polite">
+              {nearLimit && <TriangleAlert size={13} aria-hidden="true" />}
+              {allAttachments.length} of {maxClipboardFiles} files &middot; {formatBytes(usedBytes)} of {formatBytes(maxClipboardFileBytes)}
+            </p>
+          )}
         </div>
-        <button className="pv-files-attach" type="button" onClick={() => inputRef.current?.click()}>
-          <Paperclip size={16} />
-          Attach
-        </button>
+        <div className="pv-files-head-actions">
+          {downloadable.length > 1 && (
+            <button className="pv-files-attach is-quiet" type="button" onClick={onDownloadAll} disabled={downloadingAll}>
+              {downloadingAll ? <LoaderCircle className="pv-file-spin" size={16} /> : <Archive size={16} />}
+              {downloadingAll ? "Zipping" : "Download all"}
+            </button>
+          )}
+          <button className="pv-files-attach" type="button" onClick={() => inputRef.current?.click()}>
+            <Paperclip size={16} />
+            Attach
+          </button>
+        </div>
         <input
           ref={inputRef}
           className="pv-file-input"
@@ -133,9 +155,16 @@ export function AttachmentPanel({
                 )}
               </div>
               {upload.error ? (
-                <button className="pv-icon-button" type="button" aria-label={`Dismiss ${upload.name}`} onClick={() => onDismissUpload(upload.key)}>
-                  <X size={16} />
-                </button>
+                <div className="pv-file-actions">
+                  {upload.file && (
+                    <button className="pv-icon-button" type="button" aria-label={`Retry ${upload.name}`} onClick={() => onRetryUpload(upload)}>
+                      <RotateCw size={16} />
+                    </button>
+                  )}
+                  <button className="pv-icon-button" type="button" aria-label={`Dismiss ${upload.name}`} onClick={() => onDismissUpload(upload.key)}>
+                    <X size={16} />
+                  </button>
+                </div>
               ) : (
                 <LoaderCircle className="pv-file-spin" size={18} aria-hidden="true" />
               )}
