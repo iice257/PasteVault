@@ -222,17 +222,18 @@ export default function LandingPage() {
       if (event.defaultPrevented || pairOpen) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable], [role=dialog]")) return;
+      // Files first: copying a file also puts its name on the clipboard as text.
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (files.length) {
+        event.preventDefault();
+        if (!importingRef.current) void handleFilesRef.current(files);
+        return;
+      }
       const text = event.clipboardData?.getData("text") ?? "";
       if (text.trim()) {
         event.preventDefault();
         setEntry(text);
         openClipboard(text);
-        return;
-      }
-      const files = Array.from(event.clipboardData?.files ?? []);
-      if (files.length) {
-        event.preventDefault();
-        if (!importingRef.current) void handleFilesRef.current(files);
       }
     };
     document.addEventListener("paste", onPaste);
@@ -291,17 +292,17 @@ export default function LandingPage() {
             placeholder="Paste something or enter a clipboard link"
             onChange={(event) => setEntry(event.target.value)}
             onPaste={(event) => {
+              const pastedFiles = Array.from(event.clipboardData.files ?? []);
+              if (pastedFiles.length) {
+                event.preventDefault();
+                void handleFiles(pastedFiles);
+                return;
+              }
               const pasted = event.clipboardData.getData("text");
               if (pasted.trim()) {
                 event.preventDefault();
                 setEntry(pasted);
                 window.setTimeout(() => openClipboard(pasted), 0);
-                return;
-              }
-              const pastedFiles = Array.from(event.clipboardData.files ?? []);
-              if (pastedFiles.length) {
-                event.preventDefault();
-                void handleFiles(pastedFiles);
               }
             }}
           />

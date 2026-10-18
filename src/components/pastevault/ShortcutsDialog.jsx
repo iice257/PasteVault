@@ -16,16 +16,21 @@ function shortcutList() {
 
 export function ShortcutsDialog({ open, onClose }) {
   const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
+  // Depends on `open` only, so a parent re-render never steals focus back to the close button.
   useEffect(() => {
     if (!open) return undefined;
     closeRef.current?.focus();
     const onKey = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

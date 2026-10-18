@@ -1,11 +1,14 @@
-import { CheckCircle2, FileText, Hash, Lock, Shield, ToggleLeft, ToggleRight, Type } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Hash, LoaderCircle, Lock, Shield, ToggleLeft, ToggleRight, Type } from "lucide-react";
 import { formatBytes } from "../../features/clipboard/clipboard-store";
+
+const statusIcons = { conflict: AlertTriangle, pending: LoaderCircle };
 
 export function MetadataRow({ bytes, format, passwordLabel = "Password optional", compact = false, status, autosave }) {
   if (compact) {
+    const StatusIcon = statusIcons[status?.tone] ?? CheckCircle2;
     return (
       <div className="pv-mobile-meta">
-        {status && <span className={`is-${status.tone}`} role="status"><CheckCircle2 size={14} />{status.label}</span>}
+        {status && <span className={`is-${status.tone}`} role="status"><StatusIcon size={14} />{status.label}</span>}
         {autosave && (
           <button
             className="pv-meta-toggle"

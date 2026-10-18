@@ -1170,10 +1170,9 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     if (list.length < 2) return;
     setDownloadingAll(true);
     try {
-      const entries = [];
-      for (const attachment of list) {
-        entries.push({ name: attachment.name, bytes: await downloadAttachment({ clipboardId, attachment }) });
-      }
+      const entries = await Promise.all(
+        list.map(async (attachment) => ({ name: attachment.name, bytes: await downloadAttachment({ clipboardId, attachment }) }))
+      );
       saveBytes(createZip(entries), `PasteVault files ${clipboardId}.zip`, "application/zip");
       showToast(`${entries.length} files saved`);
     } catch (error) {
@@ -1442,13 +1441,17 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const handleBulkDelete = useCallback(async (ids) => {
     const removed = clips.filter((clip) => ids.has(clip.id));
-    if (!removed.length) return;
+    if (!removed.length) return false;
     const nextClips = clips.filter((clip) => !ids.has(clip.id));
     const nextSelectedId = ids.has(selectedId) ? nextClips[0]?.id ?? null : selectedId;
     const deleted = await replaceClips(nextClips, nextSelectedId);
-    if (!deleted) return;
+    if (!deleted) {
+      showToast("Could not delete these clips", "error");
+      return false;
+    }
     removed.flatMap((clip) => clip.attachments ?? []).forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
     showToast(`${removed.length} ${removed.length === 1 ? "clip" : "clips"} deleted`);
+    return true;
   }, [clipboardId, clips, replaceClips, selectedId, showToast]);
 
   const handleUnlock = useCallback(async () => {
@@ -2392,8 +2395,8 @@ function HistorySection({ clips, selectedId, search, setSearch, searchRef, sort,
                 className="is-danger"
                 type="button"
                 onClick={async () => {
-                  await onBulkDelete(pickedIds);
-                  leave();
+                  if (await onBulkDelete(pickedIds)) leave();
+                  else setConfirming(false);
                 }}
               >
                 Delete {pickedIds.size} {pickedIds.size === 1 ? "clip" : "clips"}?
