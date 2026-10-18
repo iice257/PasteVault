@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const query = new URL(req.url ?? "/", "http://localhost").searchParams;
     segments = [query.get("clipboardId") ?? "", query.get("fileId") ?? ""];
   }
-  const limit = rateLimit(req);
+  const limit = rateLimit(req, segments[0] ?? "");
   if (limit.limited) {
     return json(res, 429, { error: "Too many requests." }, { "Retry-After": "60" });
   }

@@ -36,8 +36,10 @@ export function getClientKey(req) {
 
 export function createRateLimiter(getLimit) {
   const rateBuckets = new Map();
-  return function rateLimit(req) {
-    const key = `${getClientKey(req)}:${getId(req)}:${req.method}`;
+  // `scope` splits one route into separate buckets (e.g. ticket vs confirm), so one busy action
+  // does not use up the allowance of the others.
+  return function rateLimit(req, scope = "") {
+    const key = `${getClientKey(req)}:${getId(req)}:${req.method}:${scope}`;
     const now = Date.now();
     const windowMs = 60_000;
     const limit = getLimit(req);
