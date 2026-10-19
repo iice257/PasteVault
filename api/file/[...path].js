@@ -12,9 +12,23 @@ import {
   json,
   readBody
 } from "../_shared.js";
+import { canWrite, getClip, writeTokenFrom } from "../_clipstore.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const rateLimit = createRateLimiter((req) => (req.method === "GET" ? 120 : 40));
+
+// View-only clipboards must not accept uploads or deletions either, not just text changes.
+async function assertWritable(req, clipboardId) {
+  let clip;
+  try {
+    clip = await getClip(clipboardId);
+  } catch {
+    throw new FileError(503, "unavailable", "File storage is temporarily unavailable.");
+  }
+  if (!canWrite(clip, writeTokenFrom(req))) {
+    throw new FileError(403, "read_only", "This clipboard is view-only.");
+  }
+}
 
 function segmentsOf(req) {
   const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -89,6 +103,7 @@ export default async function handler(req, res) {
       if (size > maxCipherBytes) {
         return json(res, 413, { error: "Files can be up to 5 MB.", reason: "too_large" });
       }
+      await assertWritable(req, body.clipboardId);
       const ticket = await adapter.reserve({ clipboardId: body.clipboardId, size });
       return json(res, 200, { fileId: ticket.fileId, uploadUrl: ticket.uploadUrl, mode: ticket.mode, maxBytes: maxCipherBytes });
     }
@@ -99,6 +114,7 @@ export default async function handler(req, res) {
       if (typeof body.clipboardId !== "string" || !idPattern.test(body.clipboardId) || !uuidPattern.test(body.fileId ?? "")) {
         return json(res, 400, { error: "Invalid request.", reason: "bad_request" });
       }
+      await assertWritable(req, body.clipboardId);
       const result = await adapter.confirm({ clipboardId: body.clipboardId, fileId: body.fileId.toLowerCase() });
       return json(res, 200, result);
     }
@@ -146,6 +162,7 @@ export default async function handler(req, res) {
         return json(res, 200, download);
       }
       if (req.method === "DELETE") {
+        await assertWritable(req, clipboardId);
         await adapter.remove({ clipboardId, fileId: fileId.toLowerCase() });
         return json(res, 200, { ok: true });
       }

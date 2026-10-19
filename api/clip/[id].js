@@ -1,31 +1,21 @@
 import {
   createRateLimiter,
   getId,
-  isIsoDateString,
   isJsonRequest,
-  isPlainObject,
   json,
-  kvCommand,
   readBody
 } from "../_shared.js";
+import {
+  canWrite,
+  getClip,
+  isValidRecord,
+  maxBodyBytes,
+  recordContentVersion,
+  setClip,
+  writeTokenFrom
+} from "../_clipstore.js";
 
-const maxBodyBytes = 1024 * 1024;
-const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
-const memoryStore = new Map();
 const rateLimit = createRateLimiter((req) => (req.method === "GET" ? 120 : 40));
-
-function canUseMemoryStore() {
-  return process.env.VERCEL !== "1";
-}
-
-function storageKey(id) {
-  return `pastevault:clip:${id}`;
-}
-
-function recordContentVersion(record) {
-  const version = Number(record?.contentVersion ?? record?.payload?.version ?? 1);
-  return Number.isFinite(version) && version > 0 ? Math.floor(version) : 1;
-}
 
 function getBaseVersion(req, body) {
   const headerVersion = Number(req.headers["x-pastevault-base-version"]);
@@ -37,85 +27,6 @@ function getBaseVersion(req, body) {
 
 function isForcedSave(req, body) {
   return req.headers["x-pastevault-force"] === "true" || body?.force === true;
-}
-
-async function getClip(id) {
-  const key = storageKey(id);
-  const result = await kvCommand(["GET", key]);
-  if (result) {
-    if (!result.result) return null;
-    try {
-      const parsed = JSON.parse(result.result);
-      return isValidRecord(parsed, id) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  if (!canUseMemoryStore()) {
-    throw Object.assign(new Error("Durable clipboard storage is not configured."), { statusCode: 503 });
-  }
-  return memoryStore.get(key) ?? null;
-}
-
-async function setClip(id, value) {
-  const key = storageKey(id);
-  const serialized = JSON.stringify(value);
-  const result = await kvCommand(["SET", key, serialized]);
-  if (!result) {
-    if (!canUseMemoryStore()) {
-      throw Object.assign(new Error("Durable clipboard storage is not configured."), { statusCode: 503 });
-    }
-    memoryStore.set(key, value);
-  }
-}
-
-function isValidRecord(record, id) {
-  if (!record || typeof record !== "object") return false;
-  if (record.id !== id || record.version !== 2) return false;
-  if (!isIsoDateString(record.updatedAt)) return false;
-  if (record.lastSavedAt !== undefined && !isIsoDateString(record.lastSavedAt)) return false;
-  if (!isValidContentVersion(record.contentVersion)) return false;
-  if (!isValidSettings(record.settings)) return false;
-  if (!isEncryptedPayload(record.encryptedPayload)) return false;
-  const hasSync = Boolean(record.sync);
-  const hasProtection = Boolean(record.protection);
-  if (hasSync === hasProtection) return false;
-  if (hasSync) {
-    return isPlainObject(record.sync) && record.sync.mode === "link" && isBase64(record.sync.salt);
-  }
-  if (hasProtection) {
-    return isPlainObject(record.protection) && isBase64(record.protection.salt) && isEncryptedPayload(record.protection.verifier);
-  }
-  return false;
-}
-
-function isValidContentVersion(version) {
-  if (version === undefined) return true;
-  const parsed = Number(version);
-  return Number.isFinite(parsed) && parsed > 0 && Math.floor(parsed) === parsed;
-}
-
-function isValidSettings(settings) {
-  if (settings === undefined) return true;
-  if (!isPlainObject(settings)) return false;
-  return Object.entries(settings).every(([key, value]) => (
-    key === "autosaveEnabled" && typeof value === "boolean"
-  ));
-}
-
-function isEncryptedPayload(payload) {
-  return Boolean(
-    payload &&
-    typeof payload === "object" &&
-    isBase64(payload.iv) &&
-    isBase64(payload.data) &&
-    payload.iv.length <= 32 &&
-    payload.data.length <= maxBodyBytes * 2
-  );
-}
-
-function isBase64(value) {
-  return typeof value === "string" && value.length > 0 && value.length <= maxBodyBytes * 2 && base64Pattern.test(value);
 }
 
 export default async function handler(req, res) {
@@ -161,6 +72,9 @@ export default async function handler(req, res) {
         return json(res, 400, { error: "Invalid encrypted clipboard payload." });
       }
       const current = await getClip(id);
+      if (!canWrite(current, writeTokenFrom(req))) {
+        return json(res, 403, { error: "This clipboard is view-only.", reason: "read_only" });
+      }
       const baseVersion = getBaseVersion(req, record);
       if (current && !isForcedSave(req, record)) {
         if (baseVersion === null) {
