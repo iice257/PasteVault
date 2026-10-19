@@ -14,8 +14,11 @@ const settings = normalizeVaultSettings({
   autosaveEnabled: false,
   unexpected: "ignored"
 });
-if (settings.autosaveEnabled !== false || Object.keys(settings).length !== 1) {
-  throw new Error("Vault settings should keep only supported boolean settings.");
+if (settings.autosaveEnabled !== false || settings.expireAfter !== "never" || Object.keys(settings).length !== 2) {
+  throw new Error("Vault settings should keep only the supported settings.");
+}
+if (normalizeVaultSettings({ expireAfter: "1d" }).expireAfter !== "1d" || normalizeVaultSettings({ expireAfter: "forever" }).expireAfter !== "never") {
+  throw new Error("Delete-after should accept only the offered choices.");
 }
 
 if (normalizeVaultSettings({ autosaveEnabled: "false" }).autosaveEnabled !== true) {

@@ -1,3 +1,5 @@
+import { expireOptions, expiryTime, expireMs, isDetached, readShareState, rememberLock } from "./sharing.js";
+
 import { normalizeAttachments } from "../files/attachments.js";
 export const appVersion = 2;
 export const maxImportBytes = 5 * 1024 * 1024;
@@ -59,7 +61,8 @@ export function storageKey(clipboardId) {
 
 export function defaultVaultSettings() {
   return {
-    autosaveEnabled: true
+    autosaveEnabled: true,
+    expireAfter: "never"
   };
 }
 
@@ -67,7 +70,10 @@ export function normalizeVaultSettings(settings) {
   return {
     autosaveEnabled: typeof settings?.autosaveEnabled === "boolean"
       ? settings.autosaveEnabled
-      : defaultVaultSettings().autosaveEnabled
+      : defaultVaultSettings().autosaveEnabled,
+    expireAfter: expireOptions.some((option) => option.value === settings?.expireAfter)
+      ? settings.expireAfter
+      : defaultVaultSettings().expireAfter
   };
 }
 
@@ -244,7 +250,25 @@ export function loadRecord(clipboardId) {
     saveRecord(clipboardId, record);
     return record;
   }
-  return normalizeRecord(JSON.parse(raw), clipboardId);
+  const record = normalizeRecord(JSON.parse(raw), clipboardId);
+  // A clipboard set to delete itself is gone from this device too, not just from the server.
+  const expiresAt = expiryTime(record.settings, record.lastSavedAt);
+  if (expiresAt && expiresAt <= Date.now()) {
+    localStorage.removeItem(storageKey(clipboardId));
+    const fresh = createPlainRecord(clipboardId);
+    saveRecord(clipboardId, fresh);
+    return fresh;
+  }
+  return record;
+}
+
+export function clipboardExpiresAt(clipboardId) {
+  try {
+    const record = normalizeRecord(JSON.parse(localStorage.getItem(storageKey(clipboardId)) ?? "null"), clipboardId);
+    return expiryTime(record.settings, record.lastSavedAt);
+  } catch {
+    return 0;
+  }
 }
 
 export function hydrateClipboard(clipboardId) {
@@ -573,7 +597,15 @@ export async function decryptLinkSyncRecord(record) {
 
 export const remoteNotModified = Object.freeze({ notModified: true });
 
+export class DetachedError extends Error {
+  constructor() {
+    super("This device was disconnected from the others.");
+    this.detached = true;
+  }
+}
+
 export async function fetchRemoteRecord(clipboardId, options = {}) {
+  if (isDetached(clipboardId)) throw new DetachedError();
   const headers = { Accept: "application/json" };
   const knownVersion = Number(options.knownVersion);
   if (Number.isFinite(knownVersion) && knownVersion > 0) {
@@ -590,7 +622,10 @@ export async function fetchRemoteRecord(clipboardId, options = {}) {
     return response.status === 404 ? null : remoteNotModified;
   }
   if (!response.ok) throw new Error(`Remote fetch failed with ${response.status}`);
-  return response.json();
+  const record = await response.json();
+  // Every read tells this device whether the clipboard is view-only.
+  rememberLock(clipboardId, record?.writeLock?.hash);
+  return record;
 }
 
 // Saves for one clipboard go out one at a time and in order. Two quick saves (an autosave, then a
@@ -610,6 +645,7 @@ export function pushRemoteRecord(clipboardId, record, options = {}) {
 }
 
 async function sendRemoteRecord(clipboardId, record, options = {}) {
+  if (isDetached(clipboardId)) throw new DetachedError();
   const baseVersion = Number(options.baseVersion ?? recordContentVersion(record) - 1);
   const headers = { "Content-Type": "application/json" };
   if (Number.isFinite(baseVersion) && baseVersion >= 0) {
@@ -619,13 +655,32 @@ async function sendRemoteRecord(clipboardId, record, options = {}) {
     headers["X-PasteVault-Force"] = "true";
   }
 
-  const response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify(record),
-    // A hung request must not hold up every later save queued behind it.
-    signal: AbortSignal.timeout(30000)
-  });
+  // Sharing rules ride along on every save: the write token proves who is saving, the lock hash
+  // keeps the clipboard view-only for everyone else, and the expiry is counted from this save.
+  const share = readShareState(clipboardId);
+  const writeToken = options.writeToken ?? share.token;
+  const lockHash = options.writeLockHash !== undefined ? options.writeLockHash : (share.canEdit ? share.lockHash : "");
+  if (writeToken) headers["X-PasteVault-Write-Token"] = writeToken;
+  const outgoing = { ...record };
+  delete outgoing.writeLock;
+  delete outgoing.expiresAt;
+  if (lockHash) outgoing.writeLock = { hash: lockHash };
+  const keepFor = expireMs(record.settings?.expireAfter);
+  if (keepFor) outgoing.expiresAt = new Date(Date.now() + keepFor).toISOString();
+
+  let response;
+  try {
+    response = await fetch(`/api/clip/${encodeURIComponent(clipboardId)}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(outgoing),
+      // A hung request must not hold up every later save queued behind it.
+      signal: AbortSignal.timeout(30000)
+    });
+  } catch (networkError) {
+    networkError.timeout = networkError.name === "TimeoutError" || networkError.name === "AbortError";
+    throw networkError;
+  }
   if (!response.ok) {
     const error = new Error(`Remote save failed with ${response.status}`);
     error.status = response.status;
@@ -636,6 +691,8 @@ async function sendRemoteRecord(clipboardId, record, options = {}) {
     }
     throw error;
   }
+  if (outgoing.writeLock) rememberLock(clipboardId, outgoing.writeLock.hash);
+  else if (share.canEdit) rememberLock(clipboardId, "");
 }
 
 export function storageUsageBytes() {

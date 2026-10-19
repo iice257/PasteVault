@@ -19,7 +19,7 @@ import {
   saveRecord
 } from "../features/clipboard/clipboard-store";
 import { parseClipboardTarget } from "../features/clipboard/pairing";
-import { checkAttachable, uploadAttachment } from "../features/files/file-transfer";
+import { checkAttachable, deleteRemoteFile, uploadAttachment } from "../features/files/file-transfer";
 import { maxFileBytes } from "../features/files/limits";
 import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
 
@@ -78,9 +78,10 @@ export default function LandingPage() {
       });
     } catch {
       setError("PasteVault could not save this clipboard. Free some browser storage and try again.");
-      return;
+      return false;
     }
     window.location.href = `/clip/${clipboardId}${importWarnings ? `?importWarnings=${importWarnings}` : ""}`;
+    return true;
   }, []);
 
   const createClipboardFromText = useCallback((value) => {
@@ -207,7 +208,10 @@ export default function LandingPage() {
       setError(failures.join(" ") || "No importable files were selected.");
       return;
     }
-    createClipboard(clips, selectedId, failures.length, clipboardId);
+    if (!createClipboard(clips, selectedId, failures.length, clipboardId)) {
+      // The clipboard never existed, so nothing will ever point at these files.
+      attachments.forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
+    }
   }, [createClipboard]);
 
   // Paste works anywhere on the page, not just inside the field. Copied images and files attach.

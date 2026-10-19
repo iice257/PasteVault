@@ -72,7 +72,7 @@ function parseDevice(raw) {
 }
 
 function cleanLabel(value) {
-  const text = typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim() : "";
+  const text = typeof value === "string" ? [...value].filter((char) => char > "\u001f" && char !== "\u007f" && char !== "<" && char !== ">").join("").trim() : "";
   return text.slice(0, 40) || "Device";
 }
 

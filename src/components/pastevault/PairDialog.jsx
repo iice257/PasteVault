@@ -12,14 +12,16 @@ import {
   resolvePairingCode
 } from "../../features/clipboard/pairing";
 import { startQrScan } from "../../features/clipboard/qr-scanner";
+import { buildEditLink, tokenFromLink } from "../../features/clipboard/sharing";
 
 function formatRemaining(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-function openClipboardId(clipboardId) {
-  window.location.href = `/clip/${encodeURIComponent(clipboardId)}`;
+// An edit link's token rides in the fragment, so a scanned edit link keeps working on the new device.
+function openClipboardId(clipboardId, token = "") {
+  window.location.href = `/clip/${encodeURIComponent(clipboardId)}${token ? `#w=${token}` : ""}`;
 }
 
 // The body only mounts while the dialog is open, so every open starts from fresh state.
@@ -27,7 +29,7 @@ export function PairDialog({ open, ...props }) {
   return open ? <PairDialogBody {...props} /> : null;
 }
 
-function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, onClose }) {
+function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, editToken = "", onClose }) {
   const canShow = Boolean(clipboardId);
   const [tab, setTab] = useState(canShow ? initialTab : "join");
   const [pairing, setPairing] = useState({
@@ -52,9 +54,9 @@ function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, o
     setScanState((current) => (current.active ? { ...current, active: false } : current));
   }, []);
 
-  const joinWithId = useCallback((id) => {
+  const joinWithId = useCallback((id, token = "") => {
     stopScanning();
-    openClipboardId(id);
+    openClipboardId(id, token);
   }, [stopScanning]);
 
   const joinWithCode = useCallback(async (rawCode) => {
@@ -115,7 +117,7 @@ function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, o
   const handleScanned = useCallback((text) => {
     const target = parseClipboardTarget(text.trim());
     if (target) {
-      joinWithId(target);
+      joinWithId(target, tokenFromLink(text.trim()));
       return;
     }
     const code = normalizePairingCode(text);
@@ -172,7 +174,7 @@ function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, o
 
   const remaining = pairing.status === "ready" ? pairing.expiresAt - now : 0;
   const expired = pairing.status === "ready" && remaining <= 0;
-  const clipboardUrl = canShow ? buildClipboardUrl(clipboardId) : "";
+  const clipboardUrl = canShow ? (editToken ? buildEditLink(clipboardId, editToken) : buildClipboardUrl(clipboardId)) : "";
   const displayCode = pairing.code ? `${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}` : "";
 
   return (
@@ -249,7 +251,11 @@ function PairDialogBody({ clipboardId = "", initialTab = "show", prepareShare, o
                 <ActionButton icon={RefreshCw} onClick={issueCode}>New code</ActionButton>
               )}
             </div>
-            <p className="pv-pair-note">The QR and link open this clipboard directly. Password-protected clipboards still need their password.</p>
+            <p className="pv-pair-note">
+              {editToken
+                ? "The QR and link include edit access, so only show them to devices you trust. Password-protected clipboards still need their password."
+                : "The QR and link open this clipboard directly. Password-protected clipboards still need their password."}
+            </p>
           </div>
         )}
 

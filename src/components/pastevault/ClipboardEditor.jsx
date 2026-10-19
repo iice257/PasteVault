@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardCopy, LoaderCircle, RotateCcw, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCopy, Eye, LoaderCircle, RotateCcw, Save, ToggleLeft, ToggleRight } from "lucide-react";
 import { describeSaveStatus } from "../../features/clipboard/save-status";
 import { ActionButton } from "./ActionButton";
 import { CodeBlockEditor } from "./CodeBlockEditor";
@@ -15,6 +15,7 @@ export function ClipboardEditor({
   syncStatus,
   autosaveEnabled = true,
   conflict = null,
+  readOnly = false,
   onAutosaveToggle,
   onReloadLatest,
   onForceSave,
@@ -35,7 +36,14 @@ export function ClipboardEditor({
   const status = describeSaveStatus(syncStatus, { autosaveEnabled, conflict: Boolean(conflict) });
   const StatusIcon = status.tone === "conflict" ? AlertTriangle : status.tone === "pending" ? LoaderCircle : CheckCircle2;
   // One status for the whole editor: what happened to the last change, plus the autosave switch.
-  const statusPill = (
+  const statusPill = readOnly ? (
+    <div className="pv-sync-pill is-readonly">
+      <span className="pv-sync-label" role="status">
+        <Eye size={15} aria-hidden="true" />
+        View only
+      </span>
+    </div>
+  ) : (
     <div className={`pv-sync-pill is-${status.tone}`}>
       <span className="pv-sync-label" role="status" title={syncStatus}>
         <StatusIcon size={15} aria-hidden="true" />
@@ -63,16 +71,16 @@ export function ClipboardEditor({
         </div>
         <div className="pv-workbench-status">
           <div className="pv-sync-pill-row">
-            {(!autosaveEnabled || conflict) && (
+            {!readOnly && (!autosaveEnabled || conflict) && (
               <ActionButton icon={RotateCcw} compact onClick={onReloadLatest}>Reload latest</ActionButton>
             )}
-            {conflict && <ActionButton icon={AlertTriangle} compact onClick={onForceSave}>Force save</ActionButton>}
+            {!readOnly && conflict && <ActionButton icon={AlertTriangle} compact onClick={onForceSave}>Force save</ActionButton>}
             {statusPill}
           </div>
           <div className="pv-workbench-actions vault-card-actions">
-            <ActionButton icon={Save} variant="primary" compact onClick={onSave}>Save</ActionButton>
-            <ActionButton icon={ClipboardCopy} compact onClick={onCopy}>Copy</ActionButton>
-            <OverflowMenu onRename={onRename} onDuplicate={onDuplicate} onExport={onExport} onDelete={onDelete} onClear={onClear} onNewClip={onNewClip} onCopyLatest={onCopyLatest} />
+            {!readOnly && <ActionButton icon={Save} variant="primary" compact onClick={onSave}>Save</ActionButton>}
+            <ActionButton icon={ClipboardCopy} variant={readOnly ? "primary" : undefined} compact onClick={onCopy}>Copy</ActionButton>
+            <OverflowMenu readOnly={readOnly} onRename={onRename} onDuplicate={onDuplicate} onExport={onExport} onDelete={onDelete} onClear={onClear} onNewClip={onNewClip} onCopyLatest={onCopyLatest} />
           </div>
         </div>
       </header>
@@ -83,8 +91,9 @@ export function ClipboardEditor({
         onFormatChange={onFormatChange}
         onCopy={onCopy}
         onFormat={onFormat}
+        readonly={readOnly}
       />
-      <input className="pv-title-input" value={title} onChange={(event) => onRename(event.target.value, true)} aria-label="Clip title" />
+      <input className="pv-title-input" value={title} readOnly={readOnly} onChange={(event) => onRename(event.target.value, true)} aria-label="Clip title" />
     </section>
   );
 }

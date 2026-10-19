@@ -4616,3 +4616,193 @@ a {
   border-color: var(--teal);
   background: var(--teal);
 }
+
+/* Sharing: view-only link, delete-after, open devices, and the banners that report them. */
+/* Inspector cards read top to bottom: heading, state, explanation, actions. */
+@media (min-width: 761px) {
+  .pv-clip-details > .pv-inspector-card {
+    display: grid;
+    align-items: start;
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .pv-clip-details .pv-inspector-card > strong {
+    color: var(--pv-strong);
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .pv-clip-details .pv-inspector-card > .pv-action {
+    justify-self: start;
+  }
+}
+
+.pv-inspector-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pv-inspector-card p.pv-inspector-warn {
+  border-radius: 10px;
+  background: color-mix(in srgb, #f59e0b 12%, var(--pv-panel));
+  color: var(--pv-strong);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pv-inspector-card p.pv-inspector-note {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pv-segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  margin-top: 4px;
+  border: 1px solid var(--pv-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--pv-panel) 70%, var(--pv-border));
+  padding: 3px;
+}
+
+.pv-segmented button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pv-muted);
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pv-segmented button:hover:not(:disabled):not(.is-active) {
+  color: var(--pv-strong);
+}
+
+.pv-segmented button.is-active {
+  background: var(--pv-panel);
+  color: var(--pv-strong);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14);
+}
+
+.pv-segmented button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.pv-segmented button:focus-visible {
+  outline: 2px solid var(--pv-focus, rgba(24, 199, 192, 0.5));
+  outline-offset: 1px;
+}
+
+.pv-device-list {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-device-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--pv-strong);
+  font-size: 14px;
+}
+
+.pv-device-list li svg {
+  color: var(--pv-muted);
+}
+
+.pv-device-list li span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pv-device-list li em {
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, #18c7c0 14%, var(--pv-panel));
+  color: #0b7a76;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pv-device-list li button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  border: 1px solid var(--pv-border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--pv-muted);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pv-device-list li button:hover:not(:disabled) {
+  color: var(--pv-strong);
+}
+
+.pv-device-list li button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pv-share-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(1090px, calc(100vw - 48px));
+  margin: 0 auto 16px;
+  border: 1px solid var(--pv-border);
+  border-radius: 14px;
+  background: var(--pv-panel-2);
+  color: var(--pv-strong);
+  padding: 12px 14px;
+}
+
+.pv-share-banner > svg {
+  color: var(--pv-muted);
+}
+
+.pv-share-banner strong,
+.pv-share-banner p {
+  margin: 0;
+}
+
+.pv-share-banner p {
+  color: var(--pv-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pv-share-banner.is-warn {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--pv-border));
+  background: color-mix(in srgb, #f59e0b 9%, var(--pv-panel));
+}
+
+.pv-sync-pill.is-readonly {
+  gap: 0;
+}

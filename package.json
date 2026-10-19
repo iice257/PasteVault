@@ -24,6 +24,7 @@
     "mobile:check": "node ./tests/mobile-check.mjs",
     "api:check": "node ./tests/api-check.mjs",
     "share:check": "node ./tests/share-check.mjs",
+    "share:flow": "node ./tests/share-flow-check.mjs",
     "test": "node ./tests/smoke-check.mjs",
     "verify": "npm run lint && npm run build && npm test && npm run store:check && npm run api:check && npm run share:check && npm run qr:check && npm run files:check"
   },
