@@ -95,6 +95,7 @@ assertIncludes("Service worker", serviceWorker, [
 
 const api = [
   read("api/clip/[id].js"),
+  read("api/_clipstore.js"),
   read("api/_shared.js")
 ].join("\n");
 assertIncludes("API", api, [

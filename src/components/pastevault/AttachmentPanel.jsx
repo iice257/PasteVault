@@ -40,7 +40,8 @@ export function AttachmentPanel({
   onRetryUpload,
   allAttachments = attachments,
   onDownloadAll,
-  downloadingAll = false
+  downloadingAll = false,
+  readOnly = false
 }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -101,10 +102,12 @@ export function AttachmentPanel({
               {downloadingAll ? "Zipping" : "Download all"}
             </button>
           )}
-          <button className="pv-files-attach" type="button" onClick={() => inputRef.current?.click()}>
-            <Paperclip size={16} />
-            Attach
-          </button>
+          {!readOnly && (
+            <button className="pv-files-attach" type="button" onClick={() => inputRef.current?.click()}>
+              <Paperclip size={16} />
+              Attach
+            </button>
+          )}
         </div>
         <input
           ref={inputRef}
@@ -119,7 +122,12 @@ export function AttachmentPanel({
         />
       </header>
 
-      {!hasItems && (touch ? (
+      {!hasItems && (readOnly ? (
+        <div className="pv-files-empty">
+          <strong>No files</strong>
+          <span>This clipboard is view-only, so files can't be added.</span>
+        </div>
+      ) : touch ? (
         <div className="pv-files-empty">
           <strong>Add a photo or file</strong>
           <span>Tap Attach, or paste one into the editor.</span>
@@ -195,9 +203,11 @@ export function AttachmentPanel({
                       <Download size={16} />
                     </button>
                   )}
-                  <button className="pv-icon-button" type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onRemove(attachment)}>
-                    <Trash2 size={16} />
-                  </button>
+                  {!readOnly && (
+                    <button className="pv-icon-button" type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onRemove(attachment)}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </li>
             );

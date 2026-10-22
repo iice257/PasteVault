@@ -1,7 +1,7 @@
 import { ClipboardCopy, CopyPlus, Download, Edit3, FilePlus2, MoreHorizontal, Trash2, XCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
-export function OverflowMenu({ onRename, onDuplicate, onExport, onDelete, onClear, onNewClip, onCopyLatest, label = "More actions" }) {
+export function OverflowMenu({ onRename, onDuplicate, onExport, onDelete, onClear, onNewClip, onCopyLatest, label = "More actions", readOnly = false }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -10,7 +10,7 @@ export function OverflowMenu({ onRename, onDuplicate, onExport, onDelete, onClea
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="pv-menu" align="end">
-        {onNewClip && (
+        {onNewClip && !readOnly && (
           <DropdownMenuItem onSelect={onNewClip}>
             <FilePlus2 size={16} />
             New clip
@@ -22,26 +22,34 @@ export function OverflowMenu({ onRename, onDuplicate, onExport, onDelete, onClea
             Copy latest
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={onRename}>
-          <Edit3 size={16} />
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onDuplicate}>
-          <CopyPlus size={16} />
-          Duplicate
-        </DropdownMenuItem>
+        {!readOnly && (
+          <DropdownMenuItem onSelect={onRename}>
+            <Edit3 size={16} />
+            Rename
+          </DropdownMenuItem>
+        )}
+        {!readOnly && (
+          <DropdownMenuItem onSelect={onDuplicate}>
+            <CopyPlus size={16} />
+            Duplicate
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={onExport}>
           <Download size={16} />
           Export
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onClear}>
-          <XCircle size={16} />
-          Clear content
-        </DropdownMenuItem>
-        <DropdownMenuItem className="pv-danger-item" onSelect={onDelete}>
-          <Trash2 size={16} />
-          Delete
-        </DropdownMenuItem>
+        {!readOnly && (
+          <DropdownMenuItem onSelect={onClear}>
+            <XCircle size={16} />
+            Clear content
+          </DropdownMenuItem>
+        )}
+        {!readOnly && (
+          <DropdownMenuItem className="pv-danger-item" onSelect={onDelete}>
+            <Trash2 size={16} />
+            Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

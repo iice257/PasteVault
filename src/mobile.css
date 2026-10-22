@@ -619,12 +619,6 @@
   }
 
   /* ---------- Composer ---------- */
-  .pv-bottom-paste {
-    position: sticky;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    min-height: 56px;
-    margin: 12px var(--m-gutter) 0;
-  }
 }
 
 @media (max-width: 420px) {
@@ -632,5 +626,72 @@
   .pv-clipboard-name-row h1,
   .pv-clipboard-name-row input {
     font-size: 22px;
+  }
+}
+
+/* Sharing cards keep their full layout on phones: the generic detail-row treatment would hide the state line. */
+@media (max-width: 760px) {
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card > strong {
+    display: block;
+    grid-column: 1;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card .pv-action {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card .pv-inspector-buttons,
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card .pv-segmented,
+  .pv-section-panel.pv-clip-details .pv-inspector-card.pv-sharing-card .pv-device-list {
+    grid-column: 1;
+  }
+
+  .pv-share-banner {
+    width: auto;
+    margin: 0 var(--m-gutter) 12px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pv-share-banner .pv-action {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* The Paste button stands in for the editor's paste target on Tools, History and Details. */
+@media (max-width: 760px) {
+  .pv-bottom-paste {
+    position: sticky;
+    z-index: 20;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    display: grid;
+    margin: 12px var(--m-gutter) 0;
+  }
+
+  .pv-bottom-paste button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 54px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2e323b, #050608);
+    color: #ffffff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: 0 14px 30px rgba(7, 8, 12, 0.26);
+    cursor: pointer;
+  }
+
+  .pv-bottom-paste button:active {
+    transform: scale(0.98);
   }
 }

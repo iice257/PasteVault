@@ -5,6 +5,7 @@ import {
   ClipboardPaste,
   Cloud,
   Download,
+  Eye,
   FilePlus2,
   History,
   Keyboard,
@@ -15,18 +16,20 @@ import {
   Pencil,
   Pin,
   QrCode,
+  RotateCw,
   Search,
   Settings,
   Share2,
   ShieldCheck,
   Star,
   Trash2,
+  Unlink,
   Upload,
   X
 } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
-import { BottomPasteBar } from "../components/pastevault/BottomPasteBar";
+import { PasteButton } from "../components/pastevault/PasteButton";
 import { ClipboardEditor } from "../components/pastevault/ClipboardEditor";
 import { CodeBlockEditor } from "../components/pastevault/CodeBlockEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
@@ -48,6 +51,19 @@ import {
 import { PairDialog } from "../components/pastevault/PairDialog";
 import { PasswordModal } from "../components/pastevault/PasswordModal";
 import { ShortcutsDialog } from "../components/pastevault/ShortcutsDialog";
+import { DevicesCard, ExpiryCard, SharingCard } from "../components/pastevault/SharingPanel";
+import { useDevices } from "../hooks/useDevices";
+import { useShareState } from "../hooks/useShareState";
+import {
+  buildEditLink,
+  buildViewLink,
+  createWriteToken,
+  expiryTime,
+  forgetToken,
+  hashWriteToken,
+  rememberToken,
+  takeTokenFromAddress
+} from "../features/clipboard/sharing";
 import { RecentHistoryCard } from "../components/pastevault/RecentHistoryCard";
 import { ThemeToggle } from "../components/pastevault/ThemeToggle";
 import { Toast } from "../components/pastevault/Toast";
@@ -70,6 +86,7 @@ import {
   appVersion,
   buildLinkSyncRecord,
   buildProtectedRecord,
+  clipboardExpiresAt,
   copyText,
   createClip,
   decryptLinkSyncRecord,
@@ -103,7 +120,9 @@ import {
   storageUsageBytes,
   textBytes,
   encryptValue,
-  validateContent
+  validateContent,
+  detectFormat,
+  resolveFormat
 } from "../features/clipboard/clipboard-store";
 import {
   clearPreservedDraftState,
@@ -200,6 +219,23 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   useEffect(() => {
     baseVersionRef.current = draftBaseVersion;
   }, [draftBaseVersion]);
+  // Sharing: who may edit (a view-only lock needs a token this device may not hold), and which
+  // devices are open. `readOnly` gates every way of changing the clipboard below.
+  const share = useShareState(clipboardId);
+  const readOnly = share.locked && !share.canEdit;
+  const readOnlyRef = useRef(readOnly);
+  const selectedIdRef = useRef(selectedId);
+  const formatPinnedRef = useRef("");
+  useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+  const devicePresence = useDevices(clipboardId, { enabled: true, detached: share.detached, writeToken: share.token });
+  useEffect(() => {
+    void takeTokenFromAddress(clipboardId);
+  }, [clipboardId]);
   const [lastSavedAt, setLastSavedAt] = useState(() => initialState.lastSavedAt ?? initialState.localUpdatedAt ?? nowIso());
   const [autosaveEnabled, setAutosaveEnabled] = useState(() => normalizeVaultSettings(initialState.settings).autosaveEnabled);
   const [lastEditedAt, setLastEditedAt] = useState("");
@@ -386,10 +422,25 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       showToast("Remote conflict detected. Review before overwriting.", "error");
       return;
     }
+    if (remoteError?.status === 403 && remoteError.body?.reason === "read_only") {
+      // Someone made the link view-only. Learn the new lock, and keep the work on this device.
+      void fetchRemoteRecord(clipboardId).catch(() => {});
+      setSyncStatus("Saved on this device only (view-only)");
+      setError("This clipboard is now view-only, so your latest changes were saved on this device only.");
+      return;
+    }
+    if (remoteError?.detached) {
+      setSyncStatus("Disconnected from the other devices");
+      return;
+    }
     setSyncStatus("Offline, saved locally");
-  }, [preserveCurrentDraft, showToast]);
+  }, [clipboardId, preserveCurrentDraft, showToast]);
 
   const persistPayloadNow = useCallback(async (nextPayload, nextProtection = protection, nextKey = cryptoKey, options = {}) => {
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return false;
+    }
     try {
       const currentRecord = loadRecord(clipboardId);
       const currentVersion = recordContentVersion(currentRecord);
@@ -535,8 +586,13 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     const safeSelectedId = nextClips.some((clip) => clip.id === nextSelectedId) ? nextSelectedId : nextClips[0]?.id ?? null;
     const nextSelected = nextClips.find((clip) => clip.id === safeSelectedId) ?? null;
     const shouldPersist = autosaveEnabled || options.persist || options.force;
+    // Whatever commits next (a queued upload, say) starts from these clips, before React re-renders.
+    const adopt = () => {
+      latestRef.current = { ...latestRef.current, clips: nextClips, selectedClip: nextSelected };
+    };
 
     if (!shouldPersist) {
+      adopt();
       setClips(nextClips);
       setSelectedId(safeSelectedId);
       setDraftTitle(nextSelected?.title ?? "");
@@ -550,6 +606,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
     const didPersist = await persistPayload({ clips: nextClips, selectedId: safeSelectedId }, protection, cryptoKey, options);
     if (!didPersist) return false;
+    adopt();
     setClips(nextClips);
     setSelectedId(safeSelectedId);
     setDraftTitle(nextSelected?.title ?? "");
@@ -813,13 +870,20 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [clipboardId, hasUnsavedChanges, localDraft]);
 
   const updateDraftContent = useCallback((value) => {
+    if (readOnlyRef.current) return;
     setDraftContent(value);
+    // The format follows the text until someone picks one by hand for this clip.
+    if (formatPinnedRef.current !== (selectedIdRef.current ?? "new") && value.trim()) {
+      setFormat(detectFormat(value));
+    }
     setLastEditedAt(nowIso());
     setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
     setError("");
   }, [autosaveEnabled]);
 
   const updateDraftFormat = useCallback((value) => {
+    if (readOnlyRef.current) return;
+    formatPinnedRef.current = selectedIdRef.current ?? "new";
     setFormat(value);
     setLastEditedAt(nowIso());
     setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
@@ -827,6 +891,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [autosaveEnabled]);
 
   const updateDraftTitle = useCallback((value) => {
+    if (readOnlyRef.current) return;
     setDraftTitle(value);
     setLastEditedAt(nowIso());
     setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
@@ -848,7 +913,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const handleSave = useCallback(async (options = {}) => {
     // A clip that only carries files has no text to validate.
     const filesOnly = !draftContent.trim() && (selectedClip?.attachments?.length ?? 0) > 0;
-    const validation = filesOnly ? "" : validateContent(draftContent, format);
+    const validation = filesOnly ? "" : validateContent(draftContent);
     if (validation) {
       setError(validation);
       setSyncStatus("Error");
@@ -859,9 +924,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     }
 
     const timestamp = nowIso();
+    const savedFormat = resolveFormat(draftContent, format);
+    if (savedFormat !== format) setFormat(savedFormat);
     const nextClip = selectedClip
-      ? { ...selectedClip, title: draftTitle.trim() || inferTitle(draftContent, format), content: draftContent, format, updatedAt: timestamp }
-      : createClip({ title: draftTitle, content: draftContent, format, pinned: clips.length === 0 });
+      ? { ...selectedClip, title: draftTitle.trim() || inferTitle(draftContent, savedFormat), content: draftContent, format: savedFormat, updatedAt: timestamp }
+      : createClip({ title: draftTitle, content: draftContent, format: savedFormat, pinned: clips.length === 0 });
     const nextClips = selectedClip
       ? clips.map((clip) => (clip.id === selectedClip.id ? nextClip : clip))
       : [nextClip, ...clips];
@@ -896,6 +963,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [publishSessionState]);
 
   const handleAutosaveToggle = useCallback(() => {
+    if (readOnlyRef.current) return;
     const nextAutosave = !autosaveEnabled;
     setAutosaveEnabled(nextAutosave);
     setSyncStatus(nextAutosave ? (hasUnsavedChanges ? "Saving..." : "Autosave on") : (hasUnsavedChanges ? "Unsaved changes" : "Autosave off"));
@@ -1030,7 +1098,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const handleCopyLink = useCallback(async () => {
     try {
-      if (!locked && draftContent.trim()) {
+      if (!locked && !readOnlyRef.current && draftContent.trim()) {
         setSyncStatus("Saving link...");
         const didSync = await handleSave({ silent: true, awaitRemote: true });
         if (!didSync) {
@@ -1045,6 +1113,147 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       showToast("Could not copy the clipboard link", "error");
     }
   }, [clipboardId, draftContent, handleSave, locked, showToast]);
+
+
+  // --- Sharing, expiry and devices -------------------------------------------
+  // A sharing change is a real save: it bumps the version so every open device picks it up on its
+  // next poll, and it goes out through the same queue as content saves so the two never interleave.
+  const pushSharingChange = useCallback((change = {}) => {
+    const run = saveChainRef.current.then(async () => {
+      const current = loadRecord(clipboardId);
+      const baseVersion = Math.max(recordContentVersion(current), baseVersionRef.current);
+      const nextVersion = baseVersion + 1;
+      const timestamp = nowIso();
+      const next = {
+        ...current,
+        contentVersion: nextVersion,
+        updatedAt: timestamp,
+        lastSavedAt: timestamp,
+        settings: normalizeVaultSettings({ ...current.settings, ...(change.settings ?? {}) })
+      };
+      const outgoing = next.protection || next.sync
+        ? next
+        : await buildLinkSyncRecord(clipboardId, next.payload, next);
+      await pushRemoteRecord(clipboardId, outgoing, {
+        baseVersion,
+        ...(change.writeLockHash !== undefined ? { writeLockHash: change.writeLockHash } : {})
+      });
+      saveRecord(clipboardId, next);
+      baseVersionRef.current = nextVersion;
+      setContentVersion(nextVersion);
+      setDraftBaseVersion(nextVersion);
+      setLastSavedAt(timestamp);
+      return next;
+    });
+    saveChainRef.current = run.catch(() => {});
+    return run;
+  }, [clipboardId]);
+
+  const [sharingBusy, setSharingBusy] = useState(false);
+  const runSharingChange = useCallback(async (task, failure) => {
+    setSharingBusy(true);
+    try {
+      return await task();
+    } catch (changeError) {
+      showToast(changeError?.status === 403 ? "Only a device with the edit link can change this." : failure, "error");
+      return null;
+    } finally {
+      setSharingBusy(false);
+    }
+  }, [showToast]);
+
+  const handleEnableViewOnly = useCallback(() => runSharingChange(async () => {
+    const token = createWriteToken();
+    await pushSharingChange({ writeLockHash: await hashWriteToken(token) });
+    await rememberToken(clipboardId, token);
+    try {
+      await copyText(buildEditLink(clipboardId, token));
+      showToast("Link is view-only. Edit link copied; keep it somewhere safe.");
+    } catch {
+      showToast("Link is view-only. Copy the edit link from Details.");
+    }
+  }, "Could not make the link view-only"), [clipboardId, pushSharingChange, runSharingChange, showToast]);
+
+  const handleDisableViewOnly = useCallback(() => runSharingChange(async () => {
+    await pushSharingChange({ writeLockHash: "" });
+    forgetToken(clipboardId);
+    showToast("Anyone with the link can edit again");
+  }, "Could not turn view-only off"), [clipboardId, pushSharingChange, runSharingChange, showToast]);
+
+  const handleResetEditLink = useCallback(() => runSharingChange(async () => {
+    const token = createWriteToken();
+    await pushSharingChange({ writeLockHash: await hashWriteToken(token) });
+    await rememberToken(clipboardId, token);
+    try {
+      await copyText(buildEditLink(clipboardId, token));
+      showToast("New edit link copied. The old one no longer works.");
+    } catch {
+      showToast("New edit link created. The old one no longer works.");
+    }
+  }, "Could not create a new edit link"), [clipboardId, pushSharingChange, runSharingChange, showToast]);
+
+  const handleCopyViewLink = useCallback(async () => {
+    try {
+      await copyText(buildViewLink(clipboardId));
+      showToast(share.locked ? "View-only link copied" : "Clipboard link copied");
+    } catch {
+      showToast("Could not copy the link", "error");
+    }
+  }, [clipboardId, share.locked, showToast]);
+
+  const handleCopyEditLink = useCallback(async () => {
+    try {
+      await copyText(buildEditLink(clipboardId, share.token));
+      showToast("Edit link copied. Anyone with it can change this clipboard.");
+    } catch {
+      showToast("Could not copy the link", "error");
+    }
+  }, [clipboardId, share.token, showToast]);
+
+  const { expireAfter, expiresAt } = useMemo(() => {
+    const record = loadRecord(clipboardId);
+    return {
+      expireAfter: normalizeVaultSettings(record.settings).expireAfter,
+      expiresAt: expiryTime(record.settings, record.lastSavedAt)
+    };
+    // The saved record changes whenever the version or save time does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clipboardId, contentVersion, lastSavedAt]);
+
+  // Counts down to the deadline so a clipboard that expires while open is cleared, not left on screen.
+  useEffect(() => {
+    if (!expiresAt) return undefined;
+    const wait = Math.max(0, expiresAt - Date.now()) + 500;
+    if (wait > 2 ** 31 - 1) return undefined;
+    const timer = window.setTimeout(() => {
+      if (clipboardExpiresAt(clipboardId) > Date.now()) return;
+      try {
+        applyRecordToState(loadRecord(clipboardId), "Clipboard expired");
+      } finally {
+        showToast("This clipboard reached its delete-after time and was cleared.");
+      }
+    }, wait);
+    return () => window.clearTimeout(timer);
+  }, [applyRecordToState, clipboardId, expiresAt, showToast]);
+
+  const handleExpireChange = useCallback((value) => {
+    if (readOnlyRef.current) return;
+    void runSharingChange(async () => {
+      const saved = await pushSharingChange({ settings: { expireAfter: value } });
+      showToast(value === "never" ? "This clipboard will be kept until you delete it" : "Delete-after timer set");
+      return saved;
+    }, "Could not change the delete-after time");
+  }, [pushSharingChange, runSharingChange, showToast]);
+
+  const handleReconnect = useCallback(async () => {
+    try {
+      await devicePresence.reconnect();
+      showToast("Reconnected. Syncing again.");
+      window.location.reload();
+    } catch {
+      showToast("Could not reconnect right now", "error");
+    }
+  }, [devicePresence, showToast]);
 
   // --- Encrypted files -------------------------------------------------------
   // Always read the freshest state after awaits, because uploads take a while.
@@ -1089,14 +1298,6 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       nextSelectedId = clip.id;
     }
     const saved = await replaceClipsRef.current(nextClips, nextSelectedId, { persist: true, awaitRemote: true, silent: true });
-    if (saved) {
-      // React has not re-rendered yet; give the next queued commit the clips this one just wrote.
-      latestRef.current = {
-        ...latestRef.current,
-        clips: nextClips,
-        selectedClip: nextClips.find((clip) => clip.id === nextSelectedId) ?? null
-      };
-    }
     if (saved && snapshot.dirty && snapshot.clipId === nextSelectedId) {
       setDraftTitle(snapshot.title);
       setDraftContent(snapshot.content);
@@ -1114,6 +1315,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const attachFiles = useCallback(async (files) => {
     if (locked || !files.length) return;
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return;
+    }
     const latest = latestRef.current;
     const pendingInClip = [...(latest.selectedClip?.attachments ?? [])];
     const pendingInBoard = latest.clips.flatMap((clip) => clip.attachments ?? []);
@@ -1226,7 +1431,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   // Pairing hands out a link to this clipboard, so make sure the latest content is synced first.
   const prepareShare = useCallback(async () => {
-    if (locked || !draftContent.trim()) return true;
+    if (locked || readOnlyRef.current || !draftContent.trim()) return true;
     return Boolean(await handleSave({ silent: true, awaitRemote: true }));
   }, [draftContent, handleSave, locked]);
 
@@ -1251,6 +1456,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [draftContent, showToast]);
 
   const handlePasteFromClipboard = useCallback(async () => {
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return;
+    }
     try {
       if (!navigator.clipboard?.readText) {
         throw new Error("Clipboard read is unavailable.");
@@ -1268,6 +1477,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       showToast("Browser clipboard read was blocked", "error");
     }
   }, [format, showToast, updateDraftContent]);
+
+  // The Paste button on Tools, History and Details: paste, then show the editor with the text in it.
+  const handlePasteAndOpen = useCallback(async () => {
+    await handlePasteFromClipboard();
+    handleSectionChange("editor");
+  }, [handlePasteFromClipboard, handleSectionChange]);
 
   const handleFormat = useCallback(() => {
     if (format !== "JSON") {
@@ -1309,6 +1524,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [clips, draftContent, draftTitle, format, replaceClips, selectedClip, showToast]);
 
   const handleNewClip = useCallback(() => {
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return;
+    }
     setSelectedId(null);
     setDraftTitle("");
     setDraftContent("");
@@ -1349,6 +1568,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const handleImportFiles = useCallback(async (files) => {
     if (!files.length) return;
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return;
+    }
 
     setImporting(true);
     setError("");
@@ -1485,6 +1708,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [clipboardId, passwordInput, protection, showToast]);
 
   const handleSetPassword = useCallback(async () => {
+    if (readOnlyRef.current) {
+      showToast("This clipboard is view-only.", "error");
+      return;
+    }
     if (passwordInput.length < 8) {
       setError("Use at least 8 characters for the clipboard password.");
       showToast("Password is too short", "error");
@@ -1546,7 +1773,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   }, [autosaveEnabled, clipboardId, draftBaseVersion, handleRemoteSaveError, passwordAcknowledged, passwordConfirm, passwordInput, payload, showToast]);
 
   const handleRemovePassword = useCallback(async () => {
-    if (!protection || locked) return;
+    if (!protection || locked || readOnlyRef.current) return;
     const currentRecord = loadRecord(clipboardId);
     const timestamp = nowIso();
     const nextVersion = nextContentVersion(currentRecord, draftBaseVersion);
@@ -1713,6 +1940,26 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           </nav>
         </section>
 
+        {share.detached && (
+          <section className="pv-share-banner is-warn" role="status" aria-label="Disconnected">
+            <Unlink size={18} aria-hidden="true" />
+            <div>
+              <strong>Disconnected from this clipboard</strong>
+              <p>Another device disconnected this one. Changes here stay on this device until you reconnect.</p>
+            </div>
+            <ActionButton compact icon={RotateCw} onClick={handleReconnect}>Reconnect</ActionButton>
+          </section>
+        )}
+        {readOnly && !share.detached && (
+          <section className="pv-share-banner" role="status" aria-label="View only">
+            <Eye size={18} aria-hidden="true" />
+            <div>
+              <strong>View only</strong>
+              <p>You can read and copy this clipboard. Changes need the edit link from whoever shared it.</p>
+            </div>
+          </section>
+        )}
+
         {preservedDraft && (
           <PreservedDraftNotice
             draft={preservedDraft}
@@ -1756,6 +2003,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     syncStatus={syncStatus}
                     autosaveEnabled={autosaveEnabled}
                     conflict={saveConflict}
+                    readOnly={readOnly}
                     onAutosaveToggle={handleAutosaveToggle}
                     onReloadLatest={handleReloadLatest}
                     onForceSave={handleForceSave}
@@ -1785,6 +2033,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
                     allAttachments={clips.flatMap((clip) => clip.attachments ?? []).filter((attachment) => !isExpired(attachment))}
                     onDownloadAll={downloadAllAttachments}
                     downloadingAll={downloadingAll}
+                    readOnly={readOnly}
                   />
                 </div>
 
@@ -1812,6 +2061,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
             {!initialHistory && activeSection === "tools" && (
               <ToolsPanel
                 clipboardId={clipboardName}
+                readOnly={readOnly}
                 storageUsage={storageUsage}
                 fileUsage={fileUsage}
                 onPaste={handlePasteFromClipboard}
@@ -1828,6 +2078,31 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
           <div className={activeSection === "details" ? "pv-mobile-section pv-inspector-column is-active" : "pv-mobile-section pv-inspector-column"} data-section="details">
             <DetailsPanel
+              sharing={{
+                card: {
+                  locked: share.locked,
+                  canEdit: share.canEdit,
+                  busy: sharingBusy,
+                  onCopyLink: handleCopyViewLink,
+                  onCopyEditLink: handleCopyEditLink,
+                  onEnable: handleEnableViewOnly,
+                  onDisable: handleDisableViewOnly,
+                  onReset: handleResetEditLink
+                },
+                expiry: {
+                  value: expireAfter,
+                  disabled: readOnly || sharingBusy,
+                  expiresAt,
+                  onChange: handleExpireChange
+                },
+                devices: {
+                  devices: devicePresence.devices,
+                  selfId: devicePresence.deviceId,
+                  failed: devicePresence.failed,
+                  canManage: !readOnly,
+                  onDisconnect: devicePresence.disconnect
+                }
+              }}
               selectedClip={selectedClip}
               draftTitle={draftTitle}
               draftContent={draftContent}
@@ -1837,7 +2112,6 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
               clips={clips}
               replaceClips={replaceClips}
               onCopy={() => handleCopy(draftContent)}
-              onCopyLink={handleCopyLink}
               onDelete={handleDelete}
               onTogglePin={() => handleToggleFlag("pinned")}
               onPassword={() => setPasswordOpen(true)}
@@ -1848,8 +2122,8 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
           </div>
         </div>
 
-        <FileImportDropzone inputRef={fileRef} onFiles={handleImportFiles} disabled={importing} compact />
-        <BottomPasteBar value={draftContent} onChange={updateDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />
+        <FileImportDropzone inputRef={fileRef} onFiles={handleImportFiles} disabled={importing || readOnly} compact />
+        {!readOnly && activeSection !== "editor" && <PasteButton onPaste={handlePasteAndOpen} />}
         {error && <p className="pv-inline-error">{error}</p>}
       </main>
 
@@ -1878,6 +2152,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         open={pairOpen}
         clipboardId={clipboardId}
         prepareShare={prepareShare}
+        editToken={share.locked && share.canEdit ? share.token : ""}
         onClose={() => setPairOpen(false)}
       />
       <Toast message={toast} tone={toastTone} onClose={() => setToast("")} />
@@ -2092,7 +2367,7 @@ function noop() {
   return undefined;
 }
 
-function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onCopyLink, onDelete, onTogglePin, onPassword, onExport, activeTab, onTabChange }) {
+function DetailsPanel({ sharing, selectedClip, draftTitle, draftContent, format, stats, protection, clips, replaceClips, onCopy, onDelete, onTogglePin, onPassword, onExport, activeTab, onTabChange }) {
   const passwordAction = protection ? "Manage password" : "Set password";
 
   return (
@@ -2128,11 +2403,9 @@ function DetailsPanel({ selectedClip, draftTitle, draftContent, format, stats, p
             <p>{protection ? "Password protection is enabled for this clipboard." : "No password set for this clipboard."}</p>
             <ActionButton compact icon={Lock} onClick={onPassword}>{passwordAction}</ActionButton>
           </div>
-          <div className="pv-inspector-card">
-            <h3><Share2 size={17} />Share clip</h3>
-            <p>Share securely with anyone via a private link.</p>
-            <ActionButton compact icon={Link2} onClick={onCopyLink}>Create share link</ActionButton>
-          </div>
+          <SharingCard {...sharing.card} />
+          <ExpiryCard {...sharing.expiry} />
+          <DevicesCard {...sharing.devices} />
           <div className="pv-inspector-card">
             <h3><Download size={17} />Export</h3>
             <p>Download or export in different formats.</p>
@@ -2236,7 +2509,7 @@ function HistoryTable({ clipboardId, clips, selectedId, isProtected = false, sea
   );
 }
 
-function ToolsPanel({ clipboardId, storageUsage, fileUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onPair, onCopyLatest, onNewClip }) {
+function ToolsPanel({ clipboardId, readOnly = false, storageUsage, fileUsage, onPaste, onImport, onExport, onPassword, onCopyLink, onPair, onCopyLatest, onNewClip }) {
   const storagePercent = Math.min(100, Math.round((storageUsage / storageBudgetBytes) * 100));
 
   return (
@@ -2247,14 +2520,14 @@ function ToolsPanel({ clipboardId, storageUsage, fileUsage, onPaste, onImport, o
         <p>Secondary actions live here so the editor can stay focused and visible.</p>
       </header>
       <div className="pv-tools-grid">
-        <ActionButton icon={ClipboardPaste} variant="primary" onClick={onPaste}>Paste from clipboard</ActionButton>
-        <ActionButton icon={Upload} onClick={onImport}>Import file</ActionButton>
+        <ActionButton icon={ClipboardPaste} variant="primary" onClick={onPaste} disabled={readOnly}>Paste from clipboard</ActionButton>
+        <ActionButton icon={Upload} onClick={onImport} disabled={readOnly}>Import file</ActionButton>
         <ActionButton icon={Download} onClick={onExport}>Export board</ActionButton>
-        <ActionButton icon={Lock} onClick={onPassword}>Password</ActionButton>
+        <ActionButton icon={Lock} onClick={onPassword} disabled={readOnly}>Password</ActionButton>
         <ActionButton icon={Link2} onClick={onCopyLink}>Copy link</ActionButton>
         <ActionButton icon={QrCode} onClick={onPair}>Pair device</ActionButton>
         <ActionButton icon={ClipboardCopy} onClick={onCopyLatest}>Copy latest</ActionButton>
-        <ActionButton icon={FilePlus2} onClick={onNewClip}>New clip</ActionButton>
+        <ActionButton icon={FilePlus2} onClick={onNewClip} disabled={readOnly}>New clip</ActionButton>
       </div>
       <div className="pv-tools-storage">
         <span>Storage</span>

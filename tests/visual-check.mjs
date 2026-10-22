@@ -52,7 +52,8 @@ if (footerVisibleAfterScroll !== 1) {
 await assertNoOverflow(landingPage, "landing desktop");
 await landingPage.close();
 
-for (const theme of ["light", "dark"]) {
+// Dark mode is behind a feature flag and off, so only the light theme ships for now.
+for (const theme of ["light"]) {
   const page = await createPage(theme, { width: 1920, height: 1080 });
   await page.goto(`${baseUrl}/clip/visual-check-${theme}-${Date.now()}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: join(outputDir, `${theme}.png`), fullPage: false });
@@ -111,8 +112,8 @@ for (const theme of ["light", "dark"]) {
   }
 
   const primaryActions = await page.getByRole("banner").getByRole("button").count();
-  if (primaryActions !== 2) {
-    throw new Error(`Expected compact theme and overflow dashboard actions in ${theme} mode, found ${primaryActions}.`);
+  if (primaryActions !== 1) {
+    throw new Error(`Expected a single overflow dashboard action (no theme toggle while dark mode is flagged off) in ${theme} mode, found ${primaryActions}.`);
   }
   await page.getByRole("button", { name: "Top bar options" }).click();
   for (const menuItem of ["Copy link", "Password", "Paste from clipboard", "Import file", "New clip", "Copy latest", "Export board"]) {
@@ -125,7 +126,8 @@ for (const theme of ["light", "dark"]) {
   await page.close();
 }
 
-for (const theme of ["light", "dark"]) {
+// Dark mode is behind a feature flag and off, so only the light theme ships for now.
+for (const theme of ["light"]) {
   const page = await createPage(theme, { width: 390, height: 844 });
   await page.goto(`${baseUrl}/clip/visual-check-${theme}-mobile-${Date.now()}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: join(outputDir, `${theme}-mobile.png`), fullPage: false });
@@ -136,13 +138,13 @@ for (const theme of ["light", "dark"]) {
   }
 
   const mobilePieces = await page.locator(".pv-mobile-hero, .pv-code-surface, .pv-bottom-paste").count();
-  if (mobilePieces !== 3) {
-    throw new Error(`Expected mobile hero, editor, and bottom paste bar in ${theme} mobile mode, found ${mobilePieces}.`);
+  if (mobilePieces !== 2) {
+    throw new Error(`Expected mobile hero and editor (no paste bar on the editor) in ${theme} mobile mode, found ${mobilePieces}.`);
   }
 
   const mobileActions = await page.locator(".pv-mobile-actions button").count();
-  if (mobileActions !== 4) {
-    throw new Error(`Expected four top-bar actions (copy link, pair, password, theme) in ${theme} mode, found ${mobileActions}.`);
+  if (mobileActions !== 3) {
+    throw new Error(`Expected three top-bar actions (copy link, pair, password) in ${theme} mode, found ${mobileActions}.`);
   }
   const fakeStatusBar = await page.locator(".pv-dashboard-stage").evaluate((element) => getComputedStyle(element, "::before").content);
   if (fakeStatusBar !== "none" && fakeStatusBar !== "normal") {
@@ -151,8 +153,8 @@ for (const theme of ["light", "dark"]) {
   const scrollsHorizontally = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   if (scrollsHorizontally) throw new Error(`Mobile dashboard scrolls sideways in ${theme} mode.`);
   const mobileThemeToggle = await page.locator(".pv-mobile-hero-top").getByRole("button", { name: "Theme toggle" }).count();
-  if (mobileThemeToggle !== 1) {
-    throw new Error(`Expected top-right mobile theme toggle in ${theme} mode, found ${mobileThemeToggle}.`);
+  if (mobileThemeToggle !== 0) {
+    throw new Error(`Expected no mobile theme toggle while dark mode is flagged off in ${theme} mode, found ${mobileThemeToggle}.`);
   }
   const mobileSectionTabs = await page.locator(".pv-mobile-section-tabs button").count();
   if (mobileSectionTabs !== 4) {

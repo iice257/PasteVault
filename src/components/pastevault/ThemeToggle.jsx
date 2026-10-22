@@ -1,7 +1,9 @@
 import { Moon, Sun } from "lucide-react";
+import { darkModeEnabled } from "../../lib/flags";
 import { ActionButton } from "./ActionButton";
 
 export function ThemeToggle({ theme, toggleTheme, compact = false }) {
+  if (!darkModeEnabled) return null;
   const isDark = theme === "dark";
   const Icon = isDark ? Moon : Sun;
 

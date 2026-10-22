@@ -25,12 +25,11 @@ await page.addInitScript((key) => {
 }, storageKey);
 
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
-await page.locator(".vault-theme.theme-dark").waitFor();
-
-await page.getByRole("button", { name: "Theme toggle" }).click();
+// Dark mode is behind a flag and off: a stored "dark" preference is ignored and there is no toggle.
 await page.locator(".vault-theme.theme-light").waitFor();
-await page.getByRole("button", { name: "Theme toggle" }).click();
-await page.locator(".vault-theme.theme-dark").waitFor();
+if ((await page.getByRole("button", { name: "Theme toggle" }).count()) !== 0) {
+  throw new Error("Theme toggle must stay hidden while dark mode is flagged off.");
+}
 
 await page.getByRole("button", { name: "Top bar options" }).click();
 await page.getByRole("menuitem", { name: "Copy link" }).click();

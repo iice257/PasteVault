@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { darkModeEnabled } from "../lib/flags";
 
 const THEME_KEY = "pastevault-theme";
 
 function getPreferredTheme() {
-  if (typeof window === "undefined") {
+  if (!darkModeEnabled || typeof window === "undefined") {
     return "light";
   }
   const stored = window.localStorage.getItem(THEME_KEY);
@@ -17,13 +18,17 @@ function getPreferredTheme() {
 }
 
 export function useTheme() {
-  const [theme, setTheme] = useState(getPreferredTheme);
+  const [theme, setThemeState] = useState(getPreferredTheme);
 
   useEffect(() => {
-    window.localStorage.setItem(THEME_KEY, theme);
+    if (darkModeEnabled) window.localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((current) => (current === "dark" ? "light" : "dark"));
+  // With dark mode switched off the theme is always light, including when another device asks for dark.
+  const setTheme = useCallback((next) => {
+    if (darkModeEnabled) setThemeState(next);
+  }, []);
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return {
     isDark: theme === "dark",

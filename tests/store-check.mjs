@@ -7,15 +7,20 @@ import {
   normalizeFormat,
   normalizeVaultSettings,
   parseClipboardExport,
-  validateContent
+  validateContent,
+  detectFormat,
+  resolveFormat
 } from "../src/features/clipboard/clipboard-store.js";
 
 const settings = normalizeVaultSettings({
   autosaveEnabled: false,
   unexpected: "ignored"
 });
-if (settings.autosaveEnabled !== false || Object.keys(settings).length !== 1) {
-  throw new Error("Vault settings should keep only supported boolean settings.");
+if (settings.autosaveEnabled !== false || settings.expireAfter !== "never" || Object.keys(settings).length !== 2) {
+  throw new Error("Vault settings should keep only the supported settings.");
+}
+if (normalizeVaultSettings({ expireAfter: "1d" }).expireAfter !== "1d" || normalizeVaultSettings({ expireAfter: "forever" }).expireAfter !== "never") {
+  throw new Error("Delete-after should accept only the offered choices.");
 }
 
 if (normalizeVaultSettings({ autosaveEnabled: "false" }).autosaveEnabled !== true) {
@@ -61,8 +66,20 @@ if (!exportPayload || exportPayload.clipboardId !== "" || exportPayload.selected
   throw new Error("Clipboard exports should sanitize board ids while preserving valid clips.");
 }
 
-if (!validateContent("{", "JSON").startsWith("Invalid JSON")) {
-  throw new Error("JSON validation should reject malformed JSON.");
+if (validateContent("{") !== "" || !validateContent("  ").startsWith("Paste or type")) {
+  throw new Error("Validation should only refuse empty text.");
+}
+
+for (const [text, expected] of [
+  ['{"a":1}', "JSON"], ["[1,2]", "JSON"], ["{ not json", "Plain text"], ["https://example.com/a?b=1", "Plain text"],
+  ["curl -X POST https://x.dev", "cURL"], ["SELECT * FROM users;", "SQL"], ["<div>hi</div>", "HTML"],
+  ["npm install react", "BASH"], ["const a = 1;", "JavaScript"], ["# Title\n\nbody", "Markdown"],
+  ["a,b,c\n1,2,3", "CSV"], ["just some words", "Plain text"]
+]) {
+  if (detectFormat(text) !== expected) throw new Error(`detectFormat(${JSON.stringify(text)}) should be ${expected}, got ${detectFormat(text)}.`);
+}
+if (resolveFormat("https://example.com", "JSON") !== "Plain text" || resolveFormat('{"a":1}', "JSON") !== "JSON" || resolveFormat("x", "SQL") !== "SQL") {
+  throw new Error("A hand-picked JSON format must fall back when the text is not JSON, and other picks stay.");
 }
 
 if (formatDate("not-a-date") !== "Unknown date") {

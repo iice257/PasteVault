@@ -27,7 +27,7 @@ await page.addInitScript(() => {
 });
 
 await page.goto(`${baseUrl}/clip/${boardId}`, { waitUntil: "networkidle" });
-await page.locator(".pv-dashboard.theme-dark").waitFor();
+await page.locator(".pv-dashboard.theme-light").waitFor();
 
 if (await page.locator(".pv-sidebar").isVisible()) {
   throw new Error("Expected the desktop sidebar to stay hidden on mobile.");
@@ -44,9 +44,18 @@ await page.getByRole("button", { name: "Enable" }).click();
 await page.getByText("Use at least 8 characters").waitFor();
 await page.keyboard.press("Escape");
 
-await page.locator(".pv-bottom-paste input").fill("{\"mobile\":\"composer save\"}");
-await page.locator(".pv-bottom-paste").getByRole("button", { name: "Save" }).click();
-await page.getByRole("status").getByText("Clip saved").waitFor();
+if ((await page.locator(".pv-bottom-paste").count()) !== 0) {
+  throw new Error("The editor pastes directly, so it must not show the Paste button.");
+}
+await page.getByLabel("Clipboard content").fill("{\"mobile\":\"composer save\"}");
+await page.getByText("Saved", { exact: true }).first().waitFor();
+
+// A link pasted while the format says JSON is not an error: the format follows the text.
+await page.getByLabel("Clipboard content").fill("https://example.com/a-link");
+await page.getByText("Saved", { exact: true }).first().waitFor();
+if (await page.getByText(/Invalid JSON|Not saved/).count()) {
+  throw new Error("A pasted link must save without a format error.");
+}
 
 await page.getByRole("button", { name: "History" }).click();
 await page.locator(".pv-history-table-card").waitFor();

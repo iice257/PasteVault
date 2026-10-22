@@ -16,19 +16,13 @@ import {
   mergeClipboardClips,
   nowIso,
   readImportFile,
-  saveRecord
+  saveRecord,
+  detectFormat
 } from "../features/clipboard/clipboard-store";
 import { parseClipboardTarget } from "../features/clipboard/pairing";
-import { checkAttachable, uploadAttachment } from "../features/files/file-transfer";
+import { checkAttachable, deleteRemoteFile, uploadAttachment } from "../features/files/file-transfer";
 import { maxFileBytes } from "../features/files/limits";
 import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
-
-function detectFormat(value) {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
-  if (trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
-  return "Plain text";
-}
 
 const steps = [
   ["01", "Paste", "Text, code, JSON, links. Or drop a file and it is encrypted before it leaves your browser."],
@@ -78,9 +72,10 @@ export default function LandingPage() {
       });
     } catch {
       setError("PasteVault could not save this clipboard. Free some browser storage and try again.");
-      return;
+      return false;
     }
     window.location.href = `/clip/${clipboardId}${importWarnings ? `?importWarnings=${importWarnings}` : ""}`;
+    return true;
   }, []);
 
   const createClipboardFromText = useCallback((value) => {
@@ -207,7 +202,10 @@ export default function LandingPage() {
       setError(failures.join(" ") || "No importable files were selected.");
       return;
     }
-    createClipboard(clips, selectedId, failures.length, clipboardId);
+    if (!createClipboard(clips, selectedId, failures.length, clipboardId)) {
+      // The clipboard never existed, so nothing will ever point at these files.
+      attachments.forEach((attachment) => deleteRemoteFile(clipboardId, attachment.fileId));
+    }
   }, [createClipboard]);
 
   // Paste works anywhere on the page, not just inside the field. Copied images and files attach.
