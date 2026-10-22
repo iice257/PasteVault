@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { ActionButton } from "../components/pastevault/ActionButton";
 import { AppLogo } from "../components/pastevault/AppLogo";
-import { BottomPasteBar } from "../components/pastevault/BottomPasteBar";
+import { PasteButton } from "../components/pastevault/PasteButton";
 import { ClipboardEditor } from "../components/pastevault/ClipboardEditor";
 import { CodeBlockEditor } from "../components/pastevault/CodeBlockEditor";
 import { FileImportDropzone } from "../components/pastevault/FileImportDropzone";
@@ -120,7 +120,9 @@ import {
   storageUsageBytes,
   textBytes,
   encryptValue,
-  validateContent
+  validateContent,
+  detectFormat,
+  resolveFormat
 } from "../features/clipboard/clipboard-store";
 import {
   clearPreservedDraftState,
@@ -222,9 +224,14 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const share = useShareState(clipboardId);
   const readOnly = share.locked && !share.canEdit;
   const readOnlyRef = useRef(readOnly);
+  const selectedIdRef = useRef(selectedId);
+  const formatPinnedRef = useRef("");
   useEffect(() => {
     readOnlyRef.current = readOnly;
   }, [readOnly]);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
   const devicePresence = useDevices(clipboardId, { enabled: true, detached: share.detached, writeToken: share.token });
   useEffect(() => {
     void takeTokenFromAddress(clipboardId);
@@ -865,6 +872,10 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const updateDraftContent = useCallback((value) => {
     if (readOnlyRef.current) return;
     setDraftContent(value);
+    // The format follows the text until someone picks one by hand for this clip.
+    if (formatPinnedRef.current !== (selectedIdRef.current ?? "new") && value.trim()) {
+      setFormat(detectFormat(value));
+    }
     setLastEditedAt(nowIso());
     setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
     setError("");
@@ -872,6 +883,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
 
   const updateDraftFormat = useCallback((value) => {
     if (readOnlyRef.current) return;
+    formatPinnedRef.current = selectedIdRef.current ?? "new";
     setFormat(value);
     setLastEditedAt(nowIso());
     setSyncStatus(autosaveEnabled ? "Saving..." : "Unsaved changes");
@@ -901,7 +913,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
   const handleSave = useCallback(async (options = {}) => {
     // A clip that only carries files has no text to validate.
     const filesOnly = !draftContent.trim() && (selectedClip?.attachments?.length ?? 0) > 0;
-    const validation = filesOnly ? "" : validateContent(draftContent, format);
+    const validation = filesOnly ? "" : validateContent(draftContent);
     if (validation) {
       setError(validation);
       setSyncStatus("Error");
@@ -912,9 +924,11 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
     }
 
     const timestamp = nowIso();
+    const savedFormat = resolveFormat(draftContent, format);
+    if (savedFormat !== format) setFormat(savedFormat);
     const nextClip = selectedClip
-      ? { ...selectedClip, title: draftTitle.trim() || inferTitle(draftContent, format), content: draftContent, format, updatedAt: timestamp }
-      : createClip({ title: draftTitle, content: draftContent, format, pinned: clips.length === 0 });
+      ? { ...selectedClip, title: draftTitle.trim() || inferTitle(draftContent, savedFormat), content: draftContent, format: savedFormat, updatedAt: timestamp }
+      : createClip({ title: draftTitle, content: draftContent, format: savedFormat, pinned: clips.length === 0 });
     const nextClips = selectedClip
       ? clips.map((clip) => (clip.id === selectedClip.id ? nextClip : clip))
       : [nextClip, ...clips];
@@ -1463,6 +1477,12 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
       showToast("Browser clipboard read was blocked", "error");
     }
   }, [format, showToast, updateDraftContent]);
+
+  // The Paste button on Tools, History and Details: paste, then show the editor with the text in it.
+  const handlePasteAndOpen = useCallback(async () => {
+    await handlePasteFromClipboard();
+    handleSectionChange("editor");
+  }, [handlePasteFromClipboard, handleSectionChange]);
 
   const handleFormat = useCallback(() => {
     if (format !== "JSON") {
@@ -2103,7 +2123,7 @@ export default function ClipboardPage({ clipboardId, initialHistory = false, ini
         </div>
 
         <FileImportDropzone inputRef={fileRef} onFiles={handleImportFiles} disabled={importing || readOnly} compact />
-        {!readOnly && <BottomPasteBar value={draftContent} onChange={updateDraftContent} onAttach={() => fileRef.current?.click()} onSave={handleSave} />}
+        {!readOnly && activeSection !== "editor" && <PasteButton onPaste={handlePasteAndOpen} />}
         {error && <p className="pv-inline-error">{error}</p>}
       </main>
 

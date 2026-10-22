@@ -16,19 +16,13 @@ import {
   mergeClipboardClips,
   nowIso,
   readImportFile,
-  saveRecord
+  saveRecord,
+  detectFormat
 } from "../features/clipboard/clipboard-store";
 import { parseClipboardTarget } from "../features/clipboard/pairing";
 import { checkAttachable, deleteRemoteFile, uploadAttachment } from "../features/files/file-transfer";
 import { maxFileBytes } from "../features/files/limits";
 import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
-
-function detectFormat(value) {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "JSON";
-  if (trimmed.startsWith("npm ") || /^[A-Z0-9_]+=/.test(trimmed)) return "BASH";
-  return "Plain text";
-}
 
 const steps = [
   ["01", "Paste", "Text, code, JSON, links. Or drop a file and it is encrypted before it leaves your browser."],

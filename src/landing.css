@@ -753,6 +753,12 @@
     line-height: 1.05;
   }
 
+  /* The swapping word owns its own line, so a longer word can never re-wrap the headline. */
+  .pv-landing-core h1 .pv-word {
+    display: grid;
+    margin-inline: auto;
+  }
+
   .pv-landing-core p {
     margin: 24px 0 34px;
     font-size: 18px;

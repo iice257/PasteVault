@@ -366,18 +366,48 @@ export function formatDate(iso) {
   }).format(new Date(timestamp));
 }
 
-export function validateContent(content, format) {
+function parsesAsJson(text) {
+  try {
+    const value = JSON.parse(text);
+    return value !== null && typeof value === "object";
+  } catch {
+    return false;
+  }
+}
+
+// Picks the format a pasted or typed text most likely is. It never rejects anything: links, prose and
+// unknown text are simply "Plain text". Order matters, the cheap and unambiguous checks go first.
+export function detectFormat(content) {
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text) return "Plain text";
+  if ((text.startsWith("{") || text.startsWith("[")) && parsesAsJson(text)) return "JSON";
+  if (/^curl\s/i.test(text)) return "cURL";
+  if (/^<!doctype html|^<html[\s>]|^<(div|p|span|section|main|body|head|ul|ol|table|h[1-6]|a|img|form|button|nav|header|footer)[\s>/]/i.test(text)) return "HTML";
+  if (/^#!.*sh\b/.test(text) || /^(sudo|npm|npx|pnpm|yarn|git|cd|ls|mkdir|export|echo|docker|kubectl|brew|pip|apt|apt-get)\s/.test(text) || /^[A-Z][A-Z0-9_]*=\S/.test(text)) return "BASH";
+  if (/^(select|insert\s+into|update|delete\s+from|create\s+(table|index|view)|alter\s+table|drop\s+table|with)\s/i.test(text) && /[;\n]|\bfrom\b|\binto\b|\bset\b/i.test(text)) return "SQL";
+  if (/^(import\s.+from\s|export\s+(default|const|function|class)\s|const\s|let\s|var\s|function\s|class\s+\w+|async\s+function|\(\)\s*=>|module\.exports)/.test(text)) return "JavaScript";
+  if (/^#{1,6}\s\S/m.test(text) || /^```/m.test(text) || (/^\s*([-*]\s+\S|\d+\.\s+\S)/m.test(text) && /\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)/.test(text))) return "Markdown";
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length >= 2) {
+    const columns = lines[0].split(",").length;
+    if (columns >= 2 && lines.slice(0, 20).every((line) => line.split(",").length === columns)) return "CSV";
+  }
+  return "Plain text";
+}
+
+// Saving never fails on what the text is. Only empty text is refused.
+export function validateContent(content) {
   if (!content.trim()) {
     return "Paste or type something before saving.";
   }
-  if (format === "JSON") {
-    try {
-      JSON.parse(content);
-    } catch (error) {
-      return `Invalid JSON: ${error.message}`;
-    }
-  }
   return "";
+}
+
+// A format the person picked by hand is honoured, except JSON on text that is not JSON: that falls back
+// to what the text really is, so a pasted link never trips a "not valid JSON" error.
+export function resolveFormat(content, format) {
+  if (format === "JSON" && !parsesAsJson(content.trim())) return detectFormat(content);
+  return format;
 }
 
 const importExtensions = new Set([
