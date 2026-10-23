@@ -753,12 +753,6 @@
     line-height: 1.05;
   }
 
-  /* The swapping word owns its own line, so a longer word can never re-wrap the headline. */
-  .pv-landing-core h1 .pv-word {
-    display: grid;
-    margin-inline: auto;
-  }
-
   .pv-landing-core p {
     margin: 24px 0 34px;
     font-size: 18px;
@@ -880,4 +874,10 @@
   font-size: 14px;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
+}
+
+/* The swapping word owns its own line at every width, so a longer word can never move or re-wrap the rest of the headline. */
+.pv-landing-core h1 .pv-word {
+  display: grid;
+  margin-inline: auto;
 }

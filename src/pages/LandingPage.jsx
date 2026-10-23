@@ -22,7 +22,7 @@ import {
 import { parseClipboardTarget } from "../features/clipboard/pairing";
 import { checkAttachable, deleteRemoteFile, uploadAttachment } from "../features/files/file-transfer";
 import { maxFileBytes } from "../features/files/limits";
-import { attachMagnet, attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
+import { attachSpotlight, useLandingPointerFx, useRevealOnScroll } from "../features/landing/landing-fx";
 
 const steps = [
   ["01", "Paste", "Text, code, JSON, links. Or drop a file and it is encrypted before it leaves your browser."],
@@ -49,9 +49,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const cleanups = [
-      attachSpotlight(shellRef.current),
-      attachMagnet(shellRef.current?.querySelector(".pv-action"), { radius: 110 }),
-      attachMagnet(footerRef.current?.querySelector(".pv-action"), { radius: 110 })
+      attachSpotlight(shellRef.current)
     ];
     return () => cleanups.forEach((cleanup) => cleanup());
   }, []);
