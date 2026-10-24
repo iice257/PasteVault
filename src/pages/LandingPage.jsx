@@ -366,7 +366,7 @@ export default function LandingPage() {
         <p>No account. Encrypted in your browser. Optional password.</p>
         <ActionButton variant="primary" onClick={() => openClipboard()}>Open workspace <ArrowRight size={20} /></ActionButton>
         <small className="pv-landing-credit">
-          Made by <a href="https://kingsleyaremu.vercel.app" target="_blank" rel="noreferrer">Ice</a>
+          Made by <a href="https://kingsleyaremu.com" target="_blank" rel="noreferrer">Ice</a>
         </small>
       </footer>
       <PairDialog open={pairOpen} onClose={() => setPairOpen(false)} />
