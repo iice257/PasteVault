@@ -45,6 +45,8 @@ Encryption happens in the browser with **AES-256-GCM**, before anything is synce
 
 The server can route your data but can't read it.
 
+Page views are counted with Vercel Web Analytics, which sets no cookies. Before a view is sent, the clipboard id, query string and URL fragment are stripped, so analytics only ever sees routes like `/clip/[id]`.
+
 ## How sync works
 
 Each device polls for changes every 3 seconds while the tab is visible (backing off to 10 seconds when idle) and refreshes immediately on focus or reconnect. Polls send the version the device already has, and the API answers `304 Not Modified` so unchanged ciphertext is never re-downloaded. Conflicting edits are detected by content version and never overwrite a newer remote save silently.
@@ -80,5 +82,7 @@ npm run visual:check
 React, Vite, Tailwind CSS, Web Crypto API, Vercel Functions, Upstash Redis, qrcode-generator, jsQR.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 MIT © [Kingsley Aremu](https://github.com/iice257)

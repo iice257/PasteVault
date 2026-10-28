@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import { startAnalytics } from "./lib/analytics.js";
 import "@fontsource-variable/inter";
 import "./styles.css";
 import "./files.css";
@@ -13,6 +14,10 @@ createRoot(document.getElementById("root")).render(
     <App />
   </StrictMode>
 );
+
+if (import.meta.env.PROD) {
+  startAnalytics();
+}
 
 if (import.meta.env.PROD && typeof window !== "undefined" && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
