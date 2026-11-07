@@ -5,6 +5,15 @@ description: Use when the task asks for a visually strong landing page, website,
 
 # Frontend Skill
 
+## Owner quality bar (always applies)
+
+- **Bar:** polished, production-grade UI. Prioritize spacing, hierarchy, alignment, typography, balance, responsiveness and component cohesion. Nothing generic, clunky, boxy, crowded, inconsistent, dated or "developer-looking".
+- **Existing UI first:** analyze the current design system, spacing, type, colors and components before changing anything. Preserve structure and product direction unless told otherwise; refine rather than redesign; reuse components.
+- **Standards:** consistent spacing rhythm, strong type scale, fewer but better elements, proper whitespace, aligned layouts. Mobile and desktop both feel intentional.
+- **References:** screenshots and mocks are the source of truth. Match spacing, alignment, sizing, typography, density and composition closely.
+- **Self-review:** before finishing, check it is modern, balanced, consistent and production-ready. If anything feels awkward, dense, plain or dated, refine it.
+- **Routing:** `redesign-skill` to improve existing UI; `taste-skill` or `gpt-tasteskill` for premium implementation; `images-taste-skill` for image-first or high-end visual direction; `output-skill` when completeness matters; style skills (`brutalist-skill`, `minimalist-skill`, `soft-skill`, `high-end-visual-design`, `stitch-skill`) when that style is asked for.
+
 Use this skill when the quality of the work depends on art direction, hierarchy, restraint, imagery, and motion rather than component count.
 
 Goal: ship interfaces that feel deliberate, premium, and current. Default toward award-level composition: one big idea, strong imagery, sparse copy, rigorous spacing, and a small number of memorable motions.
